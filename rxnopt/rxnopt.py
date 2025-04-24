@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 from .utils import track_called
 from .initialize import Initializer
-from .write_excel import ExcelWriter
+from .utils.write_excel import ExcelWriter
 
 
 def cartesian_product_3d(arr, data_type):
@@ -83,7 +83,7 @@ def array_process(desc_dict, condition_dict, condition_types, desc_normalize):
     return total_name_arr, total_desc_arr
 
 
-class rxnOpter:
+class ReactionOptimizer:
     def __init__(self, opt_metrics, opt_type="auto"):
         self.condition_dict = {}
         self.desc_dict = {}

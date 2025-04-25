@@ -4,7 +4,7 @@ from loguru import logger
 import pandas as pd
 
 
-from .utils.utils import track_called, array_process
+from .utils.utils import generate_onehot_desc, track_called, array_process
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 
@@ -28,8 +28,7 @@ class ReactionOptimizer:
     def load_desc(self, desc_dict=None):
         if desc_dict == None:
             logger.warning("No desc path provided, using OneHot as alternative.")
-            logger.warning("Need to finished.")
-            # TODO: load OneHot
+            self.desc_dict = generate_onehot_desc(self.condition_dict)
         else:
             assert desc_dict.keys() == self.condition_types, "Condition types do not match"
             self.desc_dict = desc_dict
@@ -46,7 +45,7 @@ class ReactionOptimizer:
             pass
 
         if self.opt_type == "init":
-            self.intialize(batch_size=batch_size, desc_normalize=desc_normalize)
+            self.initialize(batch_size=batch_size, desc_normalize=desc_normalize)
         elif self.opt_type == "opt":
             self.optimize(batch_size=batch_size, desc_normalize=desc_normalize)
         else:

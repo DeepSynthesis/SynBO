@@ -1,8 +1,10 @@
 from itertools import product
+import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 import numpy as np
 from tqdm import tqdm
 from loguru import logger
+
 
 def track_called(func):
     def wrapper(self, *args, **kwargs):
@@ -81,3 +83,10 @@ def array_process(desc_dict, condition_dict, condition_types, desc_normalize):
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object)
     total_desc_arr = normalize_data(total_desc_arr, desc_normalize)
     return total_name_arr, total_desc_arr
+
+
+def generate_onehot_desc(condition_dict):
+    desc_dict = {}
+    for k, v in condition_dict.items():
+        desc_dict[k] = pd.get_dummies(v)
+    return desc_dict

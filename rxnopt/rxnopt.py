@@ -3,6 +3,8 @@ from pathlib import Path
 from loguru import logger
 import pandas as pd
 
+from rxnopt.bo_opt import Optimizer
+
 
 from .utils.utils import check_desc_completeness, generate_onehot_desc, track_called, array_process
 from .initialize import Initializer
@@ -34,9 +36,22 @@ class ReactionOptimizer:
             self.desc_dict = desc_dict
 
     @track_called
-    def load_prev_rxn(self, prev_rxn_info, metrics: list):
+    def load_prev_rxn(self, prev_rxn_info, drop_rxn=False):
         self.opt_type == "opt" if self.opt_type == "auto" else self.opt_type
         self.batch_id = prev_rxn_info["batch_id"].max() + 1
+
+        self.prev_rxn_info = prev_rxn_info
+        assert all(t in prev_rxn_info.columns for t in self.condition_types), "Condition types do not match"
+        for t in self.condition_types:
+            missing_species = set(prev_rxn_info[t]) - set(self.condition_dict[t].index)
+            if missing_species:
+                if drop_rxn:
+                    logger.warning(f"{missing_species} not in {t} condition space, dropping these reactions")
+                    prev_rxn_info = prev_rxn_info[~prev_rxn_info[t].isin(missing_species)]
+                else:
+                    logger.error(f"{missing_species} not in {t} condition space")
+                    exit()
+
         pass
 
     def run(self, batch_size=5, desc_normalize="minmax", expand_rxn_space=False):
@@ -63,7 +78,10 @@ class ReactionOptimizer:
         self.recommend_type = ["explore"] * batch_size
 
     def optimize(self, batch_size=5, desc_normalize="minmax", optimized_method="xxx"):
+        check_desc_completeness(self.desc_dict, self.condition_dict)
         logger.info("Now selecting optimize points...")
+        optimizer = Optimizer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
+        self.selected_conditions, self.recommend_type = optimizer.sampling(method=optimized_method, batch_size=batch_size)
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=None, figure_path=None):
         save_path = Path(save_task) / Path(f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}")

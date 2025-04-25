@@ -105,8 +105,9 @@ class Initializer:
         import torch
 
         data = torch.as_tensor(self.numerical_data, dtype=torch.float32)
-        # 在 301-D 单位超立方体中生成 Sobol 点
-        sobol_points = draw_sobol_samples(bounds=torch.tensor([[0.0] * 301, [1.0] * 301]), n=self.batch_size, q=1).squeeze(1)
+        sobol_points = draw_sobol_samples(
+            bounds=torch.tensor([[0.0] * data.shape[1], [1.0] * data.shape[1]]), n=self.batch_size, q=1
+        ).squeeze(1)
         # 最近邻搜索：找到 data_normalized 中最接近 sobol_points 的点
         nbrs = NearestNeighbors(n_neighbors=1).fit(data.numpy())
         _, indices = nbrs.kneighbors(sobol_points.numpy())

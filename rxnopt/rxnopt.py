@@ -4,7 +4,7 @@ from loguru import logger
 import pandas as pd
 
 
-from .utils.utils import generate_onehot_desc, track_called, array_process
+from .utils.utils import check_desc_completeness, generate_onehot_desc, track_called, array_process
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 
@@ -54,6 +54,7 @@ class ReactionOptimizer:
         # print(len(self.reagent_idx))
 
     def initialize(self, batch_size=5, desc_normalize="minmax", sampling_method="sobol"):
+        check_desc_completeness(self.desc_dict, self.condition_dict)
         logger.info("Now selecting initialize points...")
         self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
         initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)

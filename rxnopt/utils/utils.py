@@ -88,5 +88,12 @@ def array_process(desc_dict, condition_dict, condition_types, desc_normalize):
 def generate_onehot_desc(condition_dict):
     desc_dict = {}
     for k, v in condition_dict.items():
-        desc_dict[k] = pd.get_dummies(v)
+        desc_dict[k] = pd.get_dummies(v).T
     return desc_dict
+
+
+def check_desc_completeness(desc_dict, condition_dict):
+    for k, v in desc_dict.items():
+        for name in condition_dict[k]:
+            if not name in v.index:
+                raise ValueError(f"Missing values in {k} description: {name}")

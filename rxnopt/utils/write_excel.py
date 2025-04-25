@@ -12,12 +12,12 @@ class ExcelWriter:
         self.condition_types = condition_types
         self.opt_metrics = opt_metrics
 
-    def write_to_excel(self, output_df, batch_id, figure_output=None, figure_path=None, save_path=None, filetype="xlsx"):
+    def write_to_excel(self, output_df, batch_id, figure_output=[], figure_path=None, save_path=None, filetype="xlsx"):
         if filetype == "xlsx":
-            if not all(i in self.condition_types for i in figure_output):
+            if not all(i in self.condition_types for i in figure_output) or figure_output == []:
                 logger.warning("Figure output not in condition types, skipping...")
                 return
-            
+
             wb = Workbook()
             ws = self._create_worksheet(wb, batch_id)
             self._add_data_to_worksheet(ws, output_df)
@@ -25,15 +25,15 @@ class ExcelWriter:
             fixed_length_col = [chr(ord("A") + output_df.columns.get_loc(i)) for i in ["batch", "index", *self.opt_metrics]]
             self._auto_adjust_columns(ws, fixed_length_col)
             self._apply_table_style(ws, output_df)
-            
-            if figure_output and figure_path:
+
+            if figure_output != [] and figure_path:
                 logger.info("exporting with specific figures...")
                 for figure_type in figure_output:
                     column_idx_letter = chr(ord("A") + output_df.columns.get_loc(figure_type))
                     self._process_figure(ws, figure_type, output_df, figure_path, column_idx_letter)
             else:
                 logger.info("No figure output and path provided, exporting with names...")
-            
+
             wb.save(save_path.with_suffix(".xlsx"))
         else:
             raise ValueError("Unknown filetype")
@@ -84,7 +84,8 @@ class ExcelWriter:
                 img.height = int(img.height / 5)
 
                 ws.add_image(img, f"{column_idx_letter}{i+2}")
-                ws.row_dimensions[i + 2].height = img.height * 0.8
+                ws.row_dimensions[i + 2].height = 0.0 if ws.row_dimensions[i + 2].height == None else ws.row_dimensions[i + 2].height
+                ws.row_dimensions[i + 2].height = max(img.height * 0.8 , ws.row_dimensions[i + 2].height)
                 ws.column_dimensions[column_idx_letter].width = img.width * 0.2
             except Exception as e:
                 logger.error(f"Failed to add image for {figure_type} at row {i+2}: {str(e)}")
@@ -93,7 +94,7 @@ class ExcelWriter:
         max_row = len(output_df) + 1  # +1 for header
         max_col = len(output_df.columns)
         ref = f"A1:{chr(64 + max_col)}{max_row}"  # e.g. "A1:D10"
-        
+
         table = Table(displayName="OptimizationTable", ref=ref)
         style = TableStyleInfo(
             name="TableStyleLight2",

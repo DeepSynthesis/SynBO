@@ -85,6 +85,11 @@ def array_process(desc_dict, condition_dict, condition_types, desc_normalize):
     return total_name_arr, total_desc_arr
 
 
+def done_array_process(prev_rxn_info, total_name_arr, condition_types):
+    from IPython import embed; embed()
+    pass
+
+
 def generate_onehot_desc(condition_dict):
     desc_dict = {}
     for k, v in condition_dict.items():

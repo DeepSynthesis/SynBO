@@ -14,9 +14,9 @@ class ExcelWriter:
 
     def write_to_excel(self, output_df, batch_id, figure_output=[], figure_path=None, save_path=None, filetype="xlsx"):
         if filetype == "xlsx":
-            if not all(i in self.condition_types for i in figure_output) or figure_output == []:
-                logger.warning("Figure output not in condition types, skipping...")
-                return
+            # if not all(i in self.condition_types for i in figure_output):
+            #     logger.warning("Figure output not in condition types, skipping...")
+            #     return
 
             wb = Workbook()
             ws = self._create_worksheet(wb, batch_id)
@@ -30,7 +30,10 @@ class ExcelWriter:
                 logger.info("exporting with specific figures...")
                 for figure_type in figure_output:
                     column_idx_letter = chr(ord("A") + output_df.columns.get_loc(figure_type))
-                    self._process_figure(ws, figure_type, output_df, figure_path, column_idx_letter)
+                    if figure_type in self.condition_types:
+                        self._process_figure(ws, figure_type, output_df, figure_path, column_idx_letter)
+                    else:
+                        logger.warning(f"Figure output '{figure_type}' not in condition types, skipping...")
             else:
                 logger.info("No figure output and path provided, exporting with names...")
 
@@ -85,7 +88,7 @@ class ExcelWriter:
 
                 ws.add_image(img, f"{column_idx_letter}{i+2}")
                 ws.row_dimensions[i + 2].height = 0.0 if ws.row_dimensions[i + 2].height == None else ws.row_dimensions[i + 2].height
-                ws.row_dimensions[i + 2].height = max(img.height * 0.8 , ws.row_dimensions[i + 2].height)
+                ws.row_dimensions[i + 2].height = max(img.height * 0.8, ws.row_dimensions[i + 2].height)
                 ws.column_dimensions[column_idx_letter].width = img.width * 0.2
             except Exception as e:
                 logger.error(f"Failed to add image for {figure_type} at row {i+2}: {str(e)}")

@@ -83,7 +83,7 @@ class ReactionOptimizer:
         optimizer = Optimizer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
         # self.selected_conditions, self.recommend_type = optimizer.sampling(method=optimized_method, batch_size=batch_size)
 
-    def save_recommendations(self, save_task, filetype="csv", figure_output=None, figure_path=None):
+    def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None):
         save_path = Path(save_task) / Path(f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}")
         if save_path.parent.exists() == False:
             logger.warning("Parent directory does not exist, creating...")

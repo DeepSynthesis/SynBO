@@ -86,8 +86,12 @@ def array_process(desc_dict, condition_dict, condition_types, desc_normalize):
 
 
 def done_array_process(prev_rxn_info, total_name_arr, condition_types):
-    from IPython import embed; embed()
-    pass
+    prev_rxn_list = prev_rxn_info[condition_types].to_numpy()
+    matches = [np.argwhere(np.all(total_name_arr == row, axis=1)).flatten() for row in prev_rxn_list]
+    assert all(len(matches[i]) == 1 for i in range(len(matches))), "Multiple matches found for some reactions"
+    assert len(matches) == len(prev_rxn_list), "Number of matches does not match number of reactions"
+    matches = np.array(matches).squeeze()
+    return matches
 
 
 def generate_onehot_desc(condition_dict):

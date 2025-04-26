@@ -40,7 +40,6 @@ class ReactionOptimizer:
         self.opt_type == "opt" if self.opt_type == "auto" else self.opt_type
         self.batch_id = prev_rxn_info["batch"].max() + 1
 
-        self.prev_rxn_info = prev_rxn_info
         assert all(t in prev_rxn_info.columns for t in self.condition_types), "Condition types do not match"
         for t in self.condition_types:
             missing_species = set(prev_rxn_info[t]) - set(self.condition_dict[t])
@@ -51,6 +50,8 @@ class ReactionOptimizer:
                 else:
                     logger.error(f"{missing_species} not in {t} condition space")
                     raise ValueError(f"{missing_species} not in {t} condition space")
+
+        self.prev_rxn_info = prev_rxn_info
 
     def run(self, batch_size=5, desc_normalize="minmax", expand_rxn_space=False):
         self.opt_type = "opt" if self.opt_type == "auto" and getattr(self, "_load_prev_rxn_called", False) else "init"
@@ -75,13 +76,17 @@ class ReactionOptimizer:
         # judgement selected points types: exploit or explore
         self.recommend_type = ["explore"] * batch_size
 
-    def optimize(self, batch_size=5, desc_normalize="minmax", optimized_method="xxx"):
+    def optimize(self, batch_size=5, desc_normalize="minmax", optimized_method="default", opt_weights=None):
         check_desc_completeness(self.desc_dict, self.condition_dict)
         logger.info("Now selecting optimize points...")
         self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
-        self.done_arr = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
+        self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
+        done_arr_desc = self.total_desc_arr[self.done_arr_index]
+        done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
         optimizer = Optimizer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
-        # self.selected_conditions, self.recommend_type = optimizer.sampling(method=optimized_method, batch_size=batch_size)
+        self.selected_conditions = optimizer.optimize(
+            training_X=done_arr_desc, training_y=done_arr_metrics, method=optimized_method, batch_size=batch_size
+        )  # self.recommend_type
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None):
         save_path = Path(save_task) / Path(f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}")

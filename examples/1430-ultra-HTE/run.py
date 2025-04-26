@@ -14,6 +14,6 @@ if __name__ == "__main__":
     reaction_optimizer = ReactionOptimizer(opt_metrics=["yield", "ee"])
     reaction_optimizer.load_rxn_space(condition_dict=condition_dict)
     reaction_optimizer.load_desc()
-    # reaction_optimizer.load_prev_rxn(pd.read_csv(Path(__file__).parent / Path("results/batch-0_20250425.csv")))
-    reaction_optimizer.run(batch_size=5, desc_normalize="zscore")
+    reaction_optimizer.load_prev_rxn(pd.read_csv(Path(__file__).parent / Path("results/batch-0_20250425.csv")), drop_rxn=True)
+    reaction_optimizer.run(batch_size=5, desc_normalize="minmax")
     reaction_optimizer.save_recommendations(Path(__file__).parent / Path("results/"))

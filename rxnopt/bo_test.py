@@ -7,6 +7,7 @@ from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.priors import GammaPrior
 from gpytorch.constraints import GreaterThan
 from gpytorch.mlls import ExactMarginalLogLikelihood
+
 from botorch.models import SingleTaskGP, ModelListGP
 from botorch.acquisition.multi_objective.monte_carlo import qExpectedHypervolumeImprovement
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning

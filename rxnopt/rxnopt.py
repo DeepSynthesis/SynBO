@@ -83,9 +83,13 @@ class ReactionOptimizer:
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
-        optimizer = Optimizer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
+        optimizer = Optimizer(method=optimized_method)
         self.selected_conditions = optimizer.optimize(
-            training_X=done_arr_desc, training_y=done_arr_metrics, method=optimized_method, batch_size=batch_size
+            training_X=done_arr_desc,
+            training_y=done_arr_metrics,
+            candidate_X=self.total_desc_arr,
+            batch_size=batch_size,
+            opt_weights=opt_weights,
         )  # self.recommend_type
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None):

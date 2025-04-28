@@ -58,7 +58,7 @@ class Optimizer:
         # --- 1. 数据迁移到GPU ---
         training_X_t = training_X_t.to(device=device, dtype=dtype)
         training_y_t = training_y_t.to(device=device, dtype=dtype)
-        # candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
+        candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
         # --- 2. 构建GPU兼容的GP模型 ---
         models = []
 
@@ -71,14 +71,14 @@ class Optimizer:
             model_i.fit(training_X_t, train_y_i)  # 数据已在GPU上
             models.append(model_i.model)
         # 多输出模型
-        global_model = ModelListGP(*models).to(device="cpu")
+        global_model = ModelListGP(*models)#.to(device="cpu")
         # --- 3. Pareto前沿和参考点（GPU兼容） ---
         logger.info("Calculating Pareto frontiers...")
-        pareto_y = self.target_evaluator.calculate_target_function(training_y).to_device(device)
-        ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to_device(device)  # 保持与模型一致的数据类型
+        pareto_y = self.target_evaluator.calculate_target_function(training_y).to(device=device)
+        ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)  # 保持与模型一致的数据类型
         # --- 4. 采样器和分区（GPU兼容） ---
         sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.num_samples]), seed=self.seed)  # 采样器直接生成GPU张量
-        partitioning = NondominatedPartitioning(ref_point=ref_point, Y=torch.tensor(pareto_y))  # 确保输入数据在GPU上
+        partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_y)  # 确保输入数据在GPU上
         # --- 5. 采集函数（GPU兼容） ---
         acq_func = self.acquisition_function_class(
             model=global_model, sampler=sampler, ref_point=ref_point, partitioning=partitioning, maximum_metrics=maximum_metrics

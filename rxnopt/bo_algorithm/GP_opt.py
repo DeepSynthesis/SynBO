@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import gpytorch
 from botorch.models import SingleTaskGP, ModelListGP
-from botorch.acquisition.multi_objective.monte_carlo import qExpectedHypervolumeImprovement
+from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImprovement
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
@@ -30,13 +30,19 @@ class BaseSurrogateModel:
 class GPSurrogateModel(BaseSurrogateModel):
     """Gaussian Process surrogate model implementation"""
 
-    def __init__(self, num_dims: int):
+    def __init__(self, num_dims: int, device: str):
         super().__init__(num_dims)
+        self.device = device
         self.model = None
-        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=GreaterThan(1e-5), noise_prior=GammaPrior(1.5, 0.1))
+        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=GreaterThan(1e-5), noise_prior=GammaPrior(1.5, 0.1)).to(
+            self.device
+        )
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         """Build and train a single GP model"""
+        # Move input data to the correct device
+        train_x = train_x.to(self.device)
+        train_y = train_y.to(self.device)
 
         self.model = SingleTaskGP(
             train_X=train_x,
@@ -50,7 +56,7 @@ class GPSurrogateModel(BaseSurrogateModel):
                 outputscale_prior=GammaPrior(5.0, 0.5),
                 outputscale_constraint=Positive(),
             ),
-        )
+        ).to(self.device)
 
         # Train the model
         self.model.train()
@@ -81,11 +87,14 @@ class GPSurrogateModel(BaseSurrogateModel):
 
     def predict(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Make predictions with the GP model"""
+        # Move input to the correct device
+        x = x.to(self.device)
+
         with torch.no_grad(), gpytorch.settings.fast_pred_var():
             observed_pred = self.likelihood(self.model(x))
             mean = observed_pred.mean
             variance = observed_pred.variance
-        return mean, variance
+        return mean.cpu(), variance.cpu()  # Return results on CPU for consistency
 
 
 class BaseAcquisitionFunction:
@@ -103,20 +112,31 @@ class BaseAcquisitionFunction:
 class EHVIAcquisitionFunction(BaseAcquisitionFunction):
     """Expected Hypervolume Improvement acquisition function"""
 
-    def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler, ref_point: torch.Tensor, partitioning: NondominatedPartitioning):
+    def __init__(
+        self,
+        model: ModelListGP,
+        sampler: SobolQMCNormalSampler,
+        ref_point: torch.Tensor,
+        partitioning: NondominatedPartitioning,
+        maximum_metrics: bool,
+    ):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        self.ehvi = qExpectedHypervolumeImprovement(
-            model=model,
-            sampler=sampler,
-            ref_point=ref_point,
-            partitioning=partitioning,
-        )
-
-    def evaluate(self, x: torch.Tensor) -> torch.Tensor:
-        """Evaluate the EHVI acquisition function"""
-        return self.ehvi(x.unsqueeze(-2))
+        if maximum_metrics:
+            self.ehvi = qLogExpectedHypervolumeImprovement(
+                model=model,
+                sampler=sampler,
+                ref_point=ref_point,
+                partitioning=partitioning,
+            )
+        else:
+            self.ehvi = qLogExpectedHypervolumeImprovement(
+                model=model,
+                sampler=sampler,
+                ref_point=ref_point,
+                partitioning=partitioning,
+            )
 
 
 class ParetoFrontCalculator:

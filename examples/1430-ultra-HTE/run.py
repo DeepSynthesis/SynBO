@@ -22,6 +22,7 @@ if __name__ == "__main__":
         if not matched_rows.empty:
             matched_row = matched_rows.iloc[0]
             prev_rxn.loc[idx, opt_metrics] = matched_row[opt_metrics].values
+    prev_rxn['ee'] = prev_rxn['ee'].abs()
 
     condition_dict = {c: df[c].drop_duplicates().tolist() for c in condition_types}
     reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics)

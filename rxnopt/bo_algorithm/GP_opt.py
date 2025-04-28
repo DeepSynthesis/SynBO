@@ -123,15 +123,43 @@ class ParetoFrontCalculator:
     """Class for calculating Pareto fronts"""
 
     @staticmethod
-    def calculate_2d_pareto_front(points: np.ndarray) -> np.ndarray:
-        """Calculate 2D Pareto front"""
-        sort_points = points.copy()
-        sort_points = sorted(sort_points, key=lambda x: (x[0], x[1]), reverse=True)
-        max_y = -1e9
-        ans_points = []
-        for x in sort_points:
-            if x[1] > max_y:
-                max_y = x[1]
-                ans_points.append(x)
-        ans_points.reverse()
-        return np.array(ans_points)
+    def calculate_target_function(points: np.ndarray) -> np.ndarray:
+        """
+        Calculate Pareto front for points in arbitrary dimensions
+
+        Args:
+            points: numpy array of shape (n_points, n_dimensions)
+
+        Returns:
+            numpy array of Pareto optimal points
+        """
+        if len(points) == 0:
+            return np.array([])
+
+        points = np.asarray(points)
+
+        pareto_front = [points[0]]  # Initialize list of Pareto optimal points
+
+        for point in points[1:]:
+            is_pareto = True
+            to_remove = []
+
+            # Compare with all points in current Pareto front
+            for i, pf_point in enumerate(pareto_front):
+                # Check if the current point dominates any existing Pareto point
+                if np.all(point >= pf_point) and np.any(point > pf_point):
+                    to_remove.append(i)
+                # Check if any existing Pareto point dominates the current point
+                elif np.all(pf_point >= point) and np.any(pf_point > point):
+                    is_pareto = False
+                    break
+
+            # Remove dominated points from Pareto front
+            for i in reversed(to_remove):
+                pareto_front.pop(i)
+
+            # Add current point if it's Pareto optimal
+            if is_pareto:
+                pareto_front.append(point)
+
+        return np.array(pareto_front)

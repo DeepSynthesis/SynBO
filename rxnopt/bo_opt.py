@@ -18,7 +18,7 @@ class Optimizer:
         self.seed = seed
         self.surrogate_model_class = GPSurrogateModel
         self.acquisition_function_class = EHVIAcquisitionFunction
-        self.pareto_calculator = ParetoFrontCalculator()
+        self.target_evaluator = ParetoFrontCalculator()
 
     def optimize(
         self, training_X: np.ndarray, training_y: np.ndarray, candidate_X: np.ndarray, batch_size: int = 5, opt_weights: dict = None
@@ -40,9 +40,8 @@ class Optimizer:
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
 
-        train_x_t = torch.tensor(training_X).double()
-        train_y_t = torch.tensor(training_y).double()
-        candidate_x_t = torch.tensor(candidate_X).double()
+        training_X_t = torch.tensor(training_X).double()
+        candidate_X_t = torch.tensor(candidate_X).double()
 
         # Build GP models for each objective
         models = []
@@ -51,26 +50,27 @@ class Optimizer:
             train_y_i = training_y[:, i].reshape(-1, 1)
             train_y_i_t = torch.tensor(train_y_i).double()
 
-            # Build and train GP model
+            # Build and train models
             model_i = self.surrogate_model_class(num_dims=training_X.shape[1])
-            model_i.fit(train_x_t, train_y_i_t)
+            model_i.fit(training_X_t, train_y_i_t)
             models.append(model_i.model)
 
         # Create multi-output model
-        bigmodel = ModelListGP(*models)
+        global_model = ModelListGP(*models)
 
         # Calculate Pareto front and reference point
-        pareto_y = self.pareto_calculator.calculate_2d_pareto_front(training_y)
+        pareto_y = self.target_evaluator.calculate_target_function(training_y)
         ref_point = torch.tensor(np.min(training_y, axis=0)).float()
 
         # Set up acquisition function
         sampler = SobolQMCNormalSampler(torch.Size([self.num_samples]), seed=self.seed)
+        from IPython import embed; embed()
         partitioning = NondominatedPartitioning(ref_point=ref_point, Y=torch.tensor(pareto_y).float())
 
-        acq_func = self.acquisition_function_class(model=bigmodel, sampler=sampler, ref_point=ref_point, partitioning=partitioning)
+        acq_func = self.acquisition_function_class(model=global_model, sampler=sampler, ref_point=ref_point, partitioning=partitioning)
 
         # Optimize acquisition function
-        acq_result = optimize_acqf_discrete(acq_function=acq_func.ehvi, choices=candidate_x_t, q=batch_size, unique=True)
+        acq_result = optimize_acqf_discrete(acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, unique=True)
 
         # Find closest candidate points to optimal samples
         best_samples = acq_result[0].detach().cpu().numpy()

@@ -88,6 +88,6 @@ def optimize_acqf_discrete(
 
 def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_batch_size: int, maximum_metrics: bool) -> Tensor:
     if maximum_metrics:
-        return -torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
-    else:
         return torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
+    else:
+        return -torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])

@@ -120,8 +120,7 @@ def compute_hvi(new_point, pareto_front, ref_point):
         pareto_front = torch.tensor(pareto_front, dtype=torch.float32)
     if not isinstance(ref_point, torch.Tensor):
         ref_point = torch.tensor(ref_point, dtype=torch.float32)
-    
-    from IPython import embed; embed(); exit()
+
     # 计算超体积
     hv = Hypervolume(ref_point=ref_point)
     original_hv = hv.compute(pareto_front)

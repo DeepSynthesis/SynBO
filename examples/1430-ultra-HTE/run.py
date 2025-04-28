@@ -3,10 +3,6 @@ from pathlib import Path
 from rxnopt import ReactionOptimizer
 
 
-def load_reaction_space():
-    pass
-
-
 if __name__ == "__main__":
     df = pd.read_csv(Path(__file__).parent / Path("../../dataset/1430-Ultra-high-throughput.csv"), encoding="UTF-8")
     condition_types = ["Reaction1", "Reaction2", "Catalyst1", "Catalyst2"]
@@ -23,6 +19,7 @@ if __name__ == "__main__":
             matched_row = matched_rows.iloc[0]
             prev_rxn.loc[idx, opt_metrics] = matched_row[opt_metrics].values
     prev_rxn["ee"] = prev_rxn["ee"].abs()
+    print(prev_rxn)
 
     condition_dict = {c: df[c].drop_duplicates().tolist() for c in condition_types}
     reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics)

@@ -15,7 +15,8 @@ from .bo_algorithm.acf_opt import optimize_acqf_discrete
 
 
 class Optimizer:
-    def __init__(self, method="default", num_samples: int = 1024, seed: int = 1145141):
+    def __init__(self, method, name_data, num_samples: int = 1024, seed: int = 1145141):
+        self.name_data = name_data
         self.num_samples = num_samples
         self.seed = seed
         self.surrogate_model_class = GPSurrogateModel
@@ -86,15 +87,15 @@ class Optimizer:
             q=batch_size,
             unique=True,
         )
-        print(self.acq_result, self.acq_value)
         if device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]
 
-        recommend_types = self._get_expoit_or_explore(self.acq_value)
+        recommend_type = self._get_expoit_or_explore(self.acq_value)
         # Find closest candidate points to optimal samples
         selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
         selected_indices = np.array(selected_indices).squeeze()
-        return selected_indices, recommend_types
+        selected_conditions = self.name_data[selected_indices].squeeze()
+        return selected_conditions, recommend_type
 
     def _get_expoit_or_explore(self, acq_value):
         with torch.no_grad():

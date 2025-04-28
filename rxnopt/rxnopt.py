@@ -3,7 +3,7 @@ from pathlib import Path
 from loguru import logger
 import pandas as pd
 
-from rxnopt.bo_opt import Optimizer
+from .optimize import Optimizer
 
 
 from .utils.utils import check_desc_completeness, done_array_process, generate_onehot_desc, track_called, array_process
@@ -83,8 +83,8 @@ class ReactionOptimizer:
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
-        optimizer = Optimizer(method=optimized_method)
-        self.selected_conditions = optimizer.optimize(
+        optimizer = Optimizer(name_data=self.total_name_arr, method=optimized_method)
+        self.selected_conditions, self.recommend_type = optimizer.optimize(
             training_X=done_arr_desc,
             training_y=done_arr_metrics,
             candidate_X=self.total_desc_arr,

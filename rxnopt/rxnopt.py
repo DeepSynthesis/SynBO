@@ -90,7 +90,7 @@ class ReactionOptimizer:
             candidate_X=self.total_desc_arr,
             batch_size=batch_size,
             opt_weights=opt_weights,
-        )  # self.recommend_type
+        )
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None):
         save_path = Path(save_task) / Path(f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}")

@@ -8,6 +8,8 @@ from botorch.utils.multi_objective.box_decompositions import NondominatedPartiti
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.sampling.normal import SobolQMCNormalSampler
 
+from .utils.utils import compute_hvi
+
 from .bo_algorithm.GP_opt import GPSurrogateModel, EHVIAcquisitionFunction, ParetoFrontCalculator
 from .bo_algorithm.acf_opt import optimize_acqf_discrete
 
@@ -50,62 +52,70 @@ class Optimizer:
         training_X_t = torch.tensor(training_X).double()
         training_y_t = torch.tensor(training_y).double()
         candidate_X_t = torch.tensor(candidate_X).double()
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Build GP models for each objective
-        # 确定设备（自动选择GPU或CPU）
-        dtype = torch.double  # 建议使用double精度避免数值问题
-        # --- 1. 数据迁移到GPU ---
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        dtype = torch.double
+
         training_X_t = training_X_t.to(device=device, dtype=dtype)
         training_y_t = training_y_t.to(device=device, dtype=dtype)
         candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
-        # --- 2. 构建GPU兼容的GP模型 ---
-        models = []
 
+        models = []
         for i in range(training_y_t.shape[1]):
             train_y_i = training_y_t[:, i].reshape(-1, 1)
-
-            # 模型初始化并迁移到GPU
             logger.info(f"Fitting previous data points for {list(training_y_dict.keys())[i]}...")
-            model_i = self.surrogate_model_class(device=device, num_dims=training_X.shape[1])  # .to(device=device, dtype=dtype)
-            model_i.fit(training_X_t, train_y_i)  # 数据已在GPU上
+            model_i = self.surrogate_model_class(device=device, num_dims=training_X.shape[1])
+            model_i.fit(training_X_t, train_y_i)
             models.append(model_i.model)
         # 多输出模型
-        global_model = ModelListGP(*models)#.to(device="cpu")
-        # --- 3. Pareto前沿和参考点（GPU兼容） ---
+        self.global_model = ModelListGP(*models)
         logger.info("Calculating Pareto frontiers...")
-        pareto_y = self.target_evaluator.calculate_target_function(training_y).to(device=device)
-        ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)  # 保持与模型一致的数据类型
-        # --- 4. 采样器和分区（GPU兼容） ---
+        self.pareto_y = self.target_evaluator.calculate_target_function(training_y).to(device=device)
+        self.ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)  # 保持与模型一致的数据类型
+
         sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.num_samples]), seed=self.seed)  # 采样器直接生成GPU张量
-        partitioning = NondominatedPartitioning(ref_point=ref_point, Y=pareto_y)  # 确保输入数据在GPU上
-        # --- 5. 采集函数（GPU兼容） ---
+        partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)  # 确保输入数据在GPU上
         acq_func = self.acquisition_function_class(
-            model=global_model, sampler=sampler, ref_point=ref_point, partitioning=partitioning, maximum_metrics=maximum_metrics
+            model=self.global_model, sampler=sampler, ref_point=self.ref_point, partitioning=partitioning, maximum_metrics=maximum_metrics
         )
-        # --- 6. 优化采集函数（GPU加速） ---
+
         logger.info("Optimizing acquisition function...")
-        acq_result, acq_value = optimize_acqf_discrete(
+        self.acq_result, self.acq_value = optimize_acqf_discrete(
             acq_function=acq_func.ehvi,
             choices=candidate_X_t,
             q=batch_size,
             unique=True,
         )
-        print(acq_result, acq_value)
-        # from IPython import embed
-
-        # embed()
-        # exit()
-        # 结果迁移回CPU（如需）
+        print(self.acq_result, self.acq_value)
         if device.type == "cuda":
-            acq_result = tuple(res.cpu() for res in acq_result)
+            best_samples = [res.cpu().numpy() for res in self.acq_result]
+
+        recommend_types = self._get_expoit_or_explore(self.acq_value)
         # Find closest candidate points to optimal samples
-        best_samples = acq_result[0].detach().cpu().numpy()
-        selected_indices = []
+        selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
+        selected_indices = np.array(selected_indices).squeeze()
+        return selected_indices, recommend_types
 
-        for sample in best_samples:
-            d_i = np.linalg.norm(candidate_X - sample, axis=1)
-            a = np.argmin(d_i)
-            selected_indices.append(a)
-
-        return selected_indices
+    def _get_expoit_or_explore(self, acq_value):
+        with torch.no_grad():
+            posterior = self.global_model.posterior(self.acq_result)
+            pred_mean = posterior.mean  # (batch_size, num_objectives)
+            pred_var = posterior.variance  # (batch_size, num_objectives)
+        # 计算每个点的HVI
+        hvi_values = torch.tensor([compute_hvi(pred_mean[i], self.pareto_y, self.ref_point) for i in range(pred_mean.shape[0])])
+        # EHVI已经在acq_value中返回（可能需调整形状）
+        ehvi_values = acq_value.to(device="cpu")  # 确保形状为 (batch_size,)
+        # 计算利用分数（Exploit Score）
+        # TODO: need to change the defination here!!!
+        exploit_scores = hvi_values / (ehvi_values + 1e-6)  # 避免除以0
+        explore_scores = 1 - exploit_scores
+        # 输出每个推荐点的探索-利用倾向
+        for i in range(self.acq_result.shape[0]):
+            print(
+                f"Point {i}: "
+                f"EHVI = {ehvi_values[i]:.3f}, "
+                f"HVI = {hvi_values[i]:.3f}, "
+                f"Exploit Score = {exploit_scores[i]:.3f}, "
+                f"Explore Score = {explore_scores[i]:.3f}"
+            )
+        return ["exploit" if exploit_scores[i] > explore_scores[i] else "explore" for i in range(self.acq_result.shape[0])]

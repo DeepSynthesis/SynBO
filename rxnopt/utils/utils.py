@@ -2,6 +2,7 @@ from itertools import product
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 import numpy as np
+import torch
 from tqdm import tqdm
 from loguru import logger
 
@@ -106,3 +107,28 @@ def check_desc_completeness(desc_dict, condition_dict):
         for name in condition_dict[k]:
             if not name in v.index:
                 raise ValueError(f"Missing values in {k} description: {name}")
+
+
+def compute_hvi(new_point, pareto_front, ref_point):
+    from botorch.utils.multi_objective.hypervolume import Hypervolume
+
+    
+    # 确保输入是 torch.Tensor 类型
+    if not isinstance(new_point, torch.Tensor):
+        new_point = torch.tensor(new_point, dtype=torch.float32)
+    if not isinstance(pareto_front, torch.Tensor):
+        pareto_front = torch.tensor(pareto_front, dtype=torch.float32)
+    if not isinstance(ref_point, torch.Tensor):
+        ref_point = torch.tensor(ref_point, dtype=torch.float32)
+    
+    from IPython import embed; embed(); exit()
+    # 计算超体积
+    hv = Hypervolume(ref_point=ref_point)
+    original_hv = hv.compute(pareto_front)
+    
+    # 添加新点后的超体积
+    extended_front = torch.cat([pareto_front, new_point.unsqueeze(0)], dim=0)
+    new_hv = hv.compute(extended_front)
+    
+    return new_hv - original_hv
+

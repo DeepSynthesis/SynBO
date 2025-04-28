@@ -182,4 +182,4 @@ class ParetoFrontCalculator:
             if is_pareto:
                 pareto_front.append(point)
 
-        return torch.tensor(pareto_front)
+        return torch.tensor(np.array(pareto_front))

@@ -123,20 +123,13 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        if maximum_metrics:
-            self.ehvi = qLogExpectedHypervolumeImprovement(
-                model=model,
-                sampler=sampler,
-                ref_point=ref_point,
-                partitioning=partitioning,
-            )
-        else:
-            self.ehvi = qLogExpectedHypervolumeImprovement(
-                model=model,
-                sampler=sampler,
-                ref_point=ref_point,
-                partitioning=partitioning,
-            )
+
+        self.ehvi = qLogExpectedHypervolumeImprovement(
+            model=model,
+            sampler=sampler,
+            ref_point=ref_point,
+            partitioning=partitioning,
+        )
 
 
 class ParetoFrontCalculator:

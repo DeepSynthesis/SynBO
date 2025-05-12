@@ -15,13 +15,23 @@ from .bo_algorithm.acf_opt import optimize_acqf_discrete
 
 
 class Optimizer:
-    def __init__(self, method, name_data, num_samples: int = 1024, seed: int = 1145141):
+    def __init__(self, method, name_data, mc_num_samples: int = 64, max_batch_size: int = 128, seed: int = 1145141):
+        """_summary_
+
+        Args:
+            method (_type_): _description_
+            name_data (_type_): _description_
+            mc_num_samples (int, optional): . Defaults to 64.
+            max_batch_size (int, optional): _description_. Defaults to 128.
+            seed (int, optional): _description_. Defaults to 1145141.
+        """
         self.name_data = name_data
-        self.num_samples = num_samples
+        self.mc_num_samples = mc_num_samples
         self.seed = seed
         self.surrogate_model_class = GPSurrogateModel
         self.acquisition_function_class = EHVIAcquisitionFunction
         self.target_evaluator = ParetoFrontCalculator()
+        self.max_batch_size = max_batch_size
 
     def optimize(
         self,
@@ -74,7 +84,7 @@ class Optimizer:
         self.pareto_y = self.target_evaluator.calculate_target_function(training_y).to(device=device)
         self.ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)  # 保持与模型一致的数据类型
 
-        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.num_samples]), seed=self.seed)  # 采样器直接生成GPU张量
+        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.seed)  # 采样器直接生成GPU张量
         partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)  # 确保输入数据在GPU上
         acq_func = self.acquisition_function_class(
             model=self.global_model, sampler=sampler, ref_point=self.ref_point, partitioning=partitioning, maximum_metrics=maximum_metrics
@@ -82,7 +92,7 @@ class Optimizer:
 
         logger.info("Optimizing acquisition function...")
         self.acq_result, self.acq_value = optimize_acqf_discrete(
-            acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, unique=True, device=device
+            acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, max_batch_size=self.max_batch_size, unique=True, device=device
         )
         if device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]

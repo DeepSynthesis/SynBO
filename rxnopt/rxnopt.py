@@ -77,7 +77,19 @@ class ReactionOptimizer:
         # judgement selected points types: exploit or explore
         self.recommend_type = ["explore"] * batch_size
 
-    def optimize(self, batch_size=5, desc_normalize="minmax", optimized_method="default", opt_weights=None):
+    def optimize(
+        self, batch_size=5, desc_normalize="minmax", optimized_method="default", opt_weights=None, num_samples=128, max_batch_size=128
+    ):
+        """_summary_
+
+        Args:
+            batch_size (int, optional): _description_. Defaults to 5.
+            desc_normalize (str, optional): _description_. Defaults to "minmax".
+            optimized_method (str, optional): _description_. Defaults to "default".
+            opt_weights (_type_, optional): _description_. Defaults to None.
+            num_samples (int, optional): Determine samples using in Monte Carol sampling. Defaults to 128.
+            max_batch_size (int, optional): maximum batch size in acq. Defaults to 128.
+        """
         check_desc_completeness(self.desc_dict, self.condition_dict)
         logger.info("Now selecting optimize points...")
         self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
@@ -91,6 +103,8 @@ class ReactionOptimizer:
             candidate_X=self.total_desc_arr,
             batch_size=batch_size,
             opt_weights=opt_weights,
+            num_samples=num_samples,
+            max_batch_size=max_batch_size,
         )
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None, suffix=None):

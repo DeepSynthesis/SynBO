@@ -12,12 +12,11 @@ def optimize_acqf_discrete(
     acq_function: AcquisitionFunction,
     q: int,
     choices: Tensor,
-    max_batch_size: int = 64,
+    max_batch_size: int = 128,
     unique: bool = True,
     maximum_metrics: bool = True,
     # X_avoid: Tensor | None = None,
     # inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
-    device: str = torch.device("cpu"),
 ) -> tuple[Tensor, Tensor]:
     r"""Optimize over a discrete set of points using batch evaluation.
 
@@ -57,8 +56,6 @@ def optimize_acqf_discrete(
     choices_batched = choices.unsqueeze(-2)
     if q > 1:
         candidate_list, acq_value_list = [], []
-        base_X_pending = acq_function.X_pending
-        print(type(base_X_pending))
 
         for q_i in range(q):
             logger.info(f"Choosing candidate {q_i+1} of {q}...")
@@ -74,9 +71,7 @@ def optimize_acqf_discrete(
             acq_value_list.append(acq_values[best_idx])
             # set pending points
             candidates = torch.cat(candidate_list, dim=-2)
-            if hasattr(acq_function, "X_pending"):  # XXX: 显著减少缓存占用
-                del acq_function.X_pending  # 释放旧张量q
-                torch.cuda.empty_cache()  # 清空缓存（可选）
+            torch.cuda.empty_cache()  # 清空缓存（可选）
             acq_function.set_X_pending(candidates)
 
         # Reset acq_func to previous X_pending state
@@ -96,9 +91,9 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
 
     acq_values_list = []
     for X_batches in tqdm(X.split(max_batch_size)):
-        with torch.no_grad():  # 确保无梯度计算
-            acq_values_list.append(acq_function(X_batches))
-
+        with torch.no_grad():
+            acq_values = acq_function(X_batches)
+            acq_values_list.append(acq_values)
         acq_values = torch.cat(acq_values_list)
 
     if maximum_metrics:
@@ -132,11 +127,3 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
     #             executor.map(eval_acq_on_gpu, range(1, torch.cuda.device_count()), X_batch.chunk(torch.cuda.device_count(), dim=0))
     #         )
     # acq_values = torch.cat(results)
-
-
-def memprint(it):
-    # 当前GPU的显存占用（单位：MB）
-    allocated = torch.cuda.memory_allocated(0) / 1024**2
-    reserved = torch.cuda.memory_reserved(0) / 1024**2  # 缓存的内存（可能未全部占用）
-    print(f"{it}: 当前显存占用: {allocated:.2f} MB")
-    print(f"{it}: 缓存显存: {reserved:.2f} MB")

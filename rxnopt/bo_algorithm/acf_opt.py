@@ -5,13 +5,14 @@ from botorch.acquisition.acquisition import (
     AcquisitionFunction,
     OneShotAcquisitionFunction,
 )
+from tqdm import tqdm
 
 
 def optimize_acqf_discrete(
     acq_function: AcquisitionFunction,
     q: int,
     choices: Tensor,
-    max_batch_size: int = 16,
+    max_batch_size: int = 64,
     unique: bool = True,
     maximum_metrics: bool = True,
     # X_avoid: Tensor | None = None,
@@ -56,7 +57,9 @@ def optimize_acqf_discrete(
     if q > 1:
         candidate_list, acq_value_list = [], []
         base_X_pending = acq_function.X_pending
-        for _ in range(q):
+
+        for q_i in range(q):
+            logger.info(f"Choosing candidate {q_i} of {q}...")
             with torch.no_grad():
                 acq_values = _split_batch_eval_acqf(
                     acq_function=acq_function,
@@ -69,10 +72,16 @@ def optimize_acqf_discrete(
             acq_value_list.append(acq_values[best_idx])
             # set pending points
             candidates = torch.cat(candidate_list, dim=-2)
+            if hasattr(acq_function, "X_pending"):
+                del acq_function.X_pending  # 释放旧张量q
+                torch.cuda.empty_cache()  # 清空缓存（可选）
             acq_function.set_X_pending(torch.cat([base_X_pending, candidates], dim=-2) if base_X_pending is not None else candidates)
             # need to remove choice from choice set if enforcing uniqueness
             if unique:
-                choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
+                # choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
+                mask = torch.ones(len(choices_batched), dtype=bool)
+                mask[best_idx] = False
+                choices_batched = choices_batched[mask]  # 更高效的内存操作
 
         # Reset acq_func to previous X_pending state
         acq_function.set_X_pending(base_X_pending)
@@ -87,7 +96,42 @@ def optimize_acqf_discrete(
 
 
 def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_batch_size: int, maximum_metrics: bool) -> Tensor:
+
+    acq_values_list = []
+    for X_batches in tqdm(X.split(max_batch_size)):
+        with torch.no_grad():  # 确保无梯度计算
+            acq_values_list.append(acq_function(X_batches))
+
+        acq_values = torch.cat(acq_values_list)
+
     if maximum_metrics:
-        return torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
+        return acq_values
     else:
-        return -torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
+        return -acq_values
+
+    # if torch.cuda.device_count() > 1:
+    #     # 将X均匀分配到各GPU
+    #     X_split = X.chunk(torch.cuda.device_count(), dim=0)
+    #     acq_values = []
+    #     for i, x in enumerate(X_split):
+    #         with torch.cuda.device(i):
+    #             X_batches = x.split(max_batch_size)  # 提前拆分
+    #             acq_values = torch.cat([acq_function(X_batch) for X_batch in tqdm(X_batches)])
+    # else:
+    #     acq_values = acq_function(X)
+
+    # from concurrent.futures import ThreadPoolExecutor
+
+    # def eval_acq_on_gpu(gpu_id, x):
+    #     # 确保输入数据在正确的GPU上
+    #     x = x.to(f"cuda:{gpu_id}")
+    #     with torch.cuda.device(gpu_id):
+    #         return acq_function(x).to("cpu")
+    #         # return torch.cat([acq_function(batch) for batch in x.split(max_batch_size)])
+
+    # with ThreadPoolExecutor(max_workers=torch.cuda.device_count()) as executor:
+    #     for X_batch in tqdm(X.split(4096)):
+    #         results = list(
+    #             executor.map(eval_acq_on_gpu, range(1, torch.cuda.device_count()), X_batch.chunk(torch.cuda.device_count(), dim=0))
+    #         )
+    # acq_values = torch.cat(results)

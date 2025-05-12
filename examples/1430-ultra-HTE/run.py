@@ -5,8 +5,9 @@ from rxnopt import ReactionOptimizer
 
 if __name__ == "__main__":
     df = pd.read_csv(Path(__file__).parent / Path("../../dataset/1430-Ultra-high-throughput.csv"), encoding="UTF-8")
+    df["yield"] = df["yield"] / df["yield"].max()
     condition_types = ["Reaction1", "Reaction2", "Catalyst1", "Catalyst2"]
-    opt_metrics = ["yield", "ee"]  # 
+    opt_metrics = ["yield", "ee"]  #
     # load previous data
     prev_rxn_list = [pd.read_csv(f) for f in Path(__file__).parent.glob("results/batch-*.csv")]
     prev_rxn = pd.concat(prev_rxn_list, ignore_index=True)
@@ -19,7 +20,6 @@ if __name__ == "__main__":
             matched_row = matched_rows.iloc[0]
             prev_rxn.loc[idx, opt_metrics] = matched_row[opt_metrics].values
     prev_rxn["ee"] = prev_rxn["ee"].abs()
-    print(prev_rxn)
 
     condition_dict = {c: df[c].drop_duplicates().tolist() for c in condition_types}
     reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics)

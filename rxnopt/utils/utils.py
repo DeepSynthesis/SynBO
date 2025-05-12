@@ -19,9 +19,9 @@ def cartesian_product_3d(arr, data_type):
     cartesian_indices = np.array(list(product(*[range(len(middle)) for middle in arr])))
     # 计算结果矩阵的行数和列数
     num_rows = len(cartesian_indices)
-    num_cols = sum(len(sub_arr[0]) for sub_arr in arr)
+    num_cols = sum(len(sub_arr[0]) for sub_arr in arr) if data_type != object else -1
     # 初始化结果矩阵
-    result = np.zeros((num_rows, len(arr)), dtype=data_type) if data_type == object else np.zeros((num_rows, num_cols), dtype=data_type)
+    result = np.zeros((num_rows, num_cols), dtype=data_type) if data_type != object else np.zeros((num_rows, len(arr)), dtype=data_type)
 
     # 填充结果矩阵
     if data_type == object:
@@ -80,8 +80,10 @@ def array_process(desc_dict, condition_dict, condition_types, desc_normalize):
     name_arrs = [names for names in condition_dict.values()]
     for tp, desc_arr in zip(condition_types, desc_arrs):
         logger.info(f"number of {tp}: {len(desc_arr)}")
+
     total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float)
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object)
+
     total_desc_arr = normalize_data(total_desc_arr, desc_normalize)
     return total_name_arr, total_desc_arr
 
@@ -112,7 +114,6 @@ def check_desc_completeness(desc_dict, condition_dict):
 def compute_hvi(new_point, pareto_front, ref_point):
     from botorch.utils.multi_objective.hypervolume import Hypervolume
 
-    
     # 确保输入是 torch.Tensor 类型
     if not isinstance(new_point, torch.Tensor):
         new_point = torch.tensor(new_point, dtype=torch.float32)
@@ -124,10 +125,9 @@ def compute_hvi(new_point, pareto_front, ref_point):
     # 计算超体积
     hv = Hypervolume(ref_point=ref_point)
     original_hv = hv.compute(pareto_front)
-    
+
     # 添加新点后的超体积
     extended_front = torch.cat([pareto_front, new_point.unsqueeze(0)], dim=0)
     new_hv = hv.compute(extended_front)
-    
-    return new_hv - original_hv
 
+    return new_hv - original_hv

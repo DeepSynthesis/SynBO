@@ -54,7 +54,7 @@ class Optimizer:
         training_y_t = torch.tensor(training_y).double()
         candidate_X_t = torch.tensor(candidate_X).double()
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.double
 
         training_X_t = training_X_t.to(device=device, dtype=dtype)
@@ -89,12 +89,15 @@ class Optimizer:
         )
         if device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]
+        else:
+            best_samples = [res.numpy() for res in self.acq_result]
 
         recommend_type = self._get_expoit_or_explore(self.acq_value)
         # Find closest candidate points to optimal samples
         selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
         selected_indices = np.array(selected_indices).squeeze()
         selected_conditions = self.name_data[selected_indices].squeeze()
+        logger.info("Finish optimizerization")
         return selected_conditions, recommend_type
 
     def _get_expoit_or_explore(self, acq_value):

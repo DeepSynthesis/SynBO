@@ -2,10 +2,9 @@ from datetime import datetime
 from pathlib import Path
 from loguru import logger
 import pandas as pd
+import numpy as np
 
 from .optimize import Optimizer
-
-
 from .utils.utils import check_desc_completeness, done_array_process, generate_onehot_desc, track_called, array_process
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
@@ -23,6 +22,7 @@ class ReactionOptimizer:
         assert opt_type in ["init", "opt", "auto"], "opt_type must be 'init', 'opt' or 'auto'"
 
     def load_rxn_space(self, condition_dict):
+        # TODO: checkout dict is valid
         condition_dict = {k: sorted(v) for k, v in sorted(condition_dict.items(), key=lambda x: x[0])}
         self.condition_types = condition_dict.keys()
         self.condition_dict = condition_dict
@@ -50,7 +50,8 @@ class ReactionOptimizer:
                 else:
                     logger.error(f"{missing_species} not in {t} condition space")
                     raise ValueError(f"{missing_species} not in {t} condition space")
-
+        for opt_metric in self.opt_metrics:
+            prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
         self.prev_rxn_info = prev_rxn_info
 
     def run(self, batch_size=5, desc_normalize="minmax", expand_rxn_space=False):
@@ -92,8 +93,10 @@ class ReactionOptimizer:
             opt_weights=opt_weights,
         )
 
-    def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None):
-        save_path = Path(save_task) / Path(f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}")
+    def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None, suffix=None):
+        file_name = f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}"
+        file_name = file_name + suffix if suffix != None else file_name
+        save_path = Path(save_task) / Path(file_name)
         if save_path.parent.exists() == False:
             logger.warning("Parent directory does not exist, creating...")
             save_path.parent.mkdir(parents=True)

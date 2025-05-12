@@ -41,6 +41,7 @@ class Optimizer:
         batch_size: int = 5,
         opt_weights: dict = None,
         maximum_metrics: bool = True,
+        gpu_id: int = 0,
     ) -> List[int]:
         """
         Core Bayesian Optimization routine
@@ -64,7 +65,7 @@ class Optimizer:
         training_y_t = torch.tensor(training_y).double()
         candidate_X_t = torch.tensor(candidate_X).double()
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         dtype = torch.double
 
         training_X_t = training_X_t.to(device=device, dtype=dtype)

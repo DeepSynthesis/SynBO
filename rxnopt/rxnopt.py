@@ -78,7 +78,14 @@ class ReactionOptimizer:
         self.recommend_type = ["explore"] * batch_size
 
     def optimize(
-        self, batch_size=5, desc_normalize="minmax", optimized_method="default", opt_weights=None, mc_num_samples=128, max_batch_size=128
+        self,
+        batch_size=5,
+        desc_normalize="minmax",
+        optimized_method="default",
+        opt_weights=None,
+        mc_num_samples=128,
+        max_batch_size=128,
+        gpu_id=0,
     ):
         """_summary_
 
@@ -105,6 +112,7 @@ class ReactionOptimizer:
             candidate_X=self.total_desc_arr,
             batch_size=batch_size,
             opt_weights=opt_weights,
+            gpu_id=gpu_id,
         )
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None, suffix=None):

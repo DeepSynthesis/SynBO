@@ -26,5 +26,5 @@ if __name__ == "__main__":
     reaction_optimizer.load_rxn_space(condition_dict=condition_dict)
     reaction_optimizer.load_desc()
     reaction_optimizer.load_prev_rxn(prev_rxn, drop_rxn=True)
-    reaction_optimizer.run(batch_size=5, desc_normalize="minmax")
+    reaction_optimizer.run(batch_size=3, desc_normalize="minmax")
     reaction_optimizer.save_recommendations(Path(__file__).parent / Path("results/"))

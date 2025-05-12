@@ -17,6 +17,7 @@ def optimize_acqf_discrete(
     maximum_metrics: bool = True,
     # X_avoid: Tensor | None = None,
     # inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    device: str = torch.device("cpu"),
 ) -> tuple[Tensor, Tensor]:
     r"""Optimize over a discrete set of points using batch evaluation.
 
@@ -57,9 +58,10 @@ def optimize_acqf_discrete(
     if q > 1:
         candidate_list, acq_value_list = [], []
         base_X_pending = acq_function.X_pending
+        print(type(base_X_pending))
 
         for q_i in range(q):
-            logger.info(f"Choosing candidate {q_i} of {q}...")
+            logger.info(f"Choosing candidate {q_i+1} of {q}...")
             with torch.no_grad():
                 acq_values = _split_batch_eval_acqf(
                     acq_function=acq_function,
@@ -72,19 +74,14 @@ def optimize_acqf_discrete(
             acq_value_list.append(acq_values[best_idx])
             # set pending points
             candidates = torch.cat(candidate_list, dim=-2)
-            if hasattr(acq_function, "X_pending"):
+            if hasattr(acq_function, "X_pending"):  # XXX: 显著减少缓存占用
                 del acq_function.X_pending  # 释放旧张量q
                 torch.cuda.empty_cache()  # 清空缓存（可选）
-            acq_function.set_X_pending(torch.cat([base_X_pending, candidates], dim=-2) if base_X_pending is not None else candidates)
-            # need to remove choice from choice set if enforcing uniqueness
-            if unique:
-                # choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
-                mask = torch.ones(len(choices_batched), dtype=bool)
-                mask[best_idx] = False
-                choices_batched = choices_batched[mask]  # 更高效的内存操作
+            acq_function.set_X_pending(candidates)
 
         # Reset acq_func to previous X_pending state
-        acq_function.set_X_pending(base_X_pending)
+        # TODO: Deal with unique... need to remove choice from choice set if enforcing uniqueness
+        acq_function.set_X_pending(acq_function.X_pending)
         return candidates, torch.stack(acq_value_list)
 
     with torch.no_grad():
@@ -135,3 +132,11 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
     #             executor.map(eval_acq_on_gpu, range(1, torch.cuda.device_count()), X_batch.chunk(torch.cuda.device_count(), dim=0))
     #         )
     # acq_values = torch.cat(results)
+
+
+def memprint(it):
+    # 当前GPU的显存占用（单位：MB）
+    allocated = torch.cuda.memory_allocated(0) / 1024**2
+    reserved = torch.cuda.memory_reserved(0) / 1024**2  # 缓存的内存（可能未全部占用）
+    print(f"{it}: 当前显存占用: {allocated:.2f} MB")
+    print(f"{it}: 缓存显存: {reserved:.2f} MB")

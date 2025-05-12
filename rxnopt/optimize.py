@@ -54,7 +54,7 @@ class Optimizer:
         training_y_t = torch.tensor(training_y).double()
         candidate_X_t = torch.tensor(candidate_X).double()
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         dtype = torch.double
 
         training_X_t = training_X_t.to(device=device, dtype=dtype)
@@ -82,10 +82,7 @@ class Optimizer:
 
         logger.info("Optimizing acquisition function...")
         self.acq_result, self.acq_value = optimize_acqf_discrete(
-            acq_function=acq_func.ehvi,
-            choices=candidate_X_t,
-            q=batch_size,
-            unique=True,
+            acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, unique=True, device=device
         )
         if device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]

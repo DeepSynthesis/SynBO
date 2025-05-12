@@ -78,7 +78,7 @@ class ReactionOptimizer:
         self.recommend_type = ["explore"] * batch_size
 
     def optimize(
-        self, batch_size=5, desc_normalize="minmax", optimized_method="default", opt_weights=None, num_samples=128, max_batch_size=128
+        self, batch_size=5, desc_normalize="minmax", optimized_method="default", opt_weights=None, mc_num_samples=128, max_batch_size=128
     ):
         """_summary_
 
@@ -96,15 +96,15 @@ class ReactionOptimizer:
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
-        optimizer = Optimizer(name_data=self.total_name_arr, method=optimized_method)
+        optimizer = Optimizer(
+            name_data=self.total_name_arr, method=optimized_method, mc_num_samples=mc_num_samples, max_batch_size=max_batch_size
+        )
         self.selected_conditions, self.recommend_type = optimizer.optimize(
             training_X=done_arr_desc,
             training_y=done_arr_metrics,
             candidate_X=self.total_desc_arr,
             batch_size=batch_size,
             opt_weights=opt_weights,
-            num_samples=num_samples,
-            max_batch_size=max_batch_size,
         )
 
     def save_recommendations(self, save_task, filetype="csv", figure_output=[], figure_path=None, suffix=None):

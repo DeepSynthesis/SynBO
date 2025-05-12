@@ -92,7 +92,7 @@ class Optimizer:
 
         logger.info("Optimizing acquisition function...")
         self.acq_result, self.acq_value = optimize_acqf_discrete(
-            acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, max_batch_size=self.max_batch_size, unique=True, device=device
+            acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, max_batch_size=self.max_batch_size, unique=True
         )
         if device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]

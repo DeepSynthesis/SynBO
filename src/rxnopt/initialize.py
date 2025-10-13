@@ -1,65 +1,142 @@
-import numpy as np
-from sklearn.neighbors import NearestNeighbors
-from scipy.spatial import distance
-from loguru import logger
-from tqdm import tqdm
+"""Initialization methods for reaction optimization.
 
+Modern initialization strategies with rich progress indicators.
+"""
+
+from __future__ import annotations
+
+from typing import Literal, Optional, Union
+
+import numpy as np
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from scipy.spatial import distance
+from sklearn.neighbors import NearestNeighbors
+
+console = Console()
 np.random.seed(42)
 
 
-def dist_validate(arr, indices, num_samples=1000, random_seed=None):
-    np.random.seed(random_seed)  # 设置随机种子（可选）
+def dist_validate(arr: np.ndarray, indices: np.ndarray, num_samples: int = 1000, random_seed: Optional[int] = None) -> tuple[float, float]:
+    """Validate distance distribution of selected points.
 
+    Args:
+        arr: Full array of points
+        indices: Indices of selected points
+        num_samples: Number of samples for baseline calculation
+        random_seed: Random seed for reproducibility
+
+    Returns:
+        Tuple of (baseline_avg_distance, selected_avg_distance)
+    """
+    if random_seed is not None:
+        np.random.seed(random_seed)
+
+    # Generate unique pairs for baseline calculation
     all_pairs = np.random.choice(num_samples, size=(num_samples, 2), replace=True)
-    all_pairs = np.unique(all_pairs, axis=0)  # 去重（避免 i == j）
-    all_pairs = all_pairs[all_pairs[:, 0] != all_pairs[:, 1]]  # 确保 i != j
+    all_pairs = np.unique(all_pairs, axis=0)
+    all_pairs = all_pairs[all_pairs[:, 0] != all_pairs[:, 1]]
 
-    logger.info("calculating baseline...")
-    sampled_distances = distance.cdist(arr[all_pairs[:, 0]], arr[all_pairs[:, 1]], "euclidean").diagonal()
-    avg_distance_arr = np.mean(sampled_distances)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        baseline_task = progress.add_task("Calculating baseline distances...", total=None)
+        sampled_distances = distance.cdist(arr[all_pairs[:, 0]], arr[all_pairs[:, 1]], "euclidean").diagonal()
+        avg_distance_arr = np.mean(sampled_distances)
+        progress.update(baseline_task, description="Baseline calculated")
 
-    logger.info("calculating selected points...")
-    selected_rows = np.squeeze(arr[indices])
-    # print(selected_rows.shape)
-    dists_indices = distance.pdist(selected_rows, "euclidean")
-    avg_distance_indices = np.mean(dists_indices)
+        selected_task = progress.add_task("Calculating selected distances...", total=None)
+        selected_rows = np.squeeze(arr[indices])
+        dists_indices = distance.pdist(selected_rows, "euclidean")
+        avg_distance_indices = np.mean(dists_indices)
+        progress.update(selected_task, description="Selected distances calculated")
 
     return avg_distance_arr, avg_distance_indices
 
 
 class Initializer:
-    def __init__(self, numerical_data: np.array = None, name_data: np.array = None):
+    """Modern initializer for reaction conditions.
+
+    Provides various sampling strategies with rich progress indicators.
+
+    Args:
+        numerical_data: Numerical descriptor array
+        name_data: Name array corresponding to conditions
+
+    Raises:
+        ValueError: If neither numerical nor name data provided
+    """
+
+    def __init__(self, numerical_data: Optional[np.ndarray] = None, name_data: Optional[np.ndarray] = None) -> None:
+        if numerical_data is None and name_data is None:
+            raise ValueError("Please provide either numerical data or name data")
+
         self.numerical_data = numerical_data
         self.name_data = name_data
-        assert type(numerical_data) != None or type(name_data) != None, "Please provide ether numerical data or name data"
 
-    def sampling(self, method="LHS", batch_size=5, random_seed=42):
+        console.print(
+            f"[green]✓ Initializer created with " f"{len(numerical_data) if numerical_data is not None else 0} data points[/green]"
+        )
+
+    def sampling(
+        self, method: Literal["LHS", "sobol", "kmeans", "cvt", "hypersphere", "random"] = "LHS", batch_size: int = 5, random_seed: int = 42
+    ) -> np.ndarray:
+        """Sample initial conditions using specified method.
+
+        Args:
+            method: Sampling strategy to use
+            batch_size: Number of samples to generate
+            random_seed: Random seed for reproducibility
+
+        Returns:
+            Array of selected condition combinations
+
+        Raises:
+            ValueError: If unknown sampling method specified
+        """
         self.batch_size = batch_size
         np.random.seed(random_seed)
-        logger.info(f"sampling with method: {method}")
-        match method:
-            case "LHS":
-                selected_indices = self.lhs_sampling()
-            case "sobol":
-                selected_indices = self.sobel_sequence_sampling()
-            case "kmeans":
-                selected_indices = self.kmeans_sampling()
-            case "cvt":
-                selected_indices = self.cvt_sampling()
-            case "hypersphere":
-                selected_indices = self.hypersphere_sampling()
-            case "minmax":
-                selected_indices = self.min_max_sampling()
-            case "random":
-                return np.random.randint(0, len(self.name_data), batch_size)
-            case _:
-                raise ValueError("Invalid method")
 
-        if len(selected_indices) > 1:
-            ave_dist, select_ave_dist = dist_validate(self.numerical_data, selected_indices)
-        logger.info(f"average distance is {ave_dist:.2f}, and selected average distance is {select_ave_dist:.2f}.")
-        selected_conditions = self.name_data[selected_indices].squeeze()
+        console.print(f"[cyan]Sampling {batch_size} conditions using {method} method[/cyan]")
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"Sampling with {method}...", total=None)
+
+            match method.lower():
+                case "lhs":
+                    selected_indices = self.lhs_sampling()
+                case "sobol":
+                    selected_indices = self.sobel_sequence_sampling()
+                case "kmeans":
+                    selected_indices = self.kmeans_sampling()
+                case "cvt":
+                    selected_indices = self.cvt_sampling()
+                case "hypersphere":
+                    selected_indices = self.hypersphere_sampling()
+                case "random":
+                    selected_indices = self.random_sampling()
+                case _:
+                    raise ValueError(f"Unknown sampling method: {method}")
+
+            progress.update(task, description=f"Sampling complete - {method}")
+
+        selected_conditions = self.name_data[selected_indices]
+        console.print(f"[green]✓ Selected {len(selected_conditions)} initial conditions[/green]")
+
         return selected_conditions
+
+    def random_sampling(self) -> np.ndarray:
+        """Simple random sampling."""
+        return np.random.randint(0, len(self.name_data), self.batch_size)
 
     def lhs_sampling(self):
         from pyDOE import lhs
@@ -82,7 +159,7 @@ class Initializer:
             return np.arange(data_lowdim.shape[0])
         seeds = data_lowdim[np.random.choice(data_lowdim.shape[0], self.batch_size, replace=False)]
         # 迭代优化（简化版）
-        for _ in tqdm(range(50)):
+        for _ in range(50):
             kdtree = KDTree(data_lowdim)
             _, regions = kdtree.query(seeds, k=100)  # 每个种子找最近100个点作为区域
             new_seeds = np.array([data_lowdim[r].mean(axis=0) for r in regions])

@@ -1,4 +1,0 @@
-batch,index,type,Catalyst1,Catalyst2,Reaction1,Reaction2,yield,ee
-12,1,explore,FC1=CC(F)=C(C2=CC=C(C(F)(F)F)C=[N+]2[Ir-3]345([N+]6=CC=C(C(C)(C)C)C=C6C7=[N+]5C=CC(C(C)(C)C)=C7)[N+]8=CC(C(F)(F)F)=CC=C8C9=C(F)C=C(F)C=C94)C3=C1.F[P-](F)(F)(F)(F)F,FC(C1=CC(C([C@@H]2CCCN2)(O[Si](C)(C)C)C3=CC(C(F)(F)F)=CC(C(F)(F)F)=C3)=CC(C(F)(F)F)=C1)(F)F,[H]C(CCCCC#C)=O,FC1=CC=C(C(CBr)=O)C=C1,,
-12,2,explore,[O-]C1=C(Br)C(O2)=C(C=C1Br)C(C3=C(C([O-])=O)C=CC=C3)C(C=C4Br)C2=C(Br)C4=O.[Na+].[Na+],FC(C1=CC(C([C@@H]2CCCN2)(O[Si](C)(C)C)C3=CC(C(F)(F)F)=CC(C(F)(F)F)=C3)=CC(C(F)(F)F)=C1)(F)F,[H]C(CCCCC#C)=O,FC1=CC=C(C(CBr)=O)C=C1,,
-12,3,explore,C[N+]1=C2C=CC=CC2=C(C3=C(C)C=CC=C3C)C4=C1C=CC=C4.O=Cl(=O)([O-])=O,O=C([C@H]1NC2=CC=CC=C2C1)N,[H]C(CCCCC#C)=O,ClC1=CC=C(C(CBr)=O)C=C1,,

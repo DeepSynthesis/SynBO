@@ -1,6 +1,0 @@
-batch,index,type,Catalyst1,Catalyst2,Reaction1,Reaction2,yield,ee
-0,1,explore,F[P-](F)(F)(F)(F)F.F[P-](F)(F)(F)(F)F.C1(C2=CC=CC=[N+]23)=CC=CC=[N+]1[Ru-4]435([N+]6=CC=CC=C6C7=CC=CC=[N+]75)[N+]8=CC=CC=C8C9=CC=CC=[N+]94,[H][C@@]12[C@@](C[C@@H](C(O)=O)N2)([H])CCCC1,[H]C(CCCCC#C)=O,CC1=CC=C(C(CBr)=O)C=C1,,
-0,2,explore,C1(C2=CC=CC=[N+]23)=CC=CC=[N+]1[Ru-6]435([N+]6=CC=CC=C6C7=CC=CC=[N+]75)[N+]8=CC=CC=C8C9=CC=CC=[N+]94.[Cl-].[Cl-].O.O.O.O.O.O,CN1[C@H](C(C)(C)C)N[C@@H](CC2=CC=CC=C2)C1=O,[H]C(CCCCC#C)=O,BrC1=CC=C(C(CBr)=O)C=C1,,
-0,3,explore,CN(C1=CC2=[S+]C3=C(C=CC(N(C)C)=C3)N=C2C=C1)C.[Cl-],[H][C@@]12[C@@](C[C@@H](C(O)=O)N2)([H])CCCC1,[H]C(CCCCC#C)=O,ClC1=CC=C(C(CBr)=O)C=C1,,
-0,4,explore,C1(C2=CC=CC=[N+]23)=CC=CC=C1[Ir-3]435(C6=CC=CC=C6C7=CC=CC=[N+]75)[N+]8=CC=CC=C8C9=CC=CC=C94,O=C([C@H]1NCSC1)N,[H]C(CCCCC#C)=O,O=C(CBr)C1=CC=C(OC)C=C1,,
-0,5,explore,C[N+]1=C2C=CC=CC2=C(C3=C(C)C=CC=C3C)C4=C1C=CC=C4.O=Cl(=O)([O-])=O,O=C([C@H]1NC2=CC=CC=C2C1)N,[H]C(CCCCC#C)=O,O=C(CBr)C1=CC=C(OC)C=C1,,

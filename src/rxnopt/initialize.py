@@ -78,9 +78,6 @@ class Initializer:
         self.numerical_data = numerical_data
         self.name_data = name_data
 
-        console.print(
-            f"[green]✓ Initializer created with " f"{len(numerical_data) if numerical_data is not None else 0} data points[/green]"
-        )
 
     def sampling(
         self, method: Literal["LHS", "sobol", "kmeans", "cvt", "hypersphere", "random"] = "LHS", batch_size: int = 5, random_seed: int = 42
@@ -130,7 +127,6 @@ class Initializer:
             progress.update(task, description=f"Sampling complete - {method}")
 
         selected_conditions = self.name_data[selected_indices]
-        console.print(f"[green]✓ Selected {len(selected_conditions)} initial conditions[/green]")
 
         return selected_conditions
 

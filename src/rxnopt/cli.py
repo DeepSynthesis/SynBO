@@ -65,7 +65,7 @@ def init(
     """Initialize reaction optimization with initial sampling."""
 
     if not config_file.exists():
-        console.print(f"[red]Error: Configuration file {config_file} not found[/red]")
+        console.print(f"Error: Configuration file {config_file} not found", style="red")
         raise typer.Exit(1)
 
     # Load configuration
@@ -129,11 +129,11 @@ def optimize(
     """Optimize reaction conditions using Bayesian Optimization."""
 
     if not config_file.exists():
-        console.print(f"[red]Error: Configuration file {config_file} not found[/red]")
+        console.print(f"Error: Configuration file {config_file} not found", style="red")
         raise typer.Exit(1)
 
     if not prev_data.exists():
-        console.print(f"[red]Error: Previous data file {prev_data} not found[/red]")
+        console.print(f"Error: Previous data file {prev_data} not found", style="red")
         raise typer.Exit(1)
 
     # Load configuration and data

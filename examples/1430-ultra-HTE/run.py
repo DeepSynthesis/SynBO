@@ -4,7 +4,7 @@ from rxnopt import ReactionOptimizer
 
 
 if __name__ == "__main__":
-    df = pd.read_csv(Path(__file__).parent / Path("../../dataset/1430-Ultra-high-throughput.csv"), encoding="UTF-8")
+    df = pd.read_csv(Path(__file__).parent / Path("../dataset/1430-Ultra-high-throughput.csv"), encoding="UTF-8")
     df["yield"] = df["yield"] / df["yield"].max()
     condition_types = ["Reaction1", "Reaction2", "Catalyst1", "Catalyst2"]
     opt_metrics = ["yield", "ee"]  #
@@ -22,9 +22,9 @@ if __name__ == "__main__":
     prev_rxn["ee"] = prev_rxn["ee"].abs()
 
     condition_dict = {c: df[c].drop_duplicates().tolist() for c in condition_types}
-    reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics)
+    reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics, opt_type='init')
     reaction_optimizer.load_rxn_space(condition_dict=condition_dict)
     reaction_optimizer.load_desc()
     reaction_optimizer.load_prev_rxn(prev_rxn, drop_rxn=True)
     reaction_optimizer.run(batch_size=3, desc_normalize="minmax")
-    reaction_optimizer.save_recommendations(Path(__file__).parent / Path("results/"))
+    # reaction_optimizer.save_recommendations(Path(__file__).parent / Path("results/"))

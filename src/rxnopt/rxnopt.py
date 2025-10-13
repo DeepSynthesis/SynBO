@@ -15,6 +15,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.rule import Rule
 
 from .optimize import Optimizer
 from .utils.utils import (
@@ -103,14 +104,16 @@ class ReactionOptimizer:
             AssertionError: If condition types don't match
         """
         if desc_dict is None:
-            console.print("[yellow]Warning: No descriptor dictionary provided, " "using OneHot encoding as alternative.[/yellow]")
+            console.print(
+                "****Warning: No descriptor dictionary provided, using OneHot encoding as alternative!!!****", style="yellow bold"
+            )
             self.desc_dict = generate_onehot_desc(self.condition_dict)
         else:
             if set(desc_dict.keys()) != set(self.condition_types):
                 raise ValueError("Condition types do not match")
             self.desc_dict = desc_dict
 
-        console.print("[green]✓ Descriptors loaded successfully[/green]")
+        console.print("✓ Descriptors loaded successfully", style="green")
 
     @track_called
     def load_prev_rxn(self, prev_rxn_info: pd.DataFrame, drop_rxn: bool = False) -> None:
@@ -123,46 +126,36 @@ class ReactionOptimizer:
         Raises:
             ValueError: If species not found in condition space
         """
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Loading previous reactions...", total=None)
 
-            self.opt_type = "opt" if self.opt_type == "auto" else self.opt_type
-            self.batch_id = prev_rxn_info["batch"].max() + 1
+        self.opt_type = "opt" if self.opt_type == "auto" else self.opt_type
+        self.batch_id = prev_rxn_info["batch"].max() + 1
 
-            # Validate condition types
-            missing_types = [t for t in self.condition_types if t not in prev_rxn_info.columns]
-            if missing_types:
-                raise ValueError(f"Missing condition types: {missing_types}")
+        # Validate condition types
+        missing_types = [t for t in self.condition_types if t not in prev_rxn_info.columns]
+        if missing_types:
+            raise ValueError(f"Missing condition types: {missing_types}")
 
-            # Check for missing species in each condition type
-            for condition_type in self.condition_types:
-                progress.update(task, description=f"Validating {condition_type}...")
+        # Check for missing species in each condition type
+        for condition_type in self.condition_types:
 
-                missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])
+            missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])
 
-                if missing_species:
-                    if drop_rxn:
-                        console.print(
-                            f"[yellow]Warning: {missing_species} not in {condition_type} "
-                            f"condition space, dropping these reactions[/yellow]"
-                        )
-                        prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
-                    else:
-                        raise ValueError(f"{missing_species} not in {condition_type} condition space")
+            if missing_species:
+                if drop_rxn:
+                    console.print(
+                        f"Warning: {missing_species} not in {condition_type} condition space, dropping these reactions", style="yellow"
+                    )
+                    prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
+                else:
+                    raise ValueError(f"{missing_species} not in {condition_type} condition space")
 
-            # Convert metrics to float
-            for opt_metric in self.opt_metrics:
-                prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
+        # Convert metrics to float
+        for opt_metric in self.opt_metrics:
+            prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
 
-            self.prev_rxn_info = prev_rxn_info
-            progress.update(task, description="Previous reactions loaded!")
+        self.prev_rxn_info = prev_rxn_info
 
-        console.print(f"[green]✓ Loaded {len(prev_rxn_info)} previous reactions[/green]")
+        console.print(f"✓ Loaded {len(prev_rxn_info)} previous reactions", style="green")
 
     def run(
         self, batch_size: int = 5, desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax", expand_rxn_space: bool = False
@@ -182,13 +175,15 @@ class ReactionOptimizer:
                 self.opt_type = "init"
 
         if expand_rxn_space:
-            console.print("[yellow]Reaction space expansion not yet implemented[/yellow]")
+            console.print("Reaction space expansion not yet implemented", style="yellow bold")
+
+        console.print(Rule(title="🚀 Running Calculation", style="bold"))
 
         console.print(
-            Panel(
-                f"[bold]Running in {self.opt_type.upper()} mode[/bold]\n" f"Batch size: {batch_size}\n" f"Normalization: {desc_normalize}",
-                title="🚀 Execution Plan",
-            )
+            "Running settings:\n"
+            f"· Optimization type: [bold]{self.opt_type.upper()}[/bold]\n"
+            f"· Batch size: [bold]{batch_size}[/bold]\n"
+            f"· Normalization: [bold]{desc_normalize}[/bold]\n"
         )
 
         if self.opt_type == "init":
@@ -211,31 +206,21 @@ class ReactionOptimizer:
             desc_normalize: Descriptor normalization method
             sampling_method: Sampling strategy for initial points
         """
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Initializing...", total=None)
 
-            progress.update(task, description="Checking descriptor completeness...")
-            check_desc_completeness(self.desc_dict, self.condition_dict)
+        # progress.update(task, description="Checking descriptor completeness...")
+        check_desc_completeness(self.desc_dict, self.condition_dict)
 
-            progress.update(task, description="Processing arrays...")
-            self.total_name_arr, self.total_desc_arr = array_process(
-                self.desc_dict, self.condition_dict, self.condition_types, desc_normalize
-            )
+        self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
 
-            progress.update(task, description="Selecting initial points...")
-            initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
-            self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
+        initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
+        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
 
-            # All initial points are exploration
-            self.recommend_type = ["explore"] * batch_size
-            progress.update(task, description="Initialization complete!")
+        # All initial points are exploration
+        self.recommend_type = ["explore"] * batch_size
 
-        console.print(f"[green]✓ Selected {batch_size} initial conditions using " f"{sampling_method} sampling[/green]")
+        console.print(
+            f"✓ Selected [bold]{batch_size}[/bold] initial conditions using [bold]{sampling_method}[/bold] sampling", style="green"
+        )
 
     def optimize(
         self,
@@ -340,7 +325,7 @@ class ReactionOptimizer:
 
         # Create directory if it doesn't exist
         if not save_path.parent.exists():
-            console.print(f"[yellow]Creating directory: {save_path.parent}[/yellow]")
+            console.print(f"Creating directory: {save_path.parent}", style='yellow')
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prepare output DataFrame
@@ -377,4 +362,4 @@ class ReactionOptimizer:
             else:
                 raise ValueError(f"Unknown filetype: {filetype}")
 
-        console.print(f"[green]✓ Saved recommendations to: {save_path.with_suffix('.' + filetype)}[/green]")
+        console.print(f"✓ Saved recommendations to: {save_path.with_suffix('.' + filetype)}", style="green")

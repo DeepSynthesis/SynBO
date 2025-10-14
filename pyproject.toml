@@ -28,9 +28,14 @@ dependencies = [
   "openpyxl>=3.0.0",
   "tqdm>=4.60.0",
   "rich>=13.0.0",
-  "typer[all]>=0.9.0",
+  "typer>=0.9.0",
   "loguru>=0.7.0",
   "pydantic>=2.0.0",
+  "torch>=1.9.0",
+  "botorch>=0.6.0",
+  "ax-platform>=0.2.0",
+  "rdkit>=2024.9.1",
+  "pyDOE>=0.3.8",
 ]
 description = "A multi-objective reaction optimization framework based on Bayesian Optimization"
 keywords = ["chemistry", "reaction optimization", "bayesian optimization", "machine learning", "catalysis"]
@@ -44,9 +49,6 @@ requires-python = ">=3.8"
 version = "0.1.0"
 
 [project.optional-dependencies]
-chem = [
-  "rdkit-pypi>=2021.9.1",
-]
 dev = [
   "pytest>=6.0",
   "pytest-cov>=2.0",
@@ -59,11 +61,6 @@ docs = [
   "sphinx>=4.0",
   "sphinx-rtd-theme>=1.0",
   "myst-parser>=0.15",
-]
-ml = [
-  "torch>=1.9.0",
-  "botorch>=0.6.0",
-  "ax-platform>=0.2.0",
 ]
 test = [
   "pytest>=6.0",

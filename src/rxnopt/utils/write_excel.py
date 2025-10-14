@@ -4,6 +4,9 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, Alignment
 from openpyxl.drawing.image import Image
 from openpyxl.worksheet.table import Table, TableStyleInfo
+from rich.progress import Progress
+
+excel_progress = Progress()
 
 
 class ExcelWriter:
@@ -26,15 +29,15 @@ class ExcelWriter:
             self._apply_table_style(ws, output_df)
 
             if figure_output != [] and figure_path:
-                logger.info("exporting with specific figures...")
+                excel_progress.log("exporting with specific figures...", style="green")
                 for figure_type in figure_output:
                     column_idx_letter = chr(ord("A") + output_df.columns.get_loc(figure_type))
                     if figure_type in self.condition_types:
                         self._process_figure(ws, figure_type, output_df, figure_path, column_idx_letter)
                     else:
-                        logger.warning(f"Figure output '{figure_type}' not in condition types, skipping...")
+                        excel_progress.log(f"Figure output '{figure_type}' not in condition types, skipping...", style="yellow")
             else:
-                logger.info("No figure output and path provided, exporting with names...")
+                excel_progress.log("No figure output and path provided, exporting with names...", style="green")
 
             wb.save(save_path.with_suffix(".xlsx"))
         else:
@@ -77,7 +80,7 @@ class ExcelWriter:
         for i in output_df.index:
             img_path = Path(figure_path) / Path(f"{figure_type}/{output_df.loc[i, figure_type]}.png")
             if not img_path.exists():
-                logger.warning(f"{img_path} does not exist, skipping...")
+                excel_progress.log(f"{img_path} does not exist, skipping...", style="yellow")
                 continue
             ws[f"{column_idx_letter}{i+2}"].value = None
             try:
@@ -90,7 +93,7 @@ class ExcelWriter:
                 ws.row_dimensions[i + 2].height = max(img.height * 0.8, ws.row_dimensions[i + 2].height)
                 ws.column_dimensions[column_idx_letter].width = img.width * 0.2
             except Exception as e:
-                logger.error(f"Failed to add image for {figure_type} at row {i+2}: {str(e)}")
+                excel_progress.log(f"Failed to add image for {figure_type} at row {i+2}: {str(e)}", style="red")
 
     def _apply_table_style(self, ws, output_df):
         max_row = len(output_df) + 1  # +1 for header

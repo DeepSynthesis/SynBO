@@ -10,6 +10,7 @@ from typing import Literal, Optional, Union
 import numpy as np
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from tqdm import tqdm
 from scipy.spatial import distance
 from sklearn.neighbors import NearestNeighbors
 
@@ -78,7 +79,6 @@ class Initializer:
         self.numerical_data = numerical_data
         self.name_data = name_data
 
-
     def sampling(
         self, method: Literal["LHS", "sobol", "kmeans", "cvt", "hypersphere", "random"] = "LHS", batch_size: int = 5, random_seed: int = 42
     ) -> np.ndarray:
@@ -98,7 +98,7 @@ class Initializer:
         self.batch_size = batch_size
         np.random.seed(random_seed)
 
-        console.print(f"[cyan]Sampling {batch_size} conditions using {method} method[/cyan]")
+        console.print(f"Sampling {batch_size} conditions using {method} method", style="cyan")
 
         with Progress(
             SpinnerColumn(),

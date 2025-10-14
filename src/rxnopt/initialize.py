@@ -126,7 +126,7 @@ class Initializer:
 
             progress.update(task, description=f"Sampling complete - {method}")
 
-        selected_conditions = self.name_data[selected_indices]
+        selected_conditions = self.name_data[selected_indices].squeeze()
 
         return selected_conditions
 

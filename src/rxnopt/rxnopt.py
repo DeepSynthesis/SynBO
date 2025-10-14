@@ -26,11 +26,10 @@ from .utils.util_func import (
     generate_onehot_desc,
     track_called,
     array_process,
+    get_opt_type,
 )
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
-
-console = Console()
 
 
 class ReactionOptimizer:
@@ -62,8 +61,9 @@ class ReactionOptimizer:
         self.opt_type = opt_type
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
+        self.opt_console = Console()
 
-        console.print(
+        self.opt_console.print(
             Panel(
                 f"[bold blue]ReactionOptimizer initialized[/bold blue]\n" f"Metrics: {', '.join(self.opt_metrics)}\n" f"Mode: {opt_type}",
                 title="🧪 Reaction Optimizer",
@@ -95,7 +95,7 @@ class ReactionOptimizer:
                 sample_str += "..."
             table.add_row(ctype, str(len(values)), sample_str)
 
-        console.print(table)
+        self.opt_console.print(table)
 
     def load_desc(self, desc_dict: Optional[Dict[str, Any]] = None) -> None:
         """Load descriptor dictionary.
@@ -107,7 +107,7 @@ class ReactionOptimizer:
             AssertionError: If condition types don't match
         """
         if desc_dict is None:
-            console.print(
+            self.opt_console.print(
                 "****Warning: No descriptor dictionary provided, using OneHot encoding as alternative!!!****", style="yellow bold"
             )
             self.desc_dict = generate_onehot_desc(self.condition_dict)
@@ -116,7 +116,7 @@ class ReactionOptimizer:
                 raise ValueError("Condition types do not match")
             self.desc_dict = desc_dict
 
-        console.print("✓ Descriptors loaded successfully", style="green")
+        self.opt_console.print("✓ Descriptors loaded successfully", style="green")
 
     @track_called
     def load_prev_rxn(self, prev_rxn_info: pd.DataFrame, drop_rxn: bool = False) -> None:
@@ -145,7 +145,7 @@ class ReactionOptimizer:
 
             if missing_species:
                 if drop_rxn:
-                    console.print(
+                    self.opt_console.print(
                         f"Warning: {missing_species} not in {condition_type} condition space, dropping these reactions", style="yellow"
                     )
                     prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
@@ -157,8 +157,12 @@ class ReactionOptimizer:
             prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
 
         self.prev_rxn_info = prev_rxn_info
-
-        console.print(f"✓ Loaded {len(prev_rxn_info)} previous reactions", style="green")
+        try:
+            assert len(prev_rxn_info) > 0
+        except:
+            self.opt_console.print("No previous data was loaded. Check input information.", style="red")
+            raise ValueError("Cannot input previous data.")
+        self.opt_console.print(f"✓ Loaded {len(prev_rxn_info)} previous reactions", style="green")
 
     def run(
         self, batch_size: int = 5, desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax", expand_rxn_space: bool = False
@@ -178,13 +182,13 @@ class ReactionOptimizer:
                 self.opt_type = "init"
 
         if expand_rxn_space:
-            console.print("Reaction space expansion not yet implemented", style="yellow bold")
+            self.opt_console.print("Reaction space expansion not yet implemented", style="yellow bold")
 
-        console.print(Rule(title="🚀 Running Calculation", style="bold"))
+        self.opt_console.print(Rule(title="🚀 Running Calculation", style="bold"))
 
-        console.print(
+        self.opt_console.print(
             "Running settings:\n"
-            f"· Optimization type: [bold]{self.opt_type.upper()}[/bold]\n"
+            f"· Optimization type: [bold]{get_opt_type(self.opt_type)}[/bold]\n"
             f"· Batch size: [bold]{batch_size}[/bold]\n"
             f"· Normalization: [bold]{desc_normalize}[/bold]\n"
         )
@@ -221,7 +225,7 @@ class ReactionOptimizer:
         # All initial points are exploration
         self.recommend_type = ["explore"] * batch_size
 
-        console.print(
+        self.opt_console.print(
             f"✓ Selected [bold]{batch_size}[/bold] initial conditions using [bold]{sampling_method}[/bold] sampling", style="green"
         )
 
@@ -246,7 +250,11 @@ class ReactionOptimizer:
             max_batch_size: Maximum batch size for acquisition optimization
             gpu_id: GPU device ID to use
         """
-
+        try:
+            assert hasattr(self, "load_prev_rxn")
+        except:
+            self.opt_console.print("Must load previous reaction information before optimization.", style="red")
+            raise Exception("No previous reaction information was loaded.")
         check_desc_completeness(self.desc_dict, self.condition_dict)
         self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
@@ -274,7 +282,7 @@ class ReactionOptimizer:
         exploit_count = sum(1 for t in self.recommend_type if t == "exploit")
         explore_count = sum(1 for t in self.recommend_type if t == "explore")
 
-        console.print(
+        self.opt_console.print(
             Panel(
                 f"[green]Optimization Complete![/green]\n"
                 f"Recommended: {batch_size} conditions\n"
@@ -312,7 +320,7 @@ class ReactionOptimizer:
 
         # Create directory if it doesn't exist
         if not save_path.parent.exists():
-            console.print(f"Creating directory: {save_path.parent}", style="yellow")
+            self.opt_console.print(f"Creating directory: {save_path.parent}", style="yellow")
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prepare output DataFrame
@@ -329,7 +337,7 @@ class ReactionOptimizer:
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=console,
+            console=self.opt_console,
         ) as progress:
             task = progress.add_task("Saving recommendations...", total=None)
 
@@ -349,4 +357,4 @@ class ReactionOptimizer:
             else:
                 raise ValueError(f"Unknown filetype: {filetype}")
 
-        console.print(f"✓ Saved recommendations to: {save_path.with_suffix('.' + filetype)}", style="green")
+        self.opt_console.print(f"✓ Saved recommendations to: [cyan]{save_path.with_suffix('.' + filetype)}[/cyan]", style="green")

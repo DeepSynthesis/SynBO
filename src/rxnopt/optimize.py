@@ -171,7 +171,7 @@ class Optimizer:
         explore_scores = 1 - exploit_scores
         # 输出每个推荐点的探索-利用倾向
         for i in range(self.acq_result.shape[0]):
-            print(
+            self.opt_console.log(
                 f"Point {i}: "
                 f"EHVI = {ehvi_values[i]:.3f}, "
                 f"HVI = {hvi_values[i]:.3f}, "

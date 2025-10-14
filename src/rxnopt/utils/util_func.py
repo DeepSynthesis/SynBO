@@ -234,3 +234,10 @@ def compute_hvi(new_point, pareto_front, ref_point):
     new_hv = hv.compute(extended_front)
 
     return new_hv - original_hv
+
+
+def get_opt_type(opt: str) -> str:
+    if opt == 'opt':
+        return 'Optimization'
+    elif opt == 'init':
+        return "Initialization"

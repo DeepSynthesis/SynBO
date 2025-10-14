@@ -12,4 +12,4 @@ c1ccncc1,pyridine,True
 CC(=O)O,acetic acid,True
 C1CCC2=NCCCN2CC1,DBU,True
 O=C(O)c1ccccc1,benzoic acid,True
-None,None,True
+blanck_cell,blanck_cell,True

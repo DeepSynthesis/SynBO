@@ -61,7 +61,6 @@ def optimize_acqf_discrete(
         candidate_list, acq_value_list = [], []
         for q_i in range(q):
             progress.log(f"Chooseing candidate {q_i+1} of {q}", style="yellow")
-            progress.update(task, advance=1)
             with torch.no_grad():
                 with gpytorch.settings.cholesky_jitter(1e-3):
                     acq_values = _split_batch_eval_acqf(
@@ -77,6 +76,7 @@ def optimize_acqf_discrete(
             candidates = torch.cat(candidate_list, dim=-2)
             torch.cuda.empty_cache()  # 清空缓存（可选）
             acq_function.set_X_pending(candidates)
+            progress.update(task, advance=1)
 
         # Reset acq_func to previous X_pending state
         # TODO: Deal with unique... need to remove choice from choice set if enforcing uniqueness

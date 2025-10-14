@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import pandas as pd
+import torch
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.console import Console
 from rich.panel import Panel
@@ -250,6 +251,7 @@ class ReactionOptimizer:
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
 
+        device = torch.device(f"cuda:{gpu_id}") if torch.cuda.is_available() else torch.device("cpu")
         optimizer = Optimizer(
             name_data=self.total_name_arr,
             method=optimized_method,
@@ -261,9 +263,9 @@ class ReactionOptimizer:
             training_X=done_arr_desc,
             training_y=done_arr_metrics,
             candidate_X=self.total_desc_arr,
+            device=device,
             batch_size=batch_size,
             opt_weights=opt_weights,
-            gpu_id=gpu_id,
         )
 
         # Display optimization summary
@@ -275,7 +277,7 @@ class ReactionOptimizer:
                 f"[green]Optimization Complete![/green]\n"
                 f"Recommended: {batch_size} conditions\n"
                 f"Exploit: {exploit_count} | Explore: {explore_count}\n"
-                f"Method: {optimized_method} | GPU: {gpu_id}",
+                f"Method: {optimized_method} | Device: {device}",
                 title="🎯 Results Summary",
             )
         )

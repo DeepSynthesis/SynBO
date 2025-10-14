@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
+import numpy as np
 import pandas as pd
 import torch
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -77,7 +78,8 @@ class ReactionOptimizer:
             condition_dict: Dictionary of condition types and their possible values
         """
         # Sort conditions for reproducibility
-        condition_dict = {k: sorted(v) for k, v in sorted(condition_dict.items(), key=lambda x: x[0])}
+        for k, v in condition_dict.items():
+            condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
         self.condition_types = list(condition_dict.keys())
         self.condition_dict = condition_dict
 

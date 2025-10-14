@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 console = Console()
@@ -37,7 +37,7 @@ def track_called(func):
     return wrapper
 
 
-def cartesian_product_3d(arr: List[List[Any]], data_type: type) -> np.ndarray:
+def cartesian_product_3d(arr: List[List[Any]], data_type: type, info: str = "") -> np.ndarray:
     """Create cartesian product of 3D array with rich progress bar.
 
     Args:
@@ -59,19 +59,18 @@ def cartesian_product_3d(arr: List[List[Any]], data_type: type) -> np.ndarray:
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
+        BarColumn(bar_width=None),
+        TimeRemainingColumn(),
         TaskProgressColumn(),
         console=console,
-        transient=True,
     ) as progress:
-        task = progress.add_task("Computing cartesian product...", total=num_rows)
+        task = progress.add_task(f"Computing cartesian product of {info}...", total=num_rows)
 
         if data_type == object:
             for row_idx, indices in enumerate(cartesian_indices):
                 for i, j in enumerate(indices):
                     result[row_idx, i] = arr[i][j]
-                if row_idx % 1000 == 0:  # Update progress every 1000 iterations
-                    progress.update(task, completed=row_idx)
+                progress.update(task, advance=1)
         else:
             for row_idx, indices in enumerate(cartesian_indices):
                 col_idx = 0
@@ -79,8 +78,7 @@ def cartesian_product_3d(arr: List[List[Any]], data_type: type) -> np.ndarray:
                     inner_arr = arr[i][j]
                     result[row_idx, col_idx : col_idx + len(inner_arr)] = inner_arr
                     col_idx += len(inner_arr)
-                if row_idx % 1000 == 0:
-                    progress.update(task, completed=row_idx)
+                progress.update(task, advance=1)
 
         progress.update(task, completed=num_rows)
 
@@ -113,8 +111,8 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
             case _:
                 raise ValueError(f"Unknown normalization method: {desc_normalize}")
     except ValueError as e:
-        console.print(f"Normalization error: {str(e)}", style='red')
-        console.print("Returning zero array as fallback", style='yellow')
+        console.print(f"Normalization error: {str(e)}", style="red")
+        console.print("Returning zero array as fallback", style="yellow")
         return np.zeros_like(total_desc_arr)
 
 
@@ -139,8 +137,8 @@ def array_process(
     # for condition_type, desc_arr in zip(condition_types, desc_arrs):
     #     console.print(f"[cyan]{condition_type}[/cyan]: {len(desc_arr)} conditions")
 
-    total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float)
-    total_name_arr = cartesian_product_3d(name_arrs, data_type=object)
+    total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float, info="descriptors")
+    total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
 
     console.print(f"Generated [bold]{len(total_desc_arr):,}[/bold] total combinations", style="green")
 

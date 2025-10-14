@@ -4,7 +4,6 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, Alignment
 from openpyxl.drawing.image import Image
 from openpyxl.worksheet.table import Table, TableStyleInfo
-from loguru import logger
 
 
 class ExcelWriter:

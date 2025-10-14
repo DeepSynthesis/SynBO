@@ -16,7 +16,7 @@ from .initialize import Initializer
 from .optimize import Optimizer
 
 # Utilities
-from .utils.utils import (
+from .utils.util_func import (
     array_process,
     cartesian_product_3d,
     done_array_process,

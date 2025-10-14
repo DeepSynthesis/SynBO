@@ -1,11 +1,11 @@
-from loguru import logger
+import gpytorch
 import torch
 from torch import Tensor
 from botorch.acquisition.acquisition import (
     AcquisitionFunction,
     OneShotAcquisitionFunction,
 )
-from tqdm import tqdm
+from rich.console import Console
 
 
 def optimize_acqf_discrete(
@@ -15,8 +15,8 @@ def optimize_acqf_discrete(
     max_batch_size: int = 128,
     unique: bool = True,
     maximum_metrics: bool = True,
-    # X_avoid: Tensor | None = None,
-    # inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    progress: object = None,
+    task: object = None,
 ) -> tuple[Tensor, Tensor]:
     r"""Optimize over a discrete set of points using batch evaluation.
 
@@ -47,25 +47,29 @@ def optimize_acqf_discrete(
         - a `q x d`-dim tensor of generated candidates.
         - an associated acquisition value.
     """
+    acf_console = Console()
     len_choices = len(choices)
     if len_choices < q and unique:
-        logger.warning(
-            (f"Requested {q=} candidates from fully discrete search " f"space, but only {len_choices} possible choices remain. "),
+        acf_console.print(
+            f"Requested {q=} candidates from fully discrete search space, but only {len_choices} possible choices remain. ",
+            style="yellow",
         )
         q = len_choices
     choices_batched = choices.unsqueeze(-2)
+
     if q > 1:
         candidate_list, acq_value_list = [], []
-
         for q_i in range(q):
-            logger.info(f"Choosing candidate {q_i+1} of {q}...")
+            progress.log(f"Chooseing candidate {q_i+1} of {q}", style="yellow")
+            progress.update(task, advance=1)
             with torch.no_grad():
-                acq_values = _split_batch_eval_acqf(
-                    acq_function=acq_function,
-                    X=choices_batched,
-                    max_batch_size=max_batch_size,
-                    maximum_metrics=maximum_metrics,
-                )
+                with gpytorch.settings.cholesky_jitter(1e-3):
+                    acq_values = _split_batch_eval_acqf(
+                        acq_function=acq_function,
+                        X=choices_batched,
+                        max_batch_size=max_batch_size,
+                        maximum_metrics=maximum_metrics,
+                    )
             best_idx = torch.argmax(acq_values)
             candidate_list.append(choices_batched[best_idx])
             acq_value_list.append(acq_values[best_idx])
@@ -90,7 +94,7 @@ def optimize_acqf_discrete(
 def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_batch_size: int, maximum_metrics: bool) -> Tensor:
 
     acq_values_list = []
-    for X_batches in tqdm(X.split(max_batch_size)):
+    for X_batches in X.split(max_batch_size):
         with torch.no_grad():
             acq_values = acq_function(X_batches)
             acq_values_list.append(acq_values)
@@ -100,30 +104,3 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
         return acq_values
     else:
         return -acq_values
-
-    # if torch.cuda.device_count() > 1:
-    #     # 将X均匀分配到各GPU
-    #     X_split = X.chunk(torch.cuda.device_count(), dim=0)
-    #     acq_values = []
-    #     for i, x in enumerate(X_split):
-    #         with torch.cuda.device(i):
-    #             X_batches = x.split(max_batch_size)  # 提前拆分
-    #             acq_values = torch.cat([acq_function(X_batch) for X_batch in tqdm(X_batches)])
-    # else:
-    #     acq_values = acq_function(X)
-
-    # from concurrent.futures import ThreadPoolExecutor
-
-    # def eval_acq_on_gpu(gpu_id, x):
-    #     # 确保输入数据在正确的GPU上
-    #     x = x.to(f"cuda:{gpu_id}")
-    #     with torch.cuda.device(gpu_id):
-    #         return acq_function(x).to("cpu")
-    #         # return torch.cat([acq_function(batch) for batch in x.split(max_batch_size)])
-
-    # with ThreadPoolExecutor(max_workers=torch.cuda.device_count()) as executor:
-    #     for X_batch in tqdm(X.split(4096)):
-    #         results = list(
-    #             executor.map(eval_acq_on_gpu, range(1, torch.cuda.device_count()), X_batch.chunk(torch.cuda.device_count(), dim=0))
-    #         )
-    # acq_values = torch.cat(results)

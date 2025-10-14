@@ -43,7 +43,6 @@ class GPSurrogateModel(BaseSurrogateModel):
         # Move input data to the correct device
         train_x = train_x.to(self.device)
         train_y = train_y.to(self.device)
-
         self.model = SingleTaskGP(
             train_X=train_x,
             train_Y=train_y,
@@ -136,7 +135,7 @@ class ParetoFrontCalculator:
     """Class for calculating Pareto fronts"""
 
     @staticmethod
-    def calculate_target_function(points: np.ndarray) -> np.ndarray:
+    def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
         """
         Calculate Pareto front for points in arbitrary dimensions
 
@@ -154,6 +153,7 @@ class ParetoFrontCalculator:
         pareto_front = [points[0]]  # Initialize list of Pareto optimal points
 
         for point in points[1:]:
+            progress.update(task, advance=1)
             is_pareto = True
             to_remove = []
 

@@ -1,17 +1,25 @@
 from typing import List
-from loguru import logger
 import numpy as np
 import torch
+from rich.console import Console
+from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, TimeRemainingColumn
+
 
 from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
-from botorch.sampling.normal import SobolQMCNormalSampler
 
-from .utils.utils import compute_hvi
+from .utils.util_func import compute_hvi
 
 from .bo_algorithm.GP_opt import GPSurrogateModel, EHVIAcquisitionFunction, ParetoFrontCalculator
 from .bo_algorithm.acf_opt import optimize_acqf_discrete
+
+# 在文件顶部导入警告模块和具体警告类
+import warnings
+from linear_operator.utils.cholesky import NumericalWarning
+
+# 静音该警告（全局生效，或按需用上下文管理器）
+warnings.filterwarnings("ignore", category=NumericalWarning)
 
 
 class Optimizer:
@@ -32,6 +40,8 @@ class Optimizer:
         self.acquisition_function_class = EHVIAcquisitionFunction
         self.target_evaluator = ParetoFrontCalculator()
         self.max_batch_size = max_batch_size
+
+        self.console = Console()
 
     def optimize(
         self,
@@ -60,52 +70,91 @@ class Optimizer:
         training_y_dict = training_y.copy()
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
-
         training_X_t = torch.tensor(training_X).double()
         training_y_t = torch.tensor(training_y).double()
         candidate_X_t = torch.tensor(candidate_X).double()
-
         device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         dtype = torch.double
-
         training_X_t = training_X_t.to(device=device, dtype=dtype)
         training_y_t = training_y_t.to(device=device, dtype=dtype)
         candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
-
         models = []
-        for i in range(training_y_t.shape[1]):
-            train_y_i = training_y_t[:, i].reshape(-1, 1)
-            logger.info(f"Fitting previous data points for {list(training_y_dict.keys())[i]}...")
-            model_i = self.surrogate_model_class(device=device, num_dims=training_X.shape[1])
-            model_i.fit(training_X_t, train_y_i)
-            models.append(model_i.model)
-        # 多输出模型
-        self.global_model = ModelListGP(*models)
-        logger.info("Calculating Pareto frontiers...")
-        self.pareto_y = self.target_evaluator.calculate_target_function(training_y).to(device=device)
-        self.ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)  # 保持与模型一致的数据类型
+        # ==============================================
+        # 核心：用 Progress 封装所有耗时步骤
+        # ==============================================
+        # 自定义进度条样式：描述 + 进度条 + 已完成/总数 + 剩余时间
+        with Progress(
+            TextColumn("[bold cyan]{task.description}"),  # 任务描述（青色加粗）
+            BarColumn(bar_width=None),  # 进度条（自动适应终端宽度）
+            MofNCompleteColumn(),  # 已完成/总数（如 3/5）
+            TimeRemainingColumn(),  # 剩余时间
+            console=self.console,  # 复用原有的 Console 实例（保持样式一致）
+        ) as progress:
+            # ------------------------------
+            # 任务1：训练每个输出维度的 Surrogate Model
+            # ------------------------------
+            num_models = training_y_t.shape[1]
+            task_train = progress.add_task(
+                description="Training surrogate models", total=num_models, start=True  # 任务描述  # 总步数（输出维度数量）  # 立即启动任务
+            )
+            for i in range(num_models):
+                # 用 log 输出详细信息（不覆盖进度条）
+                key = list(training_y_dict.keys())[i]
+                progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
+                # 原训练逻辑（不变）
+                train_y_i = training_y_t[:, i].reshape(-1, 1)
+                model_i = self.surrogate_model_class(device=device, num_dims=training_X.shape[1])
+                model_i.fit(training_X_t, train_y_i)
+                models.append(model_i.model)
+                # 完成一个模型，进度+1
+                progress.update(task_train, advance=1)
+            # ------------------------------
+            # 任务2：创建多输出模型（单步任务）
+            # ------------------------------
+            self.global_model = ModelListGP(*models)
+            # ------------------------------
+            # 任务3：计算 Pareto 前沿
+            # ------------------------------
+            task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
+            self.pareto_y = self.target_evaluator.calculate_target_function(training_y, progress, task_pareto).to(device=device)
+            self.ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)
 
-        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.seed)  # 采样器直接生成GPU张量
-        partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)  # 确保输入数据在GPU上
-        acq_func = self.acquisition_function_class(
-            model=self.global_model, sampler=sampler, ref_point=self.ref_point, partitioning=partitioning, maximum_metrics=maximum_metrics
-        )
+            # ------------------------------
+            # 任务4：初始化采样器与 Acquisition Function
+            # ------------------------------
+            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.seed)
+            partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+            acq_func = self.acquisition_function_class(
+                model=self.global_model,
+                sampler=sampler,
+                ref_point=self.ref_point,
+                partitioning=partitioning,
+                maximum_metrics=maximum_metrics,
+            )
 
-        logger.info("Optimizing acquisition function...")
-        self.acq_result, self.acq_value = optimize_acqf_discrete(
-            acq_function=acq_func.ehvi, choices=candidate_X_t, q=batch_size, max_batch_size=self.max_batch_size, unique=True
-        )
+            task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
+            self.acq_result, self.acq_value = optimize_acqf_discrete(
+                acq_function=acq_func.ehvi,
+                choices=candidate_X_t,
+                q=batch_size,
+                max_batch_size=self.max_batch_size,
+                unique=True,
+                progress=progress,
+                task=task_acq_opt,
+            )
+
         if device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]
         else:
             best_samples = [res.numpy() for res in self.acq_result]
-
+        # 推荐类型判断
         recommend_type = self._get_expoit_or_explore(self.acq_value)
-        # Find closest candidate points to optimal samples
+        # 查找最优样本对应的候选点
         selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
         selected_indices = np.array(selected_indices).squeeze()
         selected_conditions = self.name_data[selected_indices].squeeze()
-        logger.info("Finish optimizerization")
+        # 最终日志（用原 console 或 progress 的 console）
+        self.console.print("✅ Finish optimization", style="green")
         return selected_conditions, recommend_type
 
     def _get_expoit_or_explore(self, acq_value):

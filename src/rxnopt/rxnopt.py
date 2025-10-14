@@ -18,7 +18,7 @@ from rich.table import Table
 from rich.rule import Rule
 
 from .optimize import Optimizer
-from .utils.utils import (
+from .utils.util_func import (
     check_desc_completeness,
     done_array_process,
     generate_onehot_desc,
@@ -243,45 +243,28 @@ class ReactionOptimizer:
             max_batch_size: Maximum batch size for acquisition optimization
             gpu_id: GPU device ID to use
         """
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Optimizing...", total=None)
 
-            progress.update(task, description="Checking descriptor completeness...")
-            check_desc_completeness(self.desc_dict, self.condition_dict)
+        check_desc_completeness(self.desc_dict, self.condition_dict)
+        self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
+        self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
+        done_arr_desc = self.total_desc_arr[self.done_arr_index]
+        done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
 
-            progress.update(task, description="Processing arrays...")
-            self.total_name_arr, self.total_desc_arr = array_process(
-                self.desc_dict, self.condition_dict, self.condition_types, desc_normalize
-            )
+        optimizer = Optimizer(
+            name_data=self.total_name_arr,
+            method=optimized_method,
+            mc_num_samples=mc_num_samples,
+            max_batch_size=max_batch_size,
+        )
 
-            progress.update(task, description="Processing historical data...")
-            self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
-            done_arr_desc = self.total_desc_arr[self.done_arr_index]
-            done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
-
-            progress.update(task, description="Running Bayesian optimization...")
-            optimizer = Optimizer(
-                name_data=self.total_name_arr,
-                method=optimized_method,
-                mc_num_samples=mc_num_samples,
-                max_batch_size=max_batch_size,
-            )
-
-            self.selected_conditions, self.recommend_type = optimizer.optimize(
-                training_X=done_arr_desc,
-                training_y=done_arr_metrics,
-                candidate_X=self.total_desc_arr,
-                batch_size=batch_size,
-                opt_weights=opt_weights,
-                gpu_id=gpu_id,
-            )
-
-            progress.update(task, description="Optimization complete!")
+        self.selected_conditions, self.recommend_type = optimizer.optimize(
+            training_X=done_arr_desc,
+            training_y=done_arr_metrics,
+            candidate_X=self.total_desc_arr,
+            batch_size=batch_size,
+            opt_weights=opt_weights,
+            gpu_id=gpu_id,
+        )
 
         # Display optimization summary
         exploit_count = sum(1 for t in self.recommend_type if t == "exploit")
@@ -325,7 +308,7 @@ class ReactionOptimizer:
 
         # Create directory if it doesn't exist
         if not save_path.parent.exists():
-            console.print(f"Creating directory: {save_path.parent}", style='yellow')
+            console.print(f"Creating directory: {save_path.parent}", style="yellow")
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prepare output DataFrame

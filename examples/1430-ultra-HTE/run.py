@@ -22,7 +22,7 @@ if __name__ == "__main__":
     prev_rxn["ee"] = prev_rxn["ee"].abs()
 
     condition_dict = {c: df[c].drop_duplicates().tolist() for c in condition_types}
-    reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics, opt_type='init')
+    reaction_optimizer = ReactionOptimizer(opt_metrics=opt_metrics, opt_type='opt')
     reaction_optimizer.load_rxn_space(condition_dict=condition_dict)
     reaction_optimizer.load_desc()
     reaction_optimizer.load_prev_rxn(prev_rxn, drop_rxn=True)

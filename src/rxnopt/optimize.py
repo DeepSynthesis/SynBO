@@ -41,7 +41,7 @@ class Optimizer:
         self.target_evaluator = ParetoFrontCalculator()
         self.max_batch_size = max_batch_size
 
-        self.console = Console()
+        self.opt_console = Console()
 
     def optimize(
         self,
@@ -87,7 +87,7 @@ class Optimizer:
             BarColumn(bar_width=None),  # 进度条（自动适应终端宽度）
             MofNCompleteColumn(),  # 已完成/总数（如 3/5）
             TimeRemainingColumn(),  # 剩余时间
-            console=self.console,  # 复用原有的 Console 实例（保持样式一致）
+            console=self.opt_console,  # 复用原有的 Console 实例（保持样式一致）
         ) as progress:
             # ------------------------------
             # 任务1：训练每个输出维度的 Surrogate Model
@@ -153,7 +153,7 @@ class Optimizer:
         selected_indices = np.array(selected_indices).squeeze()
         selected_conditions = self.name_data[selected_indices].squeeze()
         # 最终日志（用原 console 或 progress 的 console）
-        self.console.print("✅ Finish optimization", style="green")
+        self.opt_console.print("✅ Finish optimization", style="green")
         return selected_conditions, recommend_type
 
     def _get_expoit_or_explore(self, acq_value):

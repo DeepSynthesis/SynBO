@@ -173,10 +173,11 @@ def done_array_process(prev_rxn_info: pd.DataFrame, total_name_arr: np.ndarray, 
     with Progress(
         SpinnerColumn(),
         TextColumn("Matching completed reactions..."),
-        BarColumn(),
+        BarColumn(bar_width=None),
+        TimeRemainingColumn(),
         TaskProgressColumn(),
         console=console,
-        transient=True,
+        transient=False,
     ) as progress:
         task = progress.add_task("matching", total=len(prev_rxn_list))
 
@@ -237,7 +238,7 @@ def compute_hvi(new_point, pareto_front, ref_point):
 
 
 def get_opt_type(opt: str) -> str:
-    if opt == 'opt':
-        return 'Optimization'
-    elif opt == 'init':
+    if opt == "opt":
+        return "Optimization"
+    elif opt == "init":
         return "Initialization"

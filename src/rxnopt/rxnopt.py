@@ -155,6 +155,10 @@ class ReactionOptimizer:
         # Convert metrics to float
         for opt_metric in self.opt_metrics:
             prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
+            try:
+                assert any(np.isnan(prev_rxn_info[opt_metric])) == False
+            except:
+                raise ValueError("Some of target properties do not have any value. Check your input previous data.")
 
         self.prev_rxn_info = prev_rxn_info
         try:
@@ -251,7 +255,7 @@ class ReactionOptimizer:
             gpu_id: GPU device ID to use
         """
         try:
-            assert hasattr(self, "load_prev_rxn")
+            assert getattr(self, "_load_prev_rxn_called", False) == True
         except:
             self.opt_console.print("Must load previous reaction information before optimization.", style="red")
             raise Exception("No previous reaction information was loaded.")

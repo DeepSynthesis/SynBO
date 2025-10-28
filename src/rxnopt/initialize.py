@@ -3,9 +3,7 @@
 Modern initialization strategies with rich progress indicators.
 """
 
-from __future__ import annotations
-
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 import numpy as np
 from rich.console import Console

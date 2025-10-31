@@ -140,7 +140,8 @@ class ReactionOptimizer:
 
         # Check for missing species in each condition type
         for condition_type in self.condition_types:
-
+            if condition_type == 'additive':
+                from IPython import embed; embed()
             missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])
 
             if missing_species:
@@ -150,6 +151,7 @@ class ReactionOptimizer:
                     )
                     prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
                 else:
+                    print(drop_rxn)
                     raise ValueError(f"{missing_species} not in {condition_type} condition space")
 
         # Convert metrics to float

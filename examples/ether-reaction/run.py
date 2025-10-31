@@ -2,11 +2,16 @@ import pandas as pd
 from pathlib import Path
 from rxnopt import ReactionOptimizer
 
+file_dir = Path(__file__).parent
+
 
 # generate descriptors
 # optional: using quanda to generate QM descriptors
-def generate_qm_desc():
-    pass
+def generate_qm_desc(condition_type):
+    from rxnopt.descriptor import calc_qm_desc_from_file
+
+    rxn_species_dir = file_dir / Path(f"rxn_space/{condition_type}.csv")
+    calc_qm_desc_from_file(rxn_species_dir, "desc/{condition_type}_desc.csv", "SMILES")
 
 
 # optional: using RDKitDescriptors or Fingerprints
@@ -16,6 +21,10 @@ def generate_rdkit_desc():
 
 condition_types = ["additive", "amine_cat", "metal_cat", "oxidant", "solvent"]
 opt_metrics = ["yield", "ee"]
+# Optional:
+for c in condition_types:
+    generate_qm_desc(c)
+
 # # load previous data
 prev_rxn_list = [pd.read_csv(f) for f in Path(__file__).parent.glob("results/batch-*.csv")]
 prev_rxn = pd.concat(prev_rxn_list, ignore_index=True)

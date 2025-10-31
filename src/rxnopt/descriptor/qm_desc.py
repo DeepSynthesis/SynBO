@@ -4,6 +4,7 @@ from rich.console import Console
 
 console = Console()
 
+
 def calc_qm_desc(
     smiles_list: List[str],
     save_path: str,
@@ -36,7 +37,7 @@ def calc_qm_desc_from_file(
     mmdesc = MultiMolDesc(ignore_IF=ignore_IF)
     mmdesc.load_data_from_file(file_path, smiles_tag, tag_tag, atomlists_tag, bondlists_tag, stlists_tag, prop_tag)
     mmdesc.compute_all_descriptors()
-    mmdesc.save_results(savepath)
+    mmdesc.save_results(save_path)
     failed_mols = mmdesc.get_failed_molecules()
     if failed_mols:
         console.print(f"Error: some molecules failed to be calculated:" f"{failed_mols}", style="red")

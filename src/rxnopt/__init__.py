@@ -12,7 +12,7 @@ __email__ = "contact@rxnopt.ai"
 
 # Core classes
 from .rxnopt import ReactionOptimizer
-from .initialize import Initializer  
+from .initialize import Initializer
 from .optimize import Optimizer
 
 # Utilities
@@ -27,12 +27,7 @@ from .utils.util_func import (
 
 __all__ = [
     "ReactionOptimizer",
-    "Initializer", 
+    "Initializer",
     "Optimizer",
-    "array_process",
-    "cartesian_product_3d", 
-    "done_array_process",
-    "generate_onehot_desc",
-    "normalize_data",
-    "track_called",
+    "QMDescCalculator",
 ]

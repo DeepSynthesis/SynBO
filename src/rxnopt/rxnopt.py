@@ -78,8 +78,19 @@ class ReactionOptimizer:
             condition_dict: Dictionary of condition types and their possible values
         """
         # Sort conditions for reproducibility
-        for k, v in condition_dict.items():
-            condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
+        try:
+            for k, v in condition_dict.items():
+                if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) == str):
+                    condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
+                elif isinstance(v, pd.DataFrame):
+                    assert k in v.columns, f"Condition type `{k}` not found in DataFrame!"
+                    condition_dict[k] = sorted(v[k].fillna("None").tolist())
+                else:
+                    raise TypeError(f"the type of {k} is {type(v)}, which is not supported")
+        except Exception as e:
+            self.opt_console.print(f"Error: {e}", style="bold red")
+            raise Exception(e)
+
         self.condition_types = list(condition_dict.keys())
         self.condition_dict = condition_dict
 
@@ -140,8 +151,6 @@ class ReactionOptimizer:
 
         # Check for missing species in each condition type
         for condition_type in self.condition_types:
-            if condition_type == 'additive':
-                from IPython import embed; embed()
             missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])
 
             if missing_species:
@@ -151,7 +160,6 @@ class ReactionOptimizer:
                     )
                     prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
                 else:
-                    print(drop_rxn)
                     raise ValueError(f"{missing_species} not in {condition_type} condition space")
 
         # Convert metrics to float
@@ -161,6 +169,9 @@ class ReactionOptimizer:
                 assert any(np.isnan(prev_rxn_info[opt_metric])) == False
             except:
                 raise ValueError("Some of target properties do not have any value. Check your input previous data.")
+
+        # drop non metric columns
+        prev_rxn_info = prev_rxn_info[prev_rxn_info[opt_metric].notna()]
 
         self.prev_rxn_info = prev_rxn_info
         try:

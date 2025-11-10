@@ -212,6 +212,7 @@ def check_desc_completeness(desc_dict, condition_dict):
     for k, v in desc_dict.items():
         for name in condition_dict[k]:
             if not name in v.index:
+                print(f"the 5th example of v.index is {v.index[:5]}")
                 raise ValueError(f"Missing values in {k} description: {name}")
 
 

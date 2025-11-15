@@ -58,3 +58,7 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
             df.set_index(idx_col, inplace=True)
         condition_dict[r_type] = df.index.tolist()
     return condition_dict
+
+
+def load_prev_rxn(file_pattern: str = "results/batch-*.csv") -> pd.DataFrame:
+    return [pd.read_csv(f) for f in Path().parent.glob(file_pattern)]

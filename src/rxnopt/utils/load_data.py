@@ -1,37 +1,35 @@
 from pathlib import Path
 import pandas as pd
-from rich.console import Console
-
-console = Console()
 
 
 def load_desc_from_file(desc_file: str, index_col: str = None) -> pd.DataFrame:
     desc_file = Path(desc_file)
-    if not desc_file.exists():
-        console.print(f"Descriptor file {desc_file} does not exist!", style="bold red")
-        raise Exception(f"Descriptor file {desc_file} does not exist!")
-
-    if desc_file.suffix() == ".csv":
-        df = pd.read_csv(desc_file, index_col=index_col)
-    elif desc_file.suffix() in [".xlsx", ".xls"]:
-        df = pd.read_excel(desc_file, index_col=index_col)
-    else:
-        console.print(f"Unsupported descriptor file format: {desc_file.suffix}", style="bold red")
-        raise Exception(f"Unsupported descriptor file format: {desc_file.suffix}")
+    assert desc_file.exists(), f"Descriptor file {desc_file} does not exist!"
+    try:
+        if desc_file.suffix() == ".csv":
+            df = pd.read_csv(desc_file, index_col=index_col)
+        elif desc_file.suffix() in [".xlsx", ".xls"]:
+            df = pd.read_excel(desc_file, index_col=index_col)
+        else:
+            raise Exception(f"Unsupported descriptor file format: {desc_file.suffix}")
+    except Exception as e:
+        raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{index_col}' exists in the file.")
 
     return df
 
 
-def load_desc_dict(reagent_types: list, desc_dir: str, index_col: str = None, return_rxn_space: bool = False) -> dict:
+def _convert_index_col(index_col, length):
     if index_col is None:
-        index_col = [None] * len(reagent_types)
+        index_col = [None] * length
     elif type(index_col) is str:
-        index_col = [index_col] * len(reagent_types)
+        index_col = [index_col] * length
     else:
-        assert type(index_col) is list and len(index_col) == len(
-            reagent_types
-        ), "index_col should be a string or a list with the same length as reagent_types."
+        assert type(index_col) is list and length, "index_col should be a string or a list with the same length as reagent_types."
+    return index_col
 
+
+def load_desc_dict(reagent_types: list, desc_dir: str, index_col: str = None, return_condition_dict: bool = False) -> dict:
+    index_col = _convert_index_col(index_col, len(reagent_types))
     desc_dict = {}
     desc_dir = Path(desc_dir)
     for r_type in reagent_types:
@@ -39,9 +37,24 @@ def load_desc_dict(reagent_types: list, desc_dir: str, index_col: str = None, re
         assert desc_file.exists(), f"Descriptor file for {r_type} does not exist in {desc_dir}."
         df = load_desc_from_file(desc_file, index_col=index_col)
         desc_dict[r_type] = df
-    
-    if return_rxn_space:
-        rxn_space_dict = {}
-        
-    
-    return desc_dict
+
+    if return_condition_dict:
+        condition_dict = {k: v.index.tolist() for k, v in desc_dict.items()}
+        return desc_dict, condition_dict
+    else:
+        return desc_dict
+
+
+def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str = None) -> dict:
+    index_col = _convert_index_col(index_col, len(reagent_types))
+    condition_dict = {}
+    rxn_space_dir = Path(rxn_space_dir)
+    for idx_col, r_type in zip(reagent_types, index_col):
+        rxn_space_file = rxn_space_dir / f"{r_type}.csv"
+        assert rxn_space_file.exists(), f"Reaction space file for {r_type} does not exist in {rxn_space_dir}."
+        df = pd.read_csv(rxn_space_file)
+        if index_col is not None:
+            assert idx_col in df.columns, f"Index column {idx_col} not found in {rxn_space_file}."
+            df.set_index(idx_col, inplace=True)
+        condition_dict[r_type] = df.index.tolist()
+    return condition_dict

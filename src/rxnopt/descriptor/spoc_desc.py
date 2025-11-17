@@ -1,11 +1,15 @@
 from pathlib import Path
-from re import S
 import numpy as np
 from typing import Any, List, Literal
 from collections.abc import Sequence
 import pandas as pd
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rdkit import Chem
+from rdkit.Chem import MACCSkeys, AllChem
+from rdkit.Avalon import pyAvalonTools
+from rdkit.Chem.EState import Fingerprinter
+from rdkit.ML.Descriptors import MoleculeDescriptors
 
 
 class SPOCDescriptor:
@@ -20,18 +24,7 @@ class SPOCDescriptor:
         self.desc_names = None
         self.console = Console()
 
-    def one_hot_descriptor(self) -> list[int | bool]:
-        """One Hot Encoding for categorical variables.
-
-        Categorical variables are converted into a list which contains True/False
-        or 1/0 representing the existence or non-existence of a specific category.
-        """
-        self.desc_array = np.eye(len(self.smiles_list), dtype=int)
-
-    def rdkit_descriptor(self):
-        from rdkit import Chem
-        from rdkit.ML.Descriptors import MoleculeDescriptors
-
+    def _smiles_to_mol(self) -> List[Any]:
         mol_list = []
         try:
             mol_list = []
@@ -41,101 +34,71 @@ class SPOCDescriptor:
                 mol_list.append(mol)
 
         except Exception:
-            self.console.print(f"🚨 Cannot convert {smi}.", style="bold red")
+            self.console.print(f"🚨 Cannot convert SMILES: {smi}.", style="bold red")
+            raise Exception(f"Cannot convert SMILES: {smi}.")
+        return mol_list
+
+    def one_hot_descriptor(self) -> list[int | bool]:
+        """One Hot Encoding for categorical variables.
+
+        Categorical variables are converted into a list which contains True/False
+        or 1/0 representing the existence or non-existence of a specific category.
+        """
+        self.desc_array = np.eye(len(self.smiles_list), dtype=int)
+
+    def rdkit_descriptor(self):
+        mol_list = self._smiles_to_mol()
 
         self.desc_names = [desc_name for desc_name, _ in Chem.Descriptors._descList]
         calc = MoleculeDescriptors.MolecularDescriptorCalculator(self.desc_names)
         self.desc_array = np.array([calc.CalcDescriptors(mol) for mol in mol_list])
         self.desc_array = self.desc_array.round(5)
 
-    def rdkit_fingerprint(smi, fp_type="rdkit", radius=2, max_path=2, fp_length=1024, output="bit"):
-        """Molecular fingerprint generation by rdkit package.
+    def rdkit_fp_descriptor(self, radius: int = 2, fp_length: int = 1024):
+        mol_list = self._smiles_to_mol()
+        match self.desc_type:
+            case "RDKitFP":
+                self.desc_array = np.array([Chem.RDKFingerprint(mol=mol, maxPath=radius, fpSize=fp_length) for mol in mol_list])
 
-        Parameters:
-        ------------
-        smi: str
-            SMILES string.
-        fp_type: str
-            • Avalon -- Avalon Fingerprint
-            • AtomPaires -- Atom-Pairs Fingerprint
-            • TopologicalTorsions -- Topological-Torsions Fingerprint
-            • MACCSKeys Fingerprint 167
-            • RDKit -- RDKit Fingerprint
-            • RDKitLinear -- RDKit linear Fingerprint
-            • LayeredFingerprint -- RDKit layered Fingerprint
-            • Morgan -- Morgan-Circular Fingerprint
-        radius: int
-        max_path: int
-        fp_length: int
-        output: str
-            "bit" -- the index of fp exist
-            "vect" -- represeant by 0,1
-            "bool" -- represeant by 1,-1
+            case "RDKitLinear":
+                self.desc_array = np.array(
+                    [Chem.RDKFingerprint(mol=mol, maxPath=radius, branchedPaths=False, fpSize=fp_length) for mol in mol_list]
+                )
 
-        Returns:
-        -------
-        type: list
-            If SMILES is valid, a list will be returned.
-            If SMILES is not valid, a list containing zero or Flase will be returned.
-
-        Source:
-        -------
-        RDKit: https://www.rdkit.org/
-        """
-
-        mol = Chem.MolFromSmiles(smi)
-
-        if mol:
-            if fp_type == "RDKit":
-                fp = Chem.RDKFingerprint(mol=mol, maxPath=max_path, fpSize=fp_length)
-
-            elif fp_type == "RDKitLinear":
-                fp = Chem.RDKFingerprint(mol=mol, maxPath=max_path, branchedPaths=False, fpSize=fp_length)
-
-            elif fp_type == "AtomPaires":
+            case "AtomPaires":
                 generator = Chem.rdFingerprintGenerator.GetAtomPairGenerator(fpSize=fp_length)
-                fp = generator.GetFingerprintAsNumPy(mol)
+                self.desc_array = generator.GetFingerprints(mol_list)
+                self.desc_array = np.array([[x for x in fp] for fp in self.desc_array])
 
-            elif fp_type == "TopologicalTorsions":
+            case "TopologicalTorsions":
                 tt_generator = Chem.rdFingerprintGenerator.GetTopologicalTorsionGenerator(fpSize=fp_length)
-                fp = tt_generator.GetFingerprintAsNumPy(mol)
+                self.desc_array = tt_generator.GetFingerprints(mol_list)
+                self.desc_array = np.array([[x for x in fp] for fp in self.desc_array])
 
-            elif fp_type == "MACCSKeys":
-                fp = MACCSkeys.GenMACCSKeys(mol)
+            case "MACCSKeys":
+                self.desc_array = np.array([MACCSkeys.GenMACCSKeys(mol) for mol in mol_list])
 
-            elif fp_type == "Morgan":
+            case "Morgan":
                 mg_generator = AllChem.GetMorganGenerator(radius=radius, fpSize=fp_length)
-                fp = mg_generator.GetFingerprintAsNumPy(mol)
+                self.desc_array = mg_generator.GetFingerprints(mol_list)
+                self.desc_array = np.array([[x for x in fp] for fp in self.desc_array])
 
-            elif fp_type == "Avalon":
-                fp = pyAvalonTools.GetAvalonFP(mol, nBits=fp_length)
+            case "Avalon":
+                self.desc_array = np.array([pyAvalonTools.GetAvalonFP(mol, nBits=fp_length) for mol in mol_list])
 
-            elif fp_type == "LayeredFingerprint":
-                fp = Chem.LayeredFingerprint(mol, maxPath=max_path, fpSize=fp_length)
+            case "LayeredFingerprint":
+                self.desc_array = np.array([Chem.LayeredFingerprint(mol, maxPath=radius, fpSize=fp_length) for mol in mol_list])
 
-            elif fp_type == "Estate":
-                fp = list(Fingerprinter.FingerprintMol(mol)[0])
+            case "Estate":
+                self.desc_array = np.array([(Fingerprinter.FingerprintMol(mol)[0]) for mol in mol_list])
 
-            elif fp_type == "EstateIndices":
-                fp = list(Fingerprinter.FingerprintMol(mol)[1])
+            case "EstateIndices":
+                self.desc_array = np.array([Fingerprinter.FingerprintMol(mol)[1] for mol in mol_list])
 
-            else:
-                print("Invalid fingerprint type!")
+            case _:
+                raise ValueError(f"Unsupported RDKit fingerprint type: {self.desc_type}")
 
-            # fp = fp2string(fp, output, fp_type)
-            fp = fp2string(fp, output, fp_type)
-
-        else:
-            if fp_type == "MACCSKeys":
-                fp_length = 167
-            if fp_type == "Estate":
-                fp_length = 79
-            if fp_type == "EstateIndices":
-                fp_length = 79
-            fp = ExplicitBitVect(fp_length)
-            fp = fp2string(fp, output="vect")
-
-        return fp
+        self.desc_array = self.desc_array.round(5)
 
     def obabel_fingerprint(smi, fp_type="FP2", nbit=1024, output="vect"):
         """Molecular fingerprint generation by OpebBabel.
@@ -256,6 +219,7 @@ def calc_spoc_desc(
     fp_type: str = "RDKit",
     size: int = 1024,
     radius: int = 2,
+    desc_type_to_filename: bool = True,
 ) -> None:
     """Generate molecular descriptors based on fingerprint type.
 
@@ -266,14 +230,14 @@ def calc_spoc_desc(
         radius: Radius for circular fingerprints
 
     """
-    spoc_desc = SPOCDescriptor(smiles_list)
+    spoc_desc = SPOCDescriptor(smiles_list=smiles_list, desc_type=fp_type, desc_type_to_filename=desc_type_to_filename)
     match fp_type:
         case "OneHot":
             spoc_desc.one_hot_descriptor()
         case "RDKit":
             spoc_desc.rdkit_descriptor()
         case fp if fp in ["ECFP", "ECFP0", "ECFP2", "ECFP4", "ECFP6", "ECFP8", "ECFP10", "FP2", "FP3", "FP4", "MACCS"]:
-            return spoc_desc.ob_fp_calc(smiles_list, fp_type=fp, nbit=size)
+            spoc_desc.ob_fp_calc(smiles_list, fp_type=fp, nbit=size)
         case fp if fp in [
             "Avalon",
             "AtomPaires",
@@ -287,7 +251,7 @@ def calc_spoc_desc(
             "Estate",
             "EstateIndices",
         ]:
-            return spoc_desc.rdkit_fp_calc(smiles_list, fp_type=fp, radius=radius, fp_length=size)
+            spoc_desc.rdkit_fp_descriptor(radius=radius, fp_length=size)
 
         case _:
             raise ValueError(f"Unsupported SPOC descriptor type: {fp_type}")

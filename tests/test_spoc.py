@@ -20,8 +20,7 @@ def test_spoc_desc():
         "Estate",
         "EstateIndices",
     ]:
-        calc_spoc_desc(smiles_list, save_path=save_path, fp_type=fp_type)
-        
+        calc_spoc_desc(smiles_list, save_path=save_path, fp_type=fp_type, desc_type_to_filename=True)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from rdkit.ML.Descriptors import MoleculeDescriptors
 
 
 class SPOCDescriptor:
-    def __init__(self, smiles_list: Sequence[str], desc_type: str = "OneHot", desc_type_to_filename: bool = True) -> None:
+    def __init__(self, smiles_list: Sequence[str], desc_type: str = "OneHot", desc_type_to_filename: bool = False) -> None:
         self.smiles_list = smiles_list
         if isinstance(self.smiles_list, pd.Series):
             self.smiles_list = self.smiles_list.tolist()
@@ -194,6 +194,8 @@ class SPOCDescriptor:
             raise Exception("No data to save. DataFrame is empty.")
 
         save_path = Path(save_path)
+        if self.desc_type_to_filename:
+            save_path = save_path.parent / Path(str(save_path.stem) + "_" + self.desc_type + save_path.suffix)
         assert save_path.parent.exists(), f"The directory {save_path.parent} does not exist."
         try:
             if save_path.suffix.lower() == ".csv":

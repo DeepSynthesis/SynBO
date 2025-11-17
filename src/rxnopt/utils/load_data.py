@@ -41,7 +41,7 @@ def load_desc_dict(
     desc_dir = Path(desc_dir)
     for r_type, idx_col, name_s in zip(reagent_types, index_col, name_suffix):
         desc_file = desc_dir / f"{r_type}_desc.csv"
-        if name_suffix is not None:
+        if name_s is not None:
             desc_file = desc_dir / f"{r_type}{name_s}.csv"
         else:
             desc_file = desc_dir / f"{r_type}_desc.csv"

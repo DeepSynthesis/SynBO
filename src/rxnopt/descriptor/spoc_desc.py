@@ -200,11 +200,11 @@ class SPOCDescriptor:
         try:
             if save_path.suffix.lower() == ".csv":
                 desc_df.to_csv(save_path, index=True)
-                self.console.print(f"✅ Results saved to CSV: {save_path}", style="bold green")
+                self.console.print(f"✅ Results saved to CSV: {save_path}, data shape is {desc_df.shape}", style="bold green")
 
             elif save_path.suffix.lower() in [".xlsx"]:
                 desc_df.to_excel(save_path, index=True)
-                self.console.print(f"✅ Results saved to Excel: {save_path}", style="bold green")
+                self.console.print(f"✅ Results saved to Excel: {save_path}, data shape is {desc_df.shape}", style="bold green")
 
             else:
                 self.console.print(f"🚨 Unsupported format: {save_path.suffix}. Supported formats: csv and xlsx", style="bold red")

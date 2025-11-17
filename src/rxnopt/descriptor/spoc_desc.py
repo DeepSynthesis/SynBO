@@ -100,90 +100,15 @@ class SPOCDescriptor:
 
         self.desc_array = self.desc_array.round(5)
 
-    def obabel_fingerprint(smi, fp_type="FP2", nbit=1024, output="vect"):
-        """Molecular fingerprint generation by OpebBabel.
+    def ob_fp_descriptor(self, fp_length=1024):
+        # Not use now...
+        # import pybel
+        # mol_list = [pybel.readstring("smi", smi) for smi in self.smiles_list]
+        # fp = [mol.calcfp(self.fp_type) for mol in mol_list]
+        # bits = [x for x in fp.bits if x < fp_length]
 
-        Parameters:
-        -----------
-        smi: str
-            SMILES string
-        fp_type: str
-            • ECFP0/2/4/6/8 -- Extended-Connectivity Fingerprints (ECFPs)
-            • FP2 -- linear fragments of length 1 to 7 (with some exceptions) using a hash code generating bits 0≤bit#<1021
-            • FP3 -- SMARTS patterns based on 55 SMARTS patterns specified in the file patterns.txt
-            • FP4 -- SMARTS patterns based on 307 SMARTS patterns specified in the file SMARTS_InteLigand.txt
-            • MACCS -- SMARTS patterns specified in the file MACCS.txt
-        nbit: int
-            The length of obabel_fp
-        output: str
-            "bit" -- the index of fp exist
-            "vect" -- represeant by 0,1
-            "bool" -- represeant by 1,-1
-
-        Returns:
-        -------
-        type: list
-            If SMILES is valid, a list will be returned.
-            If SMILES is not valid, a list containing zero or Flase will be returned.
-
-        resource:
-        ---------
-        https://open-babel.readthedocs.io/en/latest/UseTheLibrary/Python_PybelAPI.html#pybel.fps
-        http://openbabel.org/docs/dev/Features/Fingerprints.html
-        http://openbabel.org/docs/dev/FileFormats/Fingerprint_format.html#fingerprint-format
-        """
-
-        try:
-            import pybel
-
-            mol = pybel.readstring("smi", smi)
-            fp = mol.calcfp(fp_type)
-            bits = list(fp.bits)
-            bits = [x for x in bits if x < nbit]
-
-            if output == "bit":
-                fp = bits
-
-            elif output == "vect":
-                fp = np.zeros(nbit)
-                fp[bits] = 1
-                fp = fp.astype(int)
-
-            elif output == "bool":
-                fp = np.full(nbit, -1)
-                fp[bits] = 1
-                fp = fp.astype(int)
-
-        except:
-            fp = ExplicitBitVect(nbit)
-            fp = fp2string(fp, output="vect")
-
-        finally:
-            return list(fp)
-
-    def fp2string(fp, output, fp_type="Others"):
-
-        if fp_type in ["Estate", "EstateIndices"]:
-            fp = fp
-        elif isinstance(fp, np.ndarray):  # Handle numpy arrays from certain fingerprint types
-            if output == "bit":
-                fp = list(np.where(fp > 0)[0])  # Get indices where values are non-zero
-            elif output == "vect":
-                fp = list(fp.astype(int))  # Convert to integer list
-            elif output == "bool":
-                fp = [1 if val > 0 else -1 for val in fp]
-        elif output == "bit":
-            fp = list(fp.GetOnBits())
-
-        elif output == "vect":
-            fp = list(fp.ToBitString())
-            fp = [1 if val in ["1", 1] else 0 for val in fp]
-
-        elif output == "bool":
-            fp = list(fp.ToBitString())
-            fp = [1 if val == "1" else -1 for val in fp]
-
-        return fp
+        # self.desc_array = np.array([x for x in bits])
+        pass
 
     def save_results(self, save_path: Path | str):
         desc_df = pd.DataFrame(self.desc_array, index=self.smiles_list)
@@ -239,7 +164,7 @@ def calc_spoc_desc(
         case "RDKit":
             spoc_desc.rdkit_descriptor()
         case fp if fp in ["ECFP", "ECFP0", "ECFP2", "ECFP4", "ECFP6", "ECFP8", "ECFP10", "FP2", "FP3", "FP4", "MACCS"]:
-            spoc_desc.ob_fp_calc(smiles_list, fp_type=fp, nbit=size)
+            spoc_desc.ob_fp_descriptor(fp_length=size)
         case fp if fp in [
             "Avalon",
             "AtomPaires",

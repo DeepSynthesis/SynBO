@@ -9,6 +9,8 @@ def test_spoc_desc():
     save_path = test_filepath / "spoc_desc_results.csv"
     # calc_spoc_desc(smiles_list, save_path=save_path, fp_type="RDKit")
     for fp_type in [
+        "OneHot",
+        "RDKit",
         "RDKitFP",
         "RDKitLinear",
         "AtomPaires",

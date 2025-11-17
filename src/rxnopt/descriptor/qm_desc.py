@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional
 from quanda import MultiMolDesc
 from rich.console import Console
@@ -7,7 +8,7 @@ console = Console()
 
 def calc_qm_desc(
     smiles_list: List[str],
-    save_path: str,
+    save_path: Path | str,
     tag_list: List[str] = None,
     atom_lists: List[List[int]] = None,
     bond_lists: List[List[int]] = None,

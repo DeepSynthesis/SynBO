@@ -17,9 +17,10 @@ class SPOCDescriptor:
             raise TypeError("smiles_list must be a list or pandas Series.")
         self.desc_type = desc_type
         self.desc_type_to_filename = desc_type_to_filename
+        self.desc_names = None
         self.console = Console()
 
-    def one_hot_encoding(self) -> list[int | bool]:
+    def one_hot_descriptor(self) -> list[int | bool]:
         """One Hot Encoding for categorical variables.
 
         Categorical variables are converted into a list which contains True/False
@@ -28,26 +29,10 @@ class SPOCDescriptor:
         self.desc_array = np.eye(len(self.smiles_list), dtype=int)
 
     def rdkit_descriptor(self):
-        """
-        Parameters
-        ----------
-        smi: str
-            SMILES of molecules
-
-        Returns:
-        -------
-        type: list
-            If SMILES is valid, a list will be returned.
-            If SMILES is not valid, a list containing zero or Flase will be returned.
-
-        Source:
-        -------
-        RDKit: https://www.rdkit.org/
-
-        """
         from rdkit import Chem
         from rdkit.ML.Descriptors import MoleculeDescriptors
 
+        mol_list = []
         try:
             mol_list = []
             for smi in self.smiles_list:
@@ -58,8 +43,10 @@ class SPOCDescriptor:
         except Exception:
             self.console.print(f"🚨 Cannot convert {smi}.", style="bold red")
 
-        calc = MoleculeDescriptors.MolecularDescriptorCalculator([x[0] for x in Chem.Descriptors._descList])
-        desc_array = calc.CalcDescriptors(mol)
+        self.desc_names = [desc_name for desc_name, _ in Chem.Descriptors._descList]
+        calc = MoleculeDescriptors.MolecularDescriptorCalculator(self.desc_names)
+        self.desc_array = np.array([calc.CalcDescriptors(mol) for mol in mol_list])
+        self.desc_array = self.desc_array.round(5)
 
     def rdkit_fingerprint(smi, fp_type="rdkit", radius=2, max_path=2, fp_length=1024, output="bit"):
         """Molecular fingerprint generation by rdkit package.
@@ -237,6 +224,8 @@ class SPOCDescriptor:
 
     def save_results(self, save_path: Path | str):
         desc_df = pd.DataFrame(self.desc_array, index=self.smiles_list)
+        if self.desc_names is not None:
+            desc_df.columns = self.desc_names
         if desc_df.empty:
             self.console.print("⚠️ No data to save. DataFrame is empty.", style="bold yellow")
             raise Exception("No data to save. DataFrame is empty.")
@@ -244,17 +233,17 @@ class SPOCDescriptor:
         save_path = Path(save_path)
         assert save_path.parent.exists(), f"The directory {save_path.parent} does not exist."
         try:
-            if save_path.suffix().lower() == "csv":
+            if save_path.suffix.lower() == ".csv":
                 desc_df.to_csv(save_path, index=True)
                 self.console.print(f"✅ Results saved to CSV: {save_path}", style="bold green")
 
-            elif save_path.suffix().lower() in ["xlsx"]:
+            elif save_path.suffix.lower() in [".xlsx"]:
                 desc_df.to_excel(save_path, index=True)
                 self.console.print(f"✅ Results saved to Excel: {save_path}", style="bold green")
 
             else:
-                self.console.print(f"🚨 Unsupported format: {save_path.suffix()}. Supported formats: csv and xlsx", style="bold red")
-                raise Exception(f"Unsupported format: {save_path.suffix()}")
+                self.console.print(f"🚨 Unsupported format: {save_path.suffix}. Supported formats: csv and xlsx", style="bold red")
+                raise Exception(f"Unsupported format: {save_path.suffix}")
 
         except Exception as e:
             self.console.print(f"🚨 Failed to save results: {e}", style="bold red")
@@ -280,7 +269,9 @@ def calc_spoc_desc(
     spoc_desc = SPOCDescriptor(smiles_list)
     match fp_type:
         case "OneHot":
-            return spoc_desc.one_hot_calc(smiles_list)
+            spoc_desc.one_hot_descriptor()
+        case "RDKit":
+            spoc_desc.rdkit_descriptor()
         case fp if fp in ["ECFP", "ECFP0", "ECFP2", "ECFP4", "ECFP6", "ECFP8", "ECFP10", "FP2", "FP3", "FP4", "MACCS"]:
             return spoc_desc.ob_fp_calc(smiles_list, fp_type=fp, nbit=size)
         case fp if fp in [
@@ -288,7 +279,7 @@ def calc_spoc_desc(
             "AtomPaires",
             "TopologicalTorsions",
             "MACCSKeys",
-            "RDKit",
+            "RDKitFP",
             "RDKitLinear",
             "LayeredFingerprint",
             "Morgan",

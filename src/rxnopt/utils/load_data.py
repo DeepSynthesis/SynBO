@@ -18,26 +18,31 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame
     return df
 
 
-def _convert_index_col(index_col, length):
-    if index_col is None:
-        index_col = [None] * length
-    elif type(index_col) is str:
-        index_col = [index_col] * length
+def _convert_tag(tag, length):
+    if tag is None:
+        tag = [None] * length
+    elif type(tag) is str:
+        tag = [tag] * length
     else:
-        assert type(index_col) is list and length, "index_col should be a string or a list with the same length as reagent_types."
-    return index_col
+        assert type(tag) is list and length, "index_col should be a string or a list with the same length as reagent_types."
+    return tag
 
 
 def load_desc_dict(
-    reagent_types: list, desc_dir: str, name_suffix: str = None, index_col: str = "SMILES", return_condition_dict: bool = False
+    reagent_types: list,
+    desc_dir: list | str,
+    name_suffix: list | str = None,
+    index_col: str = "SMILES",
+    return_condition_dict: bool = False,
 ) -> dict:
-    index_col = _convert_index_col(index_col, len(reagent_types))
+    index_col = _convert_tag(index_col, len(reagent_types))
+    name_suffix = _convert_tag(name_suffix, len(reagent_types))
     desc_dict = {}
     desc_dir = Path(desc_dir)
-    for r_type, idx_col in zip(reagent_types, index_col):
+    for r_type, idx_col, name_s in zip(reagent_types, index_col, name_suffix):
         desc_file = desc_dir / f"{r_type}_desc.csv"
         if name_suffix is not None:
-            desc_file = desc_dir / f"{r_type}{name_suffix}.csv"
+            desc_file = desc_dir / f"{r_type}{name_s}.csv"
         else:
             desc_file = desc_dir / f"{r_type}_desc.csv"
         assert desc_file.exists(), f"Descriptor file `{desc_file}` for {r_type} does not exist in {desc_dir}."
@@ -53,7 +58,7 @@ def load_desc_dict(
 
 
 def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str = None) -> dict:
-    index_col = _convert_index_col(index_col, len(reagent_types))
+    index_col = _convert_tag(index_col, len(reagent_types))
     condition_dict = {}
     rxn_space_dir = Path(rxn_space_dir)
     for idx_col, r_type in zip(reagent_types, index_col):
@@ -67,5 +72,5 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
     return condition_dict
 
 
-def load_prev_rxn(file_pattern: str = "results/batch-*.csv") -> pd.DataFrame:
+def get_prev_rxn(file_pattern: str = "results/batch-*.csv") -> pd.DataFrame:
     return [pd.read_csv(f) for f in Path().parent.glob(file_pattern)]

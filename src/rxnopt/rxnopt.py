@@ -323,7 +323,7 @@ class ReactionOptimizer:
 
     def save_results(
         self,
-        save_task: Union[str, Path],
+        save_dir: Union[str, Path],
         filetype: Literal["csv", "excel"] = "csv",
         figure_output: List[str] = None,
         figure_path: Optional[Union[str, Path]] = None,
@@ -345,7 +345,7 @@ class ReactionOptimizer:
         if suffix:
             file_name = f"{file_name}_{suffix}"
 
-        save_path = Path(save_task) / file_name
+        save_path = Path(save_dir) / file_name
 
         # Create directory if it doesn't exist
         if not save_path.parent.exists():

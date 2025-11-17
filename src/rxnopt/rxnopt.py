@@ -127,6 +127,18 @@ class ReactionOptimizer:
                 raise ValueError("Condition types do not match")
             self.desc_dict = desc_dict
 
+        for k, v in self.desc_dict.items():
+            not_numeric_col = [col for col in v.columns if not pd.api.types.is_numeric_dtype(v[col])]
+            # 如果v中的某一列不是int或者float之类的数值类型，则删除掉这一列，并且用console打印警告信息
+            if not_numeric_col:
+                self.opt_console.print(
+                    f"🚨 Warning: Non-numeric columns found in descriptors for {k} condition type,"
+                    f"including {not_numeric_col}."
+                    "Now removing these columns...",
+                    style="bold yellow",
+                )
+            v.drop(columns=not_numeric_col, inplace=True)
+
         self.opt_console.print("✓ Descriptors loaded successfully", style="green")
 
     @track_called
@@ -309,7 +321,7 @@ class ReactionOptimizer:
             )
         )
 
-    def save_recommendations(
+    def save_results(
         self,
         save_task: Union[str, Path],
         filetype: Literal["csv", "excel"] = "csv",

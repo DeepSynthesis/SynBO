@@ -2,9 +2,12 @@ from datetime import datetime
 import os
 from pathlib import Path
 import shutil
+from matplotlib import pyplot as plt
 import pandas as pd
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
+
+import seaborn as sns
 
 
 def fill_done_dir(i, date):
@@ -27,7 +30,7 @@ for f in Path("results/").glob(f"batch-*.csv"):
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
 name_suffix = ["_dft", "_dft", "_dft", None, None]
-opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
+opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "max", "opt_range": [0, 0.5]}]
 
 desc_dict, condition_dict = load_desc_dict(
     reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
@@ -43,3 +46,7 @@ for i in range(10):
     rxn_opt.save_results(save_dir="results")
 
     fill_done_dir(i, date)
+
+prev_rxn_df = get_prev_rxn(file_pattern=f"results/batch-*.csv")
+sns.scatterplot(data=prev_rxn_df, x="yield", y="cost", hue="batch")
+plt.savefig("results/optimization_process.png")

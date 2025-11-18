@@ -48,6 +48,7 @@ class Optimizer:
         training_X: np.ndarray,
         training_y: np.ndarray,
         candidate_X: np.ndarray,
+        opt_direct_info: List[dict],
         device: torch.device,
         batch_size: int = 5,
         opt_weights: dict = None,
@@ -67,6 +68,12 @@ class Optimizer:
         """
         # Convert to tensors
         # TODO: deal with weights
+
+        # solved the min problem by transforming the training_y
+        for k, d in zip(training_y.keys(), opt_direct_info):
+            if d["opt_direct"] == "min":
+                training_y[k] = d["opt_range"][1] - training_y[k]
+
         training_y_dict = training_y.copy()
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
@@ -115,7 +122,9 @@ class Optimizer:
             # 任务3：计算 Pareto 前沿
             # ------------------------------
             task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
-            self.pareto_y = self.target_evaluator.calculate_target_function(training_y, progress, task_pareto).to(device=device)
+            self.pareto_y = self.target_evaluator.calculate_target_function(training_y, opt_direct_info, progress, task_pareto).to(
+                device=device
+            )
             self.ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)
 
             # ------------------------------

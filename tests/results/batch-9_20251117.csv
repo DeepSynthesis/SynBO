@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-9,1,explore,CsOPiv,GorlosPhos HBF4,DMAc,0.1,120,45.17,0.124909413
-9,2,explore,CsOAc,tBPh-CPhos,DMAc,0.1,105,29.31,0.314497136
-9,3,explore,CsOAc,tBPh-CPhos,DMAc,0.1,90,17.74,0.314463782
-9,4,explore,CsOPiv,tBPh-CPhos,DMAc,0.153,105,6.54,0.350654271
-9,5,explore,KOPiv,GorlosPhos HBF4,p-Xylene,0.153,105,4.92,0.03425173

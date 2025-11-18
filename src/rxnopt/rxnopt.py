@@ -49,7 +49,7 @@ class ReactionOptimizer:
     def __init__(
         self,
         opt_metrics: Union[str, List[str]],
-        opt_direct: Union[str, List[str]] = "higher",
+        opt_direct_info: Union[dict, List[dict]] = {"opt_direct:": "max", "opt_range": [0, 100]},
         opt_type: Literal["init", "opt", "auto"] = "auto",
     ) -> None:
         if isinstance(opt_metrics, str):
@@ -57,12 +57,13 @@ class ReactionOptimizer:
         elif not isinstance(opt_metrics, list):
             raise ValueError("opt_metrics must be str or list")
 
-        if isinstance(opt_direct, str):
-            opt_direct = [opt_direct]
-        elif not isinstance(opt_direct, list):
+        if isinstance(opt_direct_info, dict):
+            opt_direct_info = [opt_direct_info]
+        elif not isinstance(opt_direct_info, list):
             raise ValueError("opt_direct must be str or list")
 
-        assert all(d in ["higher", "lower"] for d in opt_direct), "opt_direct must be 'higher' or 'lower'"
+        assert all(type(d) == dict for d in opt_direct_info), "opt_direct must be dict or list of dict"
+        assert all(d["opt_direct"] in ["max", "min"] for d in opt_direct_info), "opt_direct must be 'max' or 'min'"
 
         if opt_type not in ["init", "opt", "auto"]:
             raise ValueError("opt_type must be 'init', 'opt' or 'auto'")
@@ -70,7 +71,7 @@ class ReactionOptimizer:
         self.condition_dict: Dict[str, List[Any]] = {}
         self.desc_dict: Dict[str, Any] = {}
         self.opt_metrics = opt_metrics
-        self.opt_direct = opt_direct
+        self.opt_direct_info = opt_direct_info
         self.opt_type = opt_type
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
@@ -315,6 +316,7 @@ class ReactionOptimizer:
             training_X=done_arr_desc,
             training_y=done_arr_metrics,
             candidate_X=self.total_desc_arr,
+            opt_direct_info=self.opt_direct_info,
             device=device,
             batch_size=batch_size,
             opt_weights=opt_weights,

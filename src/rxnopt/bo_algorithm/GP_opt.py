@@ -135,7 +135,7 @@ class ParetoFrontCalculator:
     """Class for calculating Pareto fronts"""
 
     @staticmethod
-    def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
+    def calculate_target_function(points: np.ndarray, opt_direct: List[str], progress: object, task: object) -> np.ndarray:
         """
         Calculate Pareto front for points in arbitrary dimensions
 

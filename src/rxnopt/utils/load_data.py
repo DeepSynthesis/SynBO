@@ -73,4 +73,4 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
 
 
 def get_prev_rxn(file_pattern: str = "results/batch-*.csv") -> pd.DataFrame:
-    return [pd.read_csv(f) for f in Path().parent.glob(file_pattern)]
+    return pd.concat([pd.read_csv(f) for f in Path().parent.glob(file_pattern)])

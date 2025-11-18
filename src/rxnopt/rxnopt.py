@@ -46,11 +46,23 @@ class ReactionOptimizer:
         ValueError: If invalid parameters are provided
     """
 
-    def __init__(self, opt_metrics: Union[str, List[str]], opt_type: Literal["init", "opt", "auto"] = "auto") -> None:
+    def __init__(
+        self,
+        opt_metrics: Union[str, List[str]],
+        opt_direct: Union[str, List[str]] = "higher",
+        opt_type: Literal["init", "opt", "auto"] = "auto",
+    ) -> None:
         if isinstance(opt_metrics, str):
             opt_metrics = [opt_metrics]
         elif not isinstance(opt_metrics, list):
             raise ValueError("opt_metrics must be str or list")
+
+        if isinstance(opt_direct, str):
+            opt_direct = [opt_direct]
+        elif not isinstance(opt_direct, list):
+            raise ValueError("opt_direct must be str or list")
+
+        assert all(d in ["higher", "lower"] for d in opt_direct), "opt_direct must be 'higher' or 'lower'"
 
         if opt_type not in ["init", "opt", "auto"]:
             raise ValueError("opt_type must be 'init', 'opt' or 'auto'")
@@ -58,6 +70,7 @@ class ReactionOptimizer:
         self.condition_dict: Dict[str, List[Any]] = {}
         self.desc_dict: Dict[str, Any] = {}
         self.opt_metrics = opt_metrics
+        self.opt_direct = opt_direct
         self.opt_type = opt_type
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
@@ -80,7 +93,7 @@ class ReactionOptimizer:
         # Sort conditions for reproducibility
         try:
             for k, v in condition_dict.items():
-                if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) == str):
+                if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) in (str, int, float)):
                     condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
                 elif isinstance(v, pd.DataFrame):
                     assert k in v.columns, f"Condition type `{k}` not found in DataFrame!"

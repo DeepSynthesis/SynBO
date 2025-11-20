@@ -135,7 +135,7 @@ class ParetoFrontCalculator:
     """Class for calculating Pareto fronts"""
 
     @staticmethod
-    def calculate_target_function(points: np.ndarray, opt_direct: List[str], progress: object, task: object) -> np.ndarray:
+    def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
         """
         Calculate Pareto front for points in arbitrary dimensions
 
@@ -174,5 +174,5 @@ class ParetoFrontCalculator:
             # Add current point if it's Pareto optimal
             if is_pareto:
                 pareto_front.append(point)
-
+        print(pareto_front)
         return torch.tensor(np.array(pareto_front))

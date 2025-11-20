@@ -122,9 +122,8 @@ class Optimizer:
             # 任务3：计算 Pareto 前沿
             # ------------------------------
             task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
-            self.pareto_y = self.target_evaluator.calculate_target_function(training_y, opt_direct_info, progress, task_pareto).to(
-                device=device
-            )
+            self.pareto_y = self.target_evaluator.calculate_target_function(training_y, progress, task_pareto).to(device=device)
+            # TODO: maybe need modify the ref point
             self.ref_point = torch.tensor([0.0] * training_y_t.shape[1]).to(device=device)
 
             # ------------------------------

@@ -94,7 +94,7 @@ def init(
 
     # Save results
     output_path = output_dir or Path.cwd()
-    optimizer.save_recommendations(save_task=output_path, filetype="csv")
+    optimizer.save_results(save_dir=output_path, filetype="csv")
 
     console.print("[green]✓ Initialization completed successfully![/green]")
 
@@ -167,7 +167,7 @@ def optimize(
 
     # Save results
     output_path = output_dir or Path.cwd()
-    optimizer.save_recommendations(save_task=output_path, filetype="csv")
+    optimizer.save_results(save_dir=output_path, filetype="csv")
 
     console.print("[green]✓ Optimization completed successfully![/green]")
 

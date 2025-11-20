@@ -46,11 +46,24 @@ class ReactionOptimizer:
         ValueError: If invalid parameters are provided
     """
 
-    def __init__(self, opt_metrics: Union[str, List[str]], opt_type: Literal["init", "opt", "auto"] = "auto") -> None:
+    def __init__(
+        self,
+        opt_metrics: Union[str, List[str]],
+        opt_direct_info: Union[dict, List[dict]] = {"opt_direct:": "max", "opt_range": [0, 100]},
+        opt_type: Literal["init", "opt", "auto"] = "auto",
+    ) -> None:
         if isinstance(opt_metrics, str):
             opt_metrics = [opt_metrics]
         elif not isinstance(opt_metrics, list):
             raise ValueError("opt_metrics must be str or list")
+
+        if isinstance(opt_direct_info, dict):
+            opt_direct_info = [opt_direct_info]
+        elif not isinstance(opt_direct_info, list):
+            raise ValueError("opt_direct must be str or list")
+
+        assert all(type(d) == dict for d in opt_direct_info), "opt_direct must be dict or list of dict"
+        assert all(d["opt_direct"] in ["max", "min"] for d in opt_direct_info), "opt_direct must be 'max' or 'min'"
 
         if opt_type not in ["init", "opt", "auto"]:
             raise ValueError("opt_type must be 'init', 'opt' or 'auto'")
@@ -58,6 +71,7 @@ class ReactionOptimizer:
         self.condition_dict: Dict[str, List[Any]] = {}
         self.desc_dict: Dict[str, Any] = {}
         self.opt_metrics = opt_metrics
+        self.opt_direct_info = opt_direct_info
         self.opt_type = opt_type
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
@@ -78,8 +92,19 @@ class ReactionOptimizer:
             condition_dict: Dictionary of condition types and their possible values
         """
         # Sort conditions for reproducibility
-        for k, v in condition_dict.items():
-            condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
+        try:
+            for k, v in condition_dict.items():
+                if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) in (str, int, float)):
+                    condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
+                elif isinstance(v, pd.DataFrame):
+                    assert k in v.columns, f"Condition type `{k}` not found in DataFrame!"
+                    condition_dict[k] = sorted(v[k].fillna("None").tolist())
+                else:
+                    raise TypeError(f"the type of {k} is {type(v)}, which is not supported")
+        except Exception as e:
+            self.opt_console.print(f"Error: {e}", style="bold red")
+            raise Exception(e)
+
         self.condition_types = list(condition_dict.keys())
         self.condition_dict = condition_dict
 
@@ -116,6 +141,18 @@ class ReactionOptimizer:
                 raise ValueError("Condition types do not match")
             self.desc_dict = desc_dict
 
+        for k, v in self.desc_dict.items():
+            not_numeric_col = [col for col in v.columns if not pd.api.types.is_numeric_dtype(v[col])]
+            # 如果v中的某一列不是int或者float之类的数值类型，则删除掉这一列，并且用console打印警告信息
+            if not_numeric_col:
+                self.opt_console.print(
+                    f"🚨 Warning: Non-numeric columns found in descriptors for {k} condition type,"
+                    f"including {not_numeric_col}."
+                    "Now removing these columns...",
+                    style="bold yellow",
+                )
+            v.drop(columns=not_numeric_col, inplace=True)
+
         self.opt_console.print("✓ Descriptors loaded successfully", style="green")
 
     @track_called
@@ -140,8 +177,6 @@ class ReactionOptimizer:
 
         # Check for missing species in each condition type
         for condition_type in self.condition_types:
-            if condition_type == 'additive':
-                from IPython import embed; embed()
             missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])
 
             if missing_species:
@@ -151,7 +186,6 @@ class ReactionOptimizer:
                     )
                     prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
                 else:
-                    print(drop_rxn)
                     raise ValueError(f"{missing_species} not in {condition_type} condition space")
 
         # Convert metrics to float
@@ -161,6 +195,9 @@ class ReactionOptimizer:
                 assert any(np.isnan(prev_rxn_info[opt_metric])) == False
             except:
                 raise ValueError("Some of target properties do not have any value. Check your input previous data.")
+
+        # drop non metric columns
+        prev_rxn_info = prev_rxn_info[prev_rxn_info[opt_metric].notna()]
 
         self.prev_rxn_info = prev_rxn_info
         try:
@@ -279,6 +316,7 @@ class ReactionOptimizer:
             training_X=done_arr_desc,
             training_y=done_arr_metrics,
             candidate_X=self.total_desc_arr,
+            opt_direct_info=self.opt_direct_info,
             device=device,
             batch_size=batch_size,
             opt_weights=opt_weights,
@@ -298,9 +336,9 @@ class ReactionOptimizer:
             )
         )
 
-    def save_recommendations(
+    def save_results(
         self,
-        save_task: Union[str, Path],
+        save_dir: Union[str, Path],
         filetype: Literal["csv", "excel"] = "csv",
         figure_output: List[str] = None,
         figure_path: Optional[Union[str, Path]] = None,
@@ -322,7 +360,7 @@ class ReactionOptimizer:
         if suffix:
             file_name = f"{file_name}_{suffix}"
 
-        save_path = Path(save_task) / file_name
+        save_path = Path(save_dir) / file_name
 
         # Create directory if it doesn't exist
         if not save_path.parent.exists():

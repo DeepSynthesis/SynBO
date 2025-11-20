@@ -99,5 +99,4 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
             acq_values = acq_function(X_batches)
             acq_values_list.append(acq_values)
     acq_values = torch.cat(acq_values_list, dim=0)
-
-    return acq_values if maximum_metrics else -acq_values
+    return acq_values

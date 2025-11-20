@@ -202,6 +202,7 @@ def done_array_process(prev_rxn_info: pd.DataFrame, total_name_arr: np.ndarray, 
 
 
 def generate_onehot_desc(condition_dict):
+    # TODO: use SPOC onehot descriptors
     desc_dict = {}
     for k, v in condition_dict.items():
         desc_dict[k] = pd.get_dummies(v).T

@@ -174,5 +174,5 @@ class ParetoFrontCalculator:
             # Add current point if it's Pareto optimal
             if is_pareto:
                 pareto_front.append(point)
-
+        print(pareto_front)
         return torch.tensor(np.array(pareto_front))

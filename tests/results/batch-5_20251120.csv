@@ -1,6 +1,6 @@
 batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-5,1,exploit,CsOAc,PCy3 HBF4,BuOAc,0.153,120,0.0,0.080855181
-5,2,exploit,KOPiv,JackiePhos,BuCN,0.153,120,20.51,0.362400834
-5,3,exploit,KOPiv,PPh2Me,BuOAc,0.153,120,0.0,0.029451217
-5,4,exploit,CsOPiv,JackiePhos,BuOAc,0.153,120,3.18,0.445598085
-5,5,exploit,KOPiv,PPhtBu2,BuCN,0.153,120,0.0,0.04943283
+5,1,exploit,CsOAc,JackiePhos,p-Xylene,0.153,90,6.77,0.398459178
+5,2,exploit,KOAc,BrettPhos,p-Xylene,0.153,120,18.89,0.142751244
+5,3,exploit,KOAc,tBPh-CPhos,p-Xylene,0.153,120,8.61,0.265866207
+5,4,exploit,KOPiv,JackiePhos,DMAc,0.153,90,2.9,0.350275005
+5,5,exploit,CsOAc,PCy3 HBF4,p-Xylene,0.153,120,1.12,0.074586805

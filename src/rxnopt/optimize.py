@@ -72,7 +72,8 @@ class Optimizer:
         # solved the min problem by transforming the training_y
         for k, d in zip(training_y.keys(), opt_direct_info):
             if d["opt_direct"] == "min":
-                training_y[k] = d["opt_range"][1] - training_y[k]
+                # training_y[k] = d["opt_range"][1] - training_y[k]
+                training_y[k] = -training_y[k]
 
         training_y_dict = training_y.copy()
         if isinstance(training_y, dict):

@@ -9,7 +9,83 @@ from rxnopt.utils import load_desc_dict, get_prev_rxn
 
 import seaborn as sns
 import numpy as np
-from pymoo.indicators.hv import HV
+
+
+def compute_hypervolume_2d(points, ref_point):
+    """
+    计算2D情况下的超体积 (Hypervolume)
+    
+    Args:
+        points: 目标点数组，形状为 (n_points, 2)
+        ref_point: 参考点，形状为 (2,)
+    
+    Returns:
+        float: 超体积值
+    """
+    points = np.array(points)
+    ref_point = np.array(ref_point)
+    
+    # 过滤掉被参考点支配的点
+    valid_mask = np.all(points > ref_point, axis=1)
+    if not np.any(valid_mask):
+        return 0.0
+    
+    valid_points = points[valid_mask]
+    
+    # 计算Pareto前沿
+    pareto_front = get_pareto_front(valid_points)
+    
+    if len(pareto_front) == 0:
+        return 0.0
+    
+    # 对Pareto前沿按第一个目标排序
+    pareto_front = pareto_front[np.argsort(pareto_front[:, 0])]
+    
+    # 计算超体积
+    hv = 0.0
+    for i in range(len(pareto_front)):
+        if i == 0:
+            # 第一个点
+            width = pareto_front[i, 0] - ref_point[0]
+            height = pareto_front[i, 1] - ref_point[1]
+        else:
+            # 后续点
+            width = pareto_front[i, 0] - pareto_front[i-1, 0]
+            height = pareto_front[i, 1] - ref_point[1]
+        
+        hv += width * height
+    
+    return hv
+
+
+def get_pareto_front(points):
+    """
+    获取Pareto前沿点
+    
+    Args:
+        points: 目标点数组，形状为 (n_points, n_objectives)
+    
+    Returns:
+        np.array: Pareto前沿点
+    """
+    points = np.array(points)
+    n_points = len(points)
+    
+    if n_points == 0:
+        return np.array([])
+    
+    # 对于每个点，检查是否被其他点支配
+    is_pareto = np.ones(n_points, dtype=bool)
+    
+    for i in range(n_points):
+        for j in range(n_points):
+            if i != j:
+                # 检查点j是否支配点i
+                if np.all(points[j] >= points[i]) and np.any(points[j] > points[i]):
+                    is_pareto[i] = False
+                    break
+    
+    return points[is_pareto]
 
 
 def fill_done_dir(i, date):
@@ -26,28 +102,28 @@ def fill_done_dir(i, date):
 
 
 date = datetime.now().strftime("%Y%m%d")
-for f in Path("results/").glob(f"batch-*.csv"):
-    os.remove(f)
+# for f in Path("results/").glob(f"batch-*.csv"):
+#     os.remove(f)
 
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
 name_suffix = ["_dft", "_dft", "_dft", None, None]
 opt_direct_info = [{"opt_direct": "min", "opt_range": [0, 0.5]}, {"opt_direct": "max", "opt_range": [0, 100]}]  # cost(min), yield(max)
 
-desc_dict, condition_dict = load_desc_dict(
-    reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
-)
+# desc_dict, condition_dict = load_desc_dict(
+#     reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
+# )
 
-for i in range(10):
-    rxn_opt = ReactionOptimizer(opt_metrics=["cost", "yield"], opt_direct_info=opt_direct_info, opt_type="auto")
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
-    rxn_opt.load_desc(desc_dict=desc_dict)
-    if i > 0:
-        rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
-    rxn_opt.run()
-    rxn_opt.save_results(save_dir="results")
+# for i in range(10):
+#     rxn_opt = ReactionOptimizer(opt_metrics=["cost", "yield"], opt_direct_info=opt_direct_info, opt_type="auto")
+#     rxn_opt.load_rxn_space(condition_dict=condition_dict)
+#     rxn_opt.load_desc(desc_dict=desc_dict)
+#     if i > 0:
+#         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
+#     rxn_opt.run()
+#     rxn_opt.save_results(save_dir="results")
 
-    fill_done_dir(i, date)
+#     fill_done_dir(i, date)
 
 
 def plot_optimization_process(file_pattern, save_path="results/optimization_process.png"):
@@ -96,12 +172,23 @@ def calculate_max_hv_from_dataset(dataset_path="dataset/B-H_dataset.csv", opt_di
         if direction_info["opt_direct"] == "min":
             objectives[:, i] = -objectives[:, i]  # 最小化目标取负值转为最大化
     
-    # 定义参考点 (对于最大化问题，参考点应该在所有目标值之下)
-    ref_point = np.array([objectives.min(axis=0)[j] - 1.0 for j in range(objectives.shape[1])])
+    # 对于超体积计算，参考点必须被所有点严格支配
+    # 即参考点的每个维度都要小于所有目标点的对应维度
+    min_vals = objectives.min(axis=0)
+    max_vals = objectives.max(axis=0)
     
-    # 计算超体积
-    hv_indicator = HV(ref_point=ref_point)
-    max_hv = hv_indicator(objectives)
+    # 设置参考点为最小值再减去一个合理的偏移量
+    range_vals = max_vals - min_vals
+    ref_point = min_vals - np.maximum(range_vals * 0.1, 1.0)
+    
+    print(f"Original objectives range: cost [{dataset_df['cost'].min():.6f}, {dataset_df['cost'].max():.6f}], yield [{dataset_df['yield'].min():.6f}, {dataset_df['yield'].max():.6f}]")
+    print(f"Transformed objectives range: {objectives.min(axis=0)} to {objectives.max(axis=0)}")
+    print(f"Reference point: {ref_point}")
+    
+    # 使用自定义的超体积计算
+    max_hv = compute_hypervolume_2d(objectives, ref_point)
+    
+    print(f"Calculated max HV: {max_hv}")
     
     return max_hv, ref_point
 
@@ -116,14 +203,16 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
     # 计算全空间最大HV和参考点
     max_hv, ref_point = calculate_max_hv_from_dataset(dataset_path, opt_direct_info)
     
+    if max_hv <= 0:
+        print("Warning: max_hv is 0 or negative, cannot calculate meaningful percentages")
+        return
+    
     # 获取优化过程数据
     prev_rxn_df = get_prev_rxn(file_pattern=file_pattern)
     
     # 计算每个batch的当前最大HV
     batch_hv_percentages = []
     batches = sorted(prev_rxn_df["batch"].unique())
-    
-    hv_indicator = HV(ref_point=ref_point)
     
     for batch in batches:
         # 获取到当前batch为止的所有数据
@@ -137,9 +226,11 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
             if direction_info["opt_direct"] == "min":
                 objectives[:, i] = -objectives[:, i]  # 最小化目标取负值转为最大化
         
-        # 计算当前HV
-        current_hv = hv_indicator(objectives)
+        # 使用自定义的超体积计算
+        current_hv = compute_hypervolume_2d(objectives, ref_point)
         hv_percentage = (current_hv / max_hv) * 100
+        
+        print(f"Batch {batch}: current_hv={current_hv:.6f}, percentage={hv_percentage:.2f}%")
         
         batch_hv_percentages.append(hv_percentage)
     
@@ -154,16 +245,19 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
     plt.grid(True, alpha=0.3)
     
     # 添加最终百分比标注
-    final_percentage = batch_hv_percentages[-1]
-    plt.annotate(f'Final: {final_percentage:.2f}%', 
-                xy=(batches[-1], final_percentage), 
-                xytext=(batches[-1]-1, final_percentage+5),
-                arrowprops=dict(arrowstyle='->', color='red'),
-                fontsize=10, fontweight='bold', color='red')
+    if batch_hv_percentages:
+        final_percentage = batch_hv_percentages[-1]
+        plt.annotate(f'Final: {final_percentage:.2f}%', 
+                    xy=(batches[-1], final_percentage), 
+                    xytext=(batches[-1]-1, final_percentage+5),
+                    arrowprops=dict(arrowstyle='->', color='red'),
+                    fontsize=10, fontweight='bold', color='red')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
+    
+    print(f"HV percentage plot saved to {save_path}")
 
 
 plot_hv_percentage(file_pattern=f"results/batch-*.csv", opt_direct_info=opt_direct_info)

@@ -1,0 +1,6 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+4,1,explore,KOPiv,PPh2Me,BuOAc,0.1,90,0.0,0.037972786
+4,2,explore,CsOAc,PCy3 HBF4,p-Xylene,0.1,90,0.0,0.079986639
+4,3,explore,KOPiv,PPhMe2,p-Xylene,0.153,90,0.0,0.024434582
+4,4,explore,KOPiv,PPh2Me,BuCN,0.1,90,0.0,0.044078464
+4,5,explore,KOPiv,PPh2Me,DMAc,0.1,90,0.0,0.026256166

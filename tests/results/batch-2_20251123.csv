@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+2,1,exploit,CsOPiv,PCy3 HBF4,p-Xylene,0.153,120,0.83,0.115459012
+2,2,exploit,KOAc,tBPh-CPhos,BuCN,0.153,120,7.65,0.276297153
+2,3,exploit,KOAc,JackiePhos,p-Xylene,0.153,120,7.88,0.3529627829999999
+2,4,exploit,CsOPiv,PPhtBu2,BuCN,0.153,90,0.0,0.136900842

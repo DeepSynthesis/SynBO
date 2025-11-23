@@ -124,12 +124,12 @@ for i in range(10):
         rxn_opt.initialize(
             batch_size=4,
             desc_normalize="minmax",
-            sampling_method="lhs",
+            sampling_method="cvt",
         )
     else:
         rxn_opt.optimize(
             batch_size=4,
-            desc_normalize="zscore",
+            desc_normalize="minmax",
             mc_num_samples=16,
             max_batch_size=16,
         )

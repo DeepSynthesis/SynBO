@@ -117,46 +117,108 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
 
 
 def array_process(
-    desc_dict: Dict[str, Any],
+    desc_dict: Dict[str, pd.DataFrame],
     condition_dict: Dict[str, List[Any]],
     condition_types: List[str],
     desc_normalize: str,
     refine_desc: str,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Process arrays with rich output.
-
     Args:
-        desc_dict: Descriptor dictionary
-        condition_dict: Condition dictionary
-        condition_types: List of condition type names
-        desc_normalize: Normalization method
-
+        desc_dict: Descriptor dictionary.
+        condition_dict: Condition dictionary.
+        condition_types: List of condition type names.
+        desc_normalize: Normalization method.
+        refine_desc: Method to refine descriptors ('none', 'filter_only', 'auto_select').
     Returns:
         Tuple of (name_array, descriptor_array)
     """
     desc_arrs = [[desc_dict[k].loc[name].values for name in condition_dict[k]] for k in condition_types]
     name_arrs = [list(names) for names in condition_dict.values()]
+    # Refine descriptors based on the specified method
+    if refine_desc in ["filter_only", "auto_select"]:
+        refined_desc_arrs = []
+        for desc_arr in desc_arrs:
+            if not desc_arr:
+                refined_desc_arrs.append([])
+                continue
+            # --- CORRECTED LOGIC ---
+            # Combine all samples of a condition type to calculate inter-descriptor correlation.
+            combined_arr = np.vstack(desc_arr)
+            df = pd.DataFrame(combined_arr)
 
-    desc_arrs
-    
-    # # Display condition counts
-    # for condition_type, desc_arr in zip(condition_types, desc_arrs):
-    #     console.print(f"[cyan]{condition_type}[/cyan]: {len(desc_arr)} conditions")
+            # Calculate correlation matrix and find columns to drop
+            corr_matrix = df.corr().abs()
+            upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+            to_drop = {column for column in upper.columns if any(upper[column] > 0.7)}
 
-    total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float, info="descriptors")
+            # Get the indices of columns to keep
+            keep_indices = [i for i, col in enumerate(df.columns) if col not in to_drop]
+
+            # Apply filtering to all arrays in the group
+            refined_group = df.iloc[:, keep_indices].values
+            refined_desc_arrs.append(refined_group)
+
+        desc_arrs = refined_desc_arrs
+        # Check total dimensions after filtering
+        # Ensure group is not empty before accessing shape
+        total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
+
+        # TODO: deal with too many dimension problems
+        # if total_dims > 200:
+        # console.print(f"[yellow]Warning:[/yellow] Total descriptor dimension after filtering is {total_dims}, which is > 200.")
+        # if refine_desc == "auto_select":
+        #     console.print("Performing random sampling to reduce dimensions to <= 200...")
+        #     # Distribute the 200 dimensions proportionally
+
+        #     current_dims = [arr.shape[1] if arr.size > 0 else 0 for arr in desc_arrs]
+        #     target_dims = current_dims.copy()
+
+        #     sampled_desc_arrs = []
+        #     for i, desc_arr_group in enumerate(desc_arrs):
+        #         if desc_arr_group.size == 0:
+        #             sampled_desc_arrs.append([])
+        #             continue
+
+        #         num_features = desc_arr_group.shape[1]
+        #         k = target_dims[i]
+        #         if num_features > k:
+        #             indices = np.random.choice(num_features, size=k, replace=False)
+        #             indices.sort()  # Keep order for consistency
+        #             sampled_group = desc_arr_group[:, indices]
+        #             sampled_desc_arrs.append(sampled_group)
+        #         else:
+        #             sampled_desc_arrs.append(desc_arr_group)
+        #     desc_arrs = sampled_desc_arrs
+
+    # Flatten the list of lists for normalization
+    # flat_desc_arrs = [item for sublist in desc_arrs for item in sublist]
+
+    # Calculate and print the final total descriptor dimension
+    final_total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
+    console.print(f"Final total descriptor dimension: [bold cyan]{final_total_dims}[/bold cyan]")
+    # Normalize data for each condition *before* cartesian product
+    normalized_desc_arrs = []
+
+    for desc_arr in desc_arrs:
+        normalized_desc_arrs.append(normalize_data(desc_arr, desc_normalize))
+
+    # Re-group the normalized arrays to match the original structure for cartesian product
+    grouped_normalized_arrs = []
+    start_index = 0
+    for group in desc_arrs:
+        end_index = start_index + len(group)
+        grouped_normalized_arrs.append(normalized_desc_arrs[start_index:end_index])
+        start_index = end_index
+    # Perform cartesian product on the processed arrays
+    total_desc_arr = cartesian_product_3d(normalized_desc_arrs, data_type=float, info="descriptors")
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
-
-    console.print(f"Generated [bold]{len(total_desc_arr):,}[/bold] total combinations", style="green")
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("Normalizing descriptors..."),
-        console=console,
-        transient=True,
-    ) as progress:
-        progress.add_task("normalizing", total=None)
-        total_desc_arr = normalize_data(total_desc_arr, desc_normalize)
-
+    if len(total_desc_arr) > 0:
+        console.print(f"Generated [bold]{len(total_desc_arr):,}[/bold] total combinations", style="green")
+    else:
+        console.print(
+            "[yellow]Warning:[/yellow] No combinations were generated. Check input conditions.",
+        )
     return total_name_arr, total_desc_arr
 
 

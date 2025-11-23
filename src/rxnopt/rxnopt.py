@@ -249,7 +249,7 @@ class ReactionOptimizer:
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         sampling_method: Literal["sobol", "random", "lhs", "cvt"] = "cvt",
-        refine_desc: bool = True,
+        refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
     ) -> None:
         """Initialize reaction optimization with initial sampling.
 
@@ -280,6 +280,7 @@ class ReactionOptimizer:
         self,
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
+        refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
         optimized_method: str = "default",
         opt_weights: Optional[List[float]] = None,
         mc_num_samples: int = 128,
@@ -303,7 +304,9 @@ class ReactionOptimizer:
             self.opt_console.print("Must load previous reaction information before optimization.", style="red")
             raise Exception("No previous reaction information was loaded.")
         check_desc_completeness(self.desc_dict, self.condition_dict)
-        self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
+        self.total_name_arr, self.total_desc_arr = array_process(
+            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
+        )
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}

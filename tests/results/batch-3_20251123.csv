@@ -1,5 +1,5 @@
 batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-3,1,exploit,KOPiv,P(fur)3,p-Xylene,0.153,120,23.8,0.034507225
-3,2,exploit,KOPiv,PCy3 HBF4,BuCN,0.057,90,0.14,0.071746651
-3,3,exploit,KOPiv,PPh2Me,p-Xylene,0.153,120,0.0,0.023178753
-3,4,exploit,KOPiv,PPhtBu2,p-Xylene,0.057,120,0.0,0.056201541
+3,1,exploit,KOAc,JackiePhos,p-Xylene,0.057,90,3.79,0.370120198
+3,2,exploit,CsOPiv,BrettPhos,p-Xylene,0.153,120,26.29,0.229151964
+3,3,exploit,KOAc,P(fur)3,p-Xylene,0.153,90,10.66,0.035553567
+3,4,exploit,CsOPiv,X-Phos,p-Xylene,0.057,90,34.98,0.135085434

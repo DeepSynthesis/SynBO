@@ -1,5 +1,5 @@
 batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-7,1,exploit,KOAc,PCy3 HBF4,BuOAc,0.057,120,0.0,0.062434198
-7,2,exploit,KOAc,PPh2Me,BuOAc,0.057,90,0.0,0.05762498
-7,3,exploit,KOAc,PPhtBu2,BuOAc,0.153,90,0.0,0.046395962
-7,4,exploit,KOAc,PCy3 HBF4,DMAc,0.153,90,0.41,0.027510375
+7,1,exploit,KOAc,CgMe-PPh,BuCN,0.153,120,80.86,0.065710753
+7,2,exploit,CsOPiv,BrettPhos,BuOAc,0.057,90,28.74,0.26256959
+7,3,exploit,CsOPiv,tBPh-CPhos,BuOAc,0.057,90,16.51,0.385653284
+7,4,exploit,CsOPiv,CgMe-PPh,BuCN,0.153,90,36.73,0.151745627

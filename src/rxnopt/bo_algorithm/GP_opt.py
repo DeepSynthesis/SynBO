@@ -7,11 +7,10 @@ from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImp
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from gpytorch.constraints import GreaterThan, Positive
+from gpytorch.constraints import GreaterThan
 from gpytorch.priors import GammaPrior
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from torch.nn.utils import clip_grad_norm_
 
 
 class BaseSurrogateModel:
@@ -34,28 +33,35 @@ class GPSurrogateModel(BaseSurrogateModel):
         super().__init__(num_dims)
         self.device = device
         self.model = None
-        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=GreaterThan(1e-5), noise_prior=GammaPrior(1.5, 0.1)).to(
-            self.device
-        )
+        # Use edboplus-style likelihood initialization
+        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(GammaPrior(1.5, 0.1)).to(self.device)
+        self.likelihood.noise = 5.0
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         """Build and train a single GP model"""
         # Move input data to the correct device
         train_x = train_x.to(self.device)
         train_y = train_y.to(self.device)
+        
+        # Use edboplus-style covariance module configuration
+        covar_module = ScaleKernel(
+            MaternKernel(
+                ard_num_dims=self.num_dims,
+                lengthscale_prior=GammaPrior(2.0, 0.2),
+            ),
+            outputscale_prior=GammaPrior(5.0, 0.5),
+        )
+        # Set initial lengthscale value like edboplus
+        covar_module.base_kernel.lengthscale = 5.0
+        
         self.model = SingleTaskGP(
             train_X=train_x,
             train_Y=train_y,
-            covar_module=ScaleKernel(
-                MaternKernel(
-                    ard_num_dims=self.num_dims,
-                    lengthscale_prior=GammaPrior(2.0, 0.2),
-                    lengthscale_constraint=Positive(),
-                ),
-                outputscale_prior=GammaPrior(5.0, 0.5),
-                outputscale_constraint=Positive(),
-            ),
+            covar_module=covar_module,
         ).to(self.device)
+        
+        # Add noise constraint like edboplus
+        self.model.likelihood.noise_covar.register_constraint("raw_noise", GreaterThan(1e-5))
 
         # Train the model
         self.model.train()
@@ -69,17 +75,7 @@ class GPSurrogateModel(BaseSurrogateModel):
             output = self.model(train_x)
             loss = -mll(output, train_y.squeeze(-1))
             loss.backward()
-
-            # Gradient clipping
-            clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-
             optimizer.step()
-
-            # Manual parameter constraints
-            with torch.no_grad():
-                for name, param in self.model.named_parameters():
-                    if "lengthscale" in name or "noise" in name:
-                        param.clamp_(min=1e-6)
 
         self.model.eval()
         self.likelihood.eval()

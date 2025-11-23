@@ -1,6 +1,5 @@
 batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-1,1,explore,KOPiv,X-Phos,p-Xylene,0.153,120,62.15,0.030544243
-1,2,explore,KOAc,X-Phos,DMAc,0.057,90,43.2,0.044741291
-1,3,explore,CsOPiv,X-Phos,DMAc,0.057,90,23.71,0.131058818
-1,4,explore,KOPiv,PPhtBu2,DMAc,0.057,120,2.82,0.052242372
-1,5,explore,KOPiv,PPhtBu2,BuCN,0.153,90,0.0,0.04943283
+1,1,explore,CsOPiv,BrettPhos,p-Xylene,0.153,120,26.29,0.229151964
+1,2,explore,KOAc,PPh3,BuCN,0.153,90,2.66,0.03363841
+1,3,explore,KOAc,PPh3,BuOAc,0.057,120,5.67,0.056598173
+1,4,explore,KOPiv,BrettPhos,p-Xylene,0.153,120,49.57,0.141768918

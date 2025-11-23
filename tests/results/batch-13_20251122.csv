@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+13,1,explore,KOAc,PPh2Me,DMAc,0.057,90,7.3,0.037499142
+13,2,explore,KOAc,PPh2Me,DMAc,0.057,90,7.3,0.037499142
+13,3,explore,KOAc,PPh2Me,BuOAc,0.057,90,0.0,0.05762498
+13,4,explore,KOAc,PPh2Me,DMAc,0.153,120,7.5,0.022721597

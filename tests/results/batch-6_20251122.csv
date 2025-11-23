@@ -1,5 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-6,1,explore,KOPiv,PPh3,DMAc,0.153,90,38.79,0.0206588
-6,2,explore,KOPiv,PPh3,DMAc,0.057,120,91.27,0.03558821
-6,3,explore,CsOAc,PPhtBu2,DMAc,0.1,105,0.0,0.088701357
-6,4,explore,KOAc,PPh3,DMAc,0.153,90,11.68,0.021674948

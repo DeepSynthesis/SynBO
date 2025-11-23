@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
+from sympy import refine
 import torch
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.console import Console
@@ -248,6 +249,7 @@ class ReactionOptimizer:
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         sampling_method: Literal["sobol", "random", "lhs", "cvt"] = "cvt",
+        refine_desc: bool = True,
     ) -> None:
         """Initialize reaction optimization with initial sampling.
 
@@ -260,7 +262,9 @@ class ReactionOptimizer:
         # progress.update(task, description="Checking descriptor completeness...")
         check_desc_completeness(self.desc_dict, self.condition_dict)
 
-        self.total_name_arr, self.total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, desc_normalize)
+        self.total_name_arr, self.total_desc_arr = array_process(
+            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
+        )
 
         initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
         self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)

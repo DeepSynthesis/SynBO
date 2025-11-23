@@ -43,16 +43,19 @@ class GPSurrogateModel(BaseSurrogateModel):
         train_x = train_x.to(self.device)
         train_y = train_y.to(self.device)
         
-        # Use edboplus-style covariance module configuration
+        # Use adaptive covariance module configuration
+        # Scale initial lengthscale based on input dimensionality
+        initial_lengthscale = max(0.5, min(5.0, np.sqrt(self.num_dims)))
+        
         covar_module = ScaleKernel(
             MaternKernel(
                 ard_num_dims=self.num_dims,
-                lengthscale_prior=GammaPrior(2.0, 0.2),
+                lengthscale_prior=GammaPrior(3.0, 1.0),  # More concentrated prior
             ),
-            outputscale_prior=GammaPrior(5.0, 0.5),
+            outputscale_prior=GammaPrior(2.0, 0.5),
         )
-        # Set initial lengthscale value like edboplus
-        covar_module.base_kernel.lengthscale = 5.0
+        # Set adaptive initial lengthscale
+        covar_module.base_kernel.lengthscale = initial_lengthscale
         
         self.model = SingleTaskGP(
             train_X=train_x,
@@ -67,15 +70,32 @@ class GPSurrogateModel(BaseSurrogateModel):
         self.model.train()
         self.likelihood.train()
 
+        # Improved training with learning rate schedule and early stopping
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.1)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=50, factor=0.5)
         mll = ExactMarginalLogLikelihood(self.likelihood, self.model)
 
-        for _ in range(1000):
+        best_loss = float('inf')
+        patience_counter = 0
+        patience_limit = 100
+
+        for epoch in range(1000):
             optimizer.zero_grad()
             output = self.model(train_x)
             loss = -mll(output, train_y.squeeze(-1))
             loss.backward()
             optimizer.step()
+            scheduler.step(loss.item())
+            
+            # Early stopping
+            if loss.item() < best_loss:
+                best_loss = loss.item()
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                
+            if patience_counter >= patience_limit:
+                break
 
         self.model.eval()
         self.likelihood.eval()
@@ -105,7 +125,7 @@ class BaseAcquisitionFunction:
 
 
 class EHVIAcquisitionFunction(BaseAcquisitionFunction):
-    """Expected Hypervolume Improvement acquisition function"""
+    """Enhanced Expected Hypervolume Improvement acquisition function with exploration bonus"""
 
     def __init__(
         self,
@@ -114,10 +134,12 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         ref_point: torch.Tensor,
         partitioning: NondominatedPartitioning,
         maximum_metrics: bool,
+        exploration_weight: float = 0.1,  # New parameter for exploration
     ):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
+        self.exploration_weight = exploration_weight
 
         self.ehvi = qLogExpectedHypervolumeImprovement(
             model=model,
@@ -125,6 +147,19 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             ref_point=ref_point,
             partitioning=partitioning,
         )
+        
+    def evaluate_with_exploration(self, X: torch.Tensor) -> torch.Tensor:
+        """Enhanced evaluation with exploration bonus"""
+        # Standard EHVI
+        ehvi_val = self.ehvi(X)
+        
+        # Add exploration bonus based on predictive variance
+        with torch.no_grad():
+            posterior = self.model.posterior(X)
+            # Average variance across objectives as exploration signal
+            exploration_bonus = torch.mean(posterior.variance, dim=-1)
+            
+        return ehvi_val + self.exploration_weight * exploration_bonus
 
 
 class ParetoFrontCalculator:

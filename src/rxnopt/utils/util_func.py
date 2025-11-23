@@ -117,7 +117,11 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
 
 
 def array_process(
-    desc_dict: Dict[str, Any], condition_dict: Dict[str, List[Any]], condition_types: List[str], desc_normalize: str
+    desc_dict: Dict[str, Any],
+    condition_dict: Dict[str, List[Any]],
+    condition_types: List[str],
+    desc_normalize: str,
+    refine_desc: str,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Process arrays with rich output.
 
@@ -133,6 +137,8 @@ def array_process(
     desc_arrs = [[desc_dict[k].loc[name].values for name in condition_dict[k]] for k in condition_types]
     name_arrs = [list(names) for names in condition_dict.values()]
 
+    desc_arrs
+    
     # # Display condition counts
     # for condition_type, desc_arr in zip(condition_types, desc_arrs):
     #     console.print(f"[cyan]{condition_type}[/cyan]: {len(desc_arr)} conditions")

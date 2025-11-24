@@ -21,14 +21,8 @@ from rich.table import Table
 from rich.rule import Rule
 
 from .optimize import Optimizer
-from .utils.util_func import (
-    check_desc_completeness,
-    done_array_process,
-    generate_onehot_desc,
-    track_called,
-    array_process,
-    get_opt_type,
-)
+from .descriptor.desc_proc import array_process, done_array_process
+from .utils.util_func import check_desc_completeness, generate_onehot_desc, track_called, get_opt_type
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 

@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+2,1,exploit,KOAc,P(fur)3,DMAc,0.153,120,52.08,0.034091718
+2,2,exploit,KOPiv,P(fur)3,p-Xylene,0.057,90,15.86,0.051650589
+2,3,exploit,CsOAc,P(fur)3,DMAc,0.057,90,18.38,0.094273137
+2,4,exploit,KOAc,P(fur)3,p-Xylene,0.153,90,10.66,0.035553567

@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+7,1,exploit,CsOPiv,PCy3 HBF4,BuOAc,0.153,90,0.0,0.121728447
+7,2,exploit,KOPiv,GorlosPhos HBF4,BuCN,0.057,120,64.48,0.078486468
+7,3,exploit,CsOPiv,P(fur)3,BuOAc,0.153,90,25.64,0.128305051
+7,4,exploit,CsOPiv,PPh3,BuOAc,0.153,90,0.6,0.115863905

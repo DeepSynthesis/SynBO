@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+9,1,exploit,KOAc,PCy3 HBF4,p-Xylene,0.057,90,0.0,0.046254613
+9,2,exploit,CsOPiv,PPh3,DMAc,0.153,120,58.4,0.108183344
+9,3,exploit,KOAc,PPh3,DMAc,0.057,120,45.85,0.036551574
+9,4,exploit,KOAc,PPh3,BuCN,0.153,120,12.34,0.033712735

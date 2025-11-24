@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+5,1,exploit,KOAc,PCy3 HBF4,DMAc,0.057,90,3.4,0.042297116
+5,2,exploit,KOAc,JackiePhos,DMAc,0.057,90,72.24,0.366347319
+5,3,exploit,KOAc,GorlosPhos HBF4,DMAc,0.153,90,9.14,0.033781344
+5,4,exploit,CsOPiv,PCy3 HBF4,DMAc,0.153,120,13.88,0.113922918

@@ -107,17 +107,17 @@ for f in Path("results/").glob(f"batch-*.csv"):
     os.remove(f)
 
 
-def generate_onehot():
-    for name in ["base", "ligand", "solvent"]:
-        df = pd.read_csv(f"dataset/descriptors/{name}_dft.csv")
-        calc_spoc_desc(df[f"{name}_file_name"], save_path=f"dataset/descriptors/{name}.csv", fp_type="OneHot", desc_type_to_filename=True)
+# def generate_onehot():
+#     for name in ["base", "ligand", "solvent"]:
+#         df = pd.read_csv(f"dataset/descriptors/{name}_dft.csv")
+#         calc_spoc_desc(df[f"{name}_file_name"], save_path=f"dataset/descriptors/{name}.csv", fp_type="RDKit", desc_type_to_filename=True)
 
 
-generate_onehot()
-exit()
+# generate_onehot()
+# exit()
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
-# name_suffix = ["_dft", "_dft", "_dft", None, None]
+name_suffix = ["_dft", "_dft", "_dft", None, None]
 opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}]  # cost(min), yield(max)
 
 desc_dict, condition_dict = load_desc_dict(
@@ -132,16 +132,16 @@ for i in range(10):
         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
     if i == 0:
         rxn_opt.initialize(
-            batch_size=4,
+            batch_size=5,
             desc_normalize="minmax",
             sampling_method="cvt",
         )
     else:
         rxn_opt.optimize(
-            batch_size=4,
+            batch_size=5,
             desc_normalize="minmax",
-            mc_num_samples=16,
-            max_batch_size=16,
+            mc_num_samples=32,
+            max_batch_size=32,
         )
     rxn_opt.save_results(save_dir="results")
 

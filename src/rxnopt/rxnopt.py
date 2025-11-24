@@ -265,6 +265,10 @@ class ReactionOptimizer:
 
         # All initial points are exploration
         self.recommend_type = ["explore"] * batch_size
+        
+        # For initialization, no prediction values available
+        self.pred_mean = None
+        self.pred_std = None
 
         self.opt_console.print(
             f"✓ Selected [bold]{batch_size}[/bold] initial conditions using [bold]{sampling_method}[/bold] sampling", style="green"
@@ -313,7 +317,7 @@ class ReactionOptimizer:
             max_batch_size=max_batch_size,
         )
 
-        self.selected_conditions, self.recommend_type = optimizer.optimize(
+        self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
             training_X=done_arr_desc,
             training_y=done_arr_metrics,
             candidate_X=self.total_desc_arr,
@@ -368,6 +372,18 @@ class ReactionOptimizer:
             self.opt_console.print(f"Creating directory: {save_path.parent}", style="yellow")
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Prepare prediction data
+        pred_data = {}
+        if hasattr(self, 'pred_mean') and self.pred_mean is not None:
+            for i, metric in enumerate(self.opt_metrics):
+                pred_data[f"{metric}_predicted"] = self.pred_mean[:, i]
+                pred_data[f"{metric}_sigma"] = self.pred_std[:, i]
+        else:
+            # For initialization phase, add empty columns
+            for metric in self.opt_metrics:
+                pred_data[f"{metric}_predicted"] = [""] * len(self.selected_conditions)
+                pred_data[f"{metric}_sigma"] = [""] * len(self.selected_conditions)
+
         # Prepare output DataFrame
         output_df = pd.DataFrame(
             {
@@ -375,6 +391,7 @@ class ReactionOptimizer:
                 "index": range(1, len(self.selected_conditions) + 1),
                 "type": self.recommend_type,
                 **pd.DataFrame(self.selected_conditions, columns=self.condition_types).to_dict("list"),
+                **pred_data,
                 **{metric: "" for metric in self.opt_metrics},
             }
         )

@@ -1,5 +1,6 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-1,1,exploit,CsOAc,CgMe-PPh,BuCN,0.153,90,63.2,0.111075602
-1,2,exploit,KOAc,GorlosPhos HBF4,p-Xylene,0.057,120,0.0,0.052500415
-1,3,exploit,CsOAc,JackiePhos,p-Xylene,0.153,120,10.77,0.398473777
-1,4,exploit,KOAc,P(fur)3,BuCN,0.057,90,2.62,0.079292383
+batch,index,type,base,ligand,solvent,concentration,temperature,yield_predicted,yield_sigma,yield,cost
+1,1,exploit,KOPiv,JackiePhos,BuOAc,0.153,90,506.1393018907109,126.7398661574316,5.68,0.358144134
+1,2,exploit,KOPiv,PPh3,DMAc,0.057,120,502.1157556555352,126.73248584296697,91.27,0.03558821
+1,3,exploit,KOPiv,PCy3 HBF4,p-Xylene,0.153,90,500.3606407797765,126.72917083988813,0.0,0.027987971
+1,4,exploit,KOAc,JackiePhos,DMAc,0.057,120,503.8266880394013,126.73296048082685,89.14,0.366396038
+1,5,exploit,KOPiv,P(fur)3,BuOAc,0.153,120,499.8307995814272,126.72726350669691,31.43,0.040869605

@@ -168,9 +168,16 @@ class Optimizer:
         selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
         selected_indices = np.array(selected_indices).squeeze()
         selected_conditions = self.name_data[selected_indices].squeeze()
+        # 计算预测值和置信度
+        with torch.no_grad():
+            posterior = self.global_model.posterior(self.acq_result)
+            pred_mean = posterior.mean.cpu().numpy()  # (batch_size, num_objectives)
+            pred_var = posterior.variance.cpu().numpy()  # (batch_size, num_objectives)
+            pred_std = np.sqrt(pred_var)  # 标准差作为置信度
+
         # 最终日志（用原 console 或 progress 的 console）
         self.opt_console.print("✅ Finish optimization", style="green")
-        return selected_conditions, recommend_type
+        return selected_conditions, recommend_type, pred_mean, pred_std
 
     def _get_expoit_or_explore(self, acq_value):
         with torch.no_grad():

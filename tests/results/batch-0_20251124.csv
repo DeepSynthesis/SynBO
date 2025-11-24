@@ -1,5 +1,6 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-0,1,explore,CsOPiv,BrettPhos,DMAc,0.1,105,0.0,0.232133425
-0,2,explore,KOAc,BrettPhos,BuOAc,0.1,105,17.09,0.157572457
-0,3,explore,CsOPiv,BrettPhos,BuOAc,0.1,105,27.48,0.244004608
-0,4,explore,KOPiv,BrettPhos,DMAc,0.1,105,0.07,0.144665615
+batch,index,type,base,ligand,solvent,concentration,temperature,yield_predicted,yield_sigma,yield,cost
+0,1,explore,CsOAc,PPh2Me,BuCN,0.1,105,,,0.0,0.09067321
+0,2,explore,CsOPiv,GorlosPhos HBF4,BuCN,0.1,105,,,39.42,0.142904169
+0,3,explore,CsOPiv,tBPh-CPhos,BuCN,0.1,105,,,5.41,0.373149744
+0,4,explore,CsOPiv,BrettPhos,BuCN,0.1,105,,,55.41,0.250381171
+0,5,explore,CsOAc,PPhMe2,BuCN,0.1,105,,,0.0,0.091929038

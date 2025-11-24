@@ -1,5 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-3,1,exploit,CsOPiv,GorlosPhos HBF4,BuOAc,0.153,90,9.39,0.128027064
-3,2,exploit,CsOPiv,GorlosPhos HBF4,p-Xylene,0.1,90,2.99,0.127116619
-3,3,exploit,CsOPiv,GorlosPhos HBF4,BuOAc,0.057,120,13.52,0.155129756
-3,4,exploit,CsOAc,PCy3 HBF4,p-Xylene,0.1,120,2.98,0.079997515

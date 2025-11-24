@@ -35,7 +35,7 @@ class GPSurrogateModel(BaseSurrogateModel):
         self.model = None
         # Use edboplus-style likelihood initialization
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood(GammaPrior(1.5, 0.1)).to(self.device)
-        self.likelihood.noise = 5.0
+        self.likelihood.noise = 0.5
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         """Build and train a single GP model"""

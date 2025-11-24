@@ -154,6 +154,8 @@ class Optimizer:
                 q=batch_size,
                 max_batch_size=self.max_batch_size,
                 unique=True,
+                exclude_points=training_X_t,  # 传入训练数据避免重复选择
+                min_distance=1e-6,
                 progress=progress,
                 task=task_acq_opt,
             )

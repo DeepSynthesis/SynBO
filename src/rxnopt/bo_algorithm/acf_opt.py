@@ -17,6 +17,8 @@ def optimize_acqf_discrete(
     maximum_metrics: bool = True,
     progress: object = None,
     task: object = None,
+    min_distance: float = 1e-6,
+    exclude_points: Tensor = None,
 ) -> tuple[Tensor, Tensor]:
     r"""Optimize over a discrete set of points using batch evaluation.
 
@@ -34,12 +36,8 @@ def optimize_acqf_discrete(
             a large training set.
         unique: If True return unique choices, o/w choices may be repeated
             (only relevant if `q > 1`).
-        X_avoid: An `n x d` tensor of candidates that we aren't allowed to pick.
-            These will be removed from the set of choices.
-        inequality constraints: A list of tuples (indices, coefficients, rhs),
-            with each tuple encoding an inequality constraint of the form
-            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`.
-            Infeasible points will be removed from the set of choices.
+        min_distance: Minimum distance between selected points when unique=True.
+        exclude_points: Tensor of points to avoid (e.g., training data).
 
     Returns:
         A two-element tuple containing
@@ -59,8 +57,17 @@ def optimize_acqf_discrete(
 
     if q > 1:
         candidate_list, acq_value_list = [], []
+        available_choices = choices.clone()  # 创建候选点的副本
+        available_indices = torch.arange(len(choices), device=choices.device)  # 追踪可用候选点的索引
+        
         for q_i in range(q):
+            if len(available_choices) == 0:
+                acf_console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
+                break
+                
             progress.log(f"Chooseing candidate {q_i+1} of {q}", style="yellow")
+            choices_batched = available_choices.unsqueeze(-2)
+            
             with torch.no_grad():
                 with gpytorch.settings.cholesky_jitter(1e-3):
                     acq_values = _split_batch_eval_acqf(
@@ -70,16 +77,36 @@ def optimize_acqf_discrete(
                         maximum_metrics=maximum_metrics,
                     )
             best_idx = torch.argmax(acq_values)
-            candidate_list.append(choices_batched[best_idx])
+            selected_candidate = choices_batched[best_idx]
+            
+            candidate_list.append(selected_candidate)
             acq_value_list.append(acq_values[best_idx])
-            # set pending points
+            
+            # 如果要求唯一性，从可用选择中移除距离过近的点
+            if unique:
+                keep_mask = torch.ones(len(available_choices), dtype=torch.bool, device=available_choices.device)
+                
+                # 检查与所有历史点（训练数据等）的距离
+                if exclude_points is not None:
+                    for exclude_point in exclude_points:
+                        distances = torch.norm(available_choices - exclude_point, dim=-1)
+                        keep_mask = keep_mask & (distances > min_distance)
+                
+                # 检查与当前批次中已选择点的距离
+                for selected_point in candidate_list:
+                    distances = torch.norm(available_choices - selected_point.squeeze(), dim=-1)
+                    keep_mask = keep_mask & (distances > min_distance)
+                
+                available_choices = available_choices[keep_mask]
+                available_indices = available_indices[keep_mask]
+            
+            # 设置 pending points
             candidates = torch.cat(candidate_list, dim=-2)
             torch.cuda.empty_cache()  # 清空缓存（可选）
             acq_function.set_X_pending(candidates)
             progress.update(task, advance=1)
 
         # Reset acq_func to previous X_pending state
-        # TODO: Deal with unique... need to remove choice from choice set if enforcing uniqueness
         acq_function.set_X_pending(acq_function.X_pending)
         return candidates, torch.stack(acq_value_list)
 

@@ -1,5 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-5,1,exploit,CsOPiv,tBPh-CPhos,p-Xylene,0.153,120,29.96,0.352317841
-5,2,exploit,KOPiv,GorlosPhos HBF4,BuOAc,0.153,120,26.48,0.040655175
-5,3,exploit,KOPiv,CgMe-PPh,BuOAc,0.153,120,45.73,0.060121638
-5,4,exploit,KOPiv,tBPh-CPhos,DMAc,0.057,90,12.23,0.277980784

@@ -109,10 +109,12 @@ for f in Path("results/").glob(f"batch-*.csv"):
 
 def generate_onehot():
     for name in ["base", "ligand", "solvent"]:
-        df = pd.read_csv(f"descriptors/{name}_dft.csv")
-        calc_spoc_desc(df[f"{name}_file_name"], save_path="descriptors", fp_type='OneHot', desc_type_to_filename=True)
+        df = pd.read_csv(f"dataset/descriptors/{name}_dft.csv")
+        calc_spoc_desc(df[f"{name}_file_name"], save_path=f"dataset/descriptors/{name}.csv", fp_type="OneHot", desc_type_to_filename=True)
 
 
+generate_onehot()
+exit()
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
 # name_suffix = ["_dft", "_dft", "_dft", None, None]

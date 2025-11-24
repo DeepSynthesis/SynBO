@@ -1,5 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-0,1,explore,CsOAc,PPhMe2,p-Xylene,0.1,105,0.0,0.07643325
-0,2,explore,CsOAc,PPhtBu2,p-Xylene,0.1,105,0.0,0.091027866
-0,3,explore,CsOAc,PPhtBu2,p-Xylene,0.1,105,0.0,0.091027866
-0,4,explore,CsOAc,PPhMe2,DMAc,0.1,105,0.0,0.0741067409999999

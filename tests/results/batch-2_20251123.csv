@@ -1,5 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-2,1,exploit,KOPiv,PPh2Me,BuCN,0.153,90,0.0,0.033582385
-2,2,exploit,KOPiv,tBPh-CPhos,BuCN,0.153,90,5.65,0.275187497
-2,3,exploit,KOPiv,PCy3 HBF4,BuCN,0.057,120,3.25,0.07177053
-2,4,exploit,CsOPiv,CgMe-PPh,BuCN,0.057,120,75.46,0.185396976

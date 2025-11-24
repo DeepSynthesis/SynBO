@@ -1,5 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
-1,1,explore,KOPiv,BrettPhos,BuCN,0.153,90,13.31,0.152093829
-1,2,explore,CsOPiv,P(fur)3,BuOAc,0.057,120,10.59,0.155299864
-1,3,explore,KOAc,GorlosPhos HBF4,BuCN,0.057,120,20.95,0.0792465359999999
-1,4,explore,KOPiv,CgMe-PPh,p-Xylene,0.153,90,20.67,0.053667403

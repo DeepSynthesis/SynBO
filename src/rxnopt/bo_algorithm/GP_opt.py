@@ -42,11 +42,11 @@ class GPSurrogateModel(BaseSurrogateModel):
         # Move input data to the correct device
         train_x = train_x.to(self.device)
         train_y = train_y.to(self.device)
-        
+
         # Use adaptive covariance module configuration
         # Scale initial lengthscale based on input dimensionality
         initial_lengthscale = max(0.5, min(5.0, np.sqrt(self.num_dims)))
-        
+
         covar_module = ScaleKernel(
             MaternKernel(
                 ard_num_dims=self.num_dims,
@@ -56,13 +56,13 @@ class GPSurrogateModel(BaseSurrogateModel):
         )
         # Set adaptive initial lengthscale
         covar_module.base_kernel.lengthscale = initial_lengthscale
-        
+
         self.model = SingleTaskGP(
             train_X=train_x,
             train_Y=train_y,
             covar_module=covar_module,
         ).to(self.device)
-        
+
         # Add noise constraint like edboplus
         self.model.likelihood.noise_covar.register_constraint("raw_noise", GreaterThan(1e-5))
 
@@ -75,7 +75,7 @@ class GPSurrogateModel(BaseSurrogateModel):
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=50, factor=0.5)
         mll = ExactMarginalLogLikelihood(self.likelihood, self.model)
 
-        best_loss = float('inf')
+        best_loss = float("inf")
         patience_counter = 0
         patience_limit = 100
 
@@ -86,14 +86,14 @@ class GPSurrogateModel(BaseSurrogateModel):
             loss.backward()
             optimizer.step()
             scheduler.step(loss.item())
-            
+
             # Early stopping
             if loss.item() < best_loss:
                 best_loss = loss.item()
                 patience_counter = 0
             else:
                 patience_counter += 1
-                
+
             if patience_counter >= patience_limit:
                 break
 
@@ -147,18 +147,18 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             ref_point=ref_point,
             partitioning=partitioning,
         )
-        
+
     def evaluate_with_exploration(self, X: torch.Tensor) -> torch.Tensor:
         """Enhanced evaluation with exploration bonus"""
         # Standard EHVI
         ehvi_val = self.ehvi(X)
-        
+
         # Add exploration bonus based on predictive variance
         with torch.no_grad():
             posterior = self.model.posterior(X)
             # Average variance across objectives as exploration signal
             exploration_bonus = torch.mean(posterior.variance, dim=-1)
-            
+
         return ehvi_val + self.exploration_weight * exploration_bonus
 
 
@@ -205,5 +205,5 @@ class ParetoFrontCalculator:
             # Add current point if it's Pareto optimal
             if is_pareto:
                 pareto_front.append(point)
-        print(pareto_front)
+        print(pareto_front)  # TODO: need to remove before release
         return torch.tensor(np.array(pareto_front))

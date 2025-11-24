@@ -116,6 +116,44 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
         return np.zeros_like(total_desc_arr)
 
 
+def _select_least_correlated_features(df: pd.DataFrame, k: int) -> List[int]:
+    """
+    从DataFrame中贪心选择k个相关性最低的特征。
+    Args:
+        df (pd.DataFrame): 输入的特征DataFrame。
+        k (int): 要选择的特征数量。
+    Returns:
+        List[int]: 被选中的列索引列表。
+    """
+    if k >= df.shape[1]:
+        return list(range(df.shape[1]))
+    corr_matrix = df.corr().abs()
+
+    # 初始选择第一个特征
+    selected_indices = [0]
+    candidate_indices = list(range(1, df.shape[1]))
+    while len(selected_indices) < k:
+        best_candidate = -1
+        lowest_avg_corr = float("inf")
+        # 遍历所有候选特征
+        for candidate_idx in candidate_indices:
+            # 计算候选特征与已选特征集合的平均相关性
+            avg_corr = corr_matrix.iloc[candidate_idx, selected_indices].mean()
+
+            if avg_corr < lowest_avg_corr:
+                lowest_avg_corr = avg_corr
+                best_candidate = candidate_idx
+
+        if best_candidate != -1:
+            selected_indices.append(best_candidate)
+            candidate_indices.remove(best_candidate)
+        else:
+            # 如果没有候选者了，提前退出
+            break
+
+    return selected_indices
+
+
 def array_process(
     desc_dict: Dict[str, pd.DataFrame],
     condition_dict: Dict[str, List[Any]],
@@ -123,94 +161,113 @@ def array_process(
     desc_normalize: str,
     refine_desc: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Process arrays with rich output.
-    Args:
-        desc_dict: Descriptor dictionary.
-        condition_dict: Condition dictionary.
-        condition_types: List of condition type names.
-        desc_normalize: Normalization method.
-        refine_desc: Method to refine descriptors ('none', 'filter_only', 'auto_select').
-    Returns:
-        Tuple of (name_array, descriptor_array)
     """
-    desc_arrs = [[desc_dict[k].loc[name].values for name in condition_dict[k]] for k in condition_types]
+    处理数组，包括描述符筛选、归一化和笛卡尔积。
+    Args:
+        desc_dict: 描述符字典，键为条件类型，值为包含描述符的DataFrame。
+        condition_dict: 条件字典，键为条件类型，值为该类型下的样本名称列表。
+        condition_types: 条件类型名称的列表。
+        desc_normalize: 归一化方法 ('none', 'standard', etc.)。
+        refine_desc: 描述符筛选方法 ('none', 'auto_select', 'filter_0.9', etc.)。
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: (name_array, descriptor_array)
+    """
+    # 1. 准备原始数据
+    desc_arrs = []
+    for k in condition_types:
+        # 确保 condition_dict[k] 中的名称存在于 desc_dict[k] 的索引中
+        valid_names = [name for name in condition_dict.get(k, []) if name in desc_dict[k].index]
+        if valid_names:
+            desc_arrs.append(desc_dict[k].loc[valid_names].values)
+        else:
+            desc_arrs.append(np.array([[]]))  # 添加一个空数组占位
     name_arrs = [list(names) for names in condition_dict.values()]
-    # Refine descriptors based on the specified method
-    if refine_desc in ["filter_only", "auto_select"]:
+    # 2. 描述符筛选 (Refine descriptors)
+    if refine_desc != "none":
         refined_desc_arrs = []
-        for desc_arr in desc_arrs:
-            if not desc_arr:
-                refined_desc_arrs.append([])
-                continue
-            # --- CORRECTED LOGIC ---
-            # Combine all samples of a condition type to calculate inter-descriptor correlation.
-            combined_arr = np.vstack(desc_arr)
-            df = pd.DataFrame(combined_arr)
 
-            # Calculate correlation matrix and find columns to drop
-            corr_matrix = df.corr().abs()
-            upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            to_drop = {column for column in upper.columns if any(upper[column] > 0.7)}
+        # --- auto_select 逻辑 ---
+        if refine_desc == "auto_select":
+            console.print("Using 'auto_select' to refine descriptors...")
+            MAX_TOTAL_DIMS = 200
 
-            # Get the indices of columns to keep
-            keep_indices = [i for i, col in enumerate(df.columns) if col not in to_drop]
+            # 计算每个数组的原始维度
+            original_dims = np.array([arr.shape[1] for arr in desc_arrs if arr.size > 0])
+            total_original_dims = sum(original_dims)
+            if total_original_dims > MAX_TOTAL_DIMS:
+                # 按比例分配目标维度
+                proportions = original_dims / total_original_dims
+                target_dims = (proportions * MAX_TOTAL_DIMS).astype(int)
+                # 确保最少有一个维度，并且不超过原始维度
+                target_dims = np.maximum(1, target_dims)
+                target_dims = np.minimum(original_dims, target_dims)
 
-            # Apply filtering to all arrays in the group
-            refined_group = df.iloc[:, keep_indices].values
-            refined_desc_arrs.append(refined_group)
+                # 由于取整可能导致总和不完全等于MAX_TOTAL_DIMS，但通常足够接近
+                console.print(f"Total dimensions reduced from {total_original_dims} to ~{sum(target_dims)}.")
+                console.print(f"Target dimensions per group: {target_dims.tolist()}")
+            else:
+                # 如果总维度本来就不多，则无需缩减
+                target_dims = original_dims
+                console.print(f"Total dimensions ({total_original_dims}) is within the limit. No reduction needed.")
+            arr_idx_with_data = 0
+            for i, desc_arr in enumerate(desc_arrs):
+                if desc_arr.size == 0:
+                    refined_desc_arrs.append(desc_arr)
+                    continue
+                k = target_dims[arr_idx_with_data]
+                df = pd.DataFrame(desc_arr)
 
-        desc_arrs = refined_desc_arrs
-        # Check total dimensions after filtering
-        # Ensure group is not empty before accessing shape
-        total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
+                # 选择k个相关性最低的特征
+                
+                keep_indices = _select_least_correlated_features(df, k)
 
-        # TODO: deal with too many dimension problems
-        # if total_dims > 200:
-        # console.print(f"[yellow]Warning:[/yellow] Total descriptor dimension after filtering is {total_dims}, which is > 200.")
-        # if refine_desc == "auto_select":
-        #     console.print("Performing random sampling to reduce dimensions to <= 200...")
-        #     # Distribute the 200 dimensions proportionally
+                refined_group = df.iloc[:, keep_indices].values
+                refined_desc_arrs.append(refined_group)
+                arr_idx_with_data += 1
 
-        #     current_dims = [arr.shape[1] if arr.size > 0 else 0 for arr in desc_arrs]
-        #     target_dims = current_dims.copy()
+            desc_arrs = refined_desc_arrs
+        # --- filter_x.x 逻辑 ---
+        elif refine_desc.startswith("filter_"):
+            try:
+                threshold = float(refine_desc.split("_")[1])
+                console.print(f"Using '{refine_desc}' to filter descriptors with correlation > {threshold}...")
+            except (ValueError, IndexError):
+                console.print(f"[red]Error:[/red] Invalid filter format '{refine_desc}'. Expected 'filter_x.x'. Skipping refinement.")
+                threshold = -1  # 无效阈值
+            if threshold > 0:
+                for desc_arr in desc_arrs:
+                    if desc_arr.size == 0:
+                        refined_desc_arrs.append(desc_arr)
+                        continue
 
-        #     sampled_desc_arrs = []
-        #     for i, desc_arr_group in enumerate(desc_arrs):
-        #         if desc_arr_group.size == 0:
-        #             sampled_desc_arrs.append([])
-        #             continue
+                    df = pd.DataFrame(desc_arr)
+                    corr_matrix = df.corr().abs()
+                    upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
 
-        #         num_features = desc_arr_group.shape[1]
-        #         k = target_dims[i]
-        #         if num_features > k:
-        #             indices = np.random.choice(num_features, size=k, replace=False)
-        #             indices.sort()  # Keep order for consistency
-        #             sampled_group = desc_arr_group[:, indices]
-        #             sampled_desc_arrs.append(sampled_group)
-        #         else:
-        #             sampled_desc_arrs.append(desc_arr_group)
-        #     desc_arrs = sampled_desc_arrs
+                    # 找到要删除的列
+                    to_drop = {column for column in upper.columns if any(upper[column] > threshold)}
 
-    # Flatten the list of lists for normalization
-    # flat_desc_arrs = [item for sublist in desc_arrs for item in sublist]
+                    # 应用筛选
+                    refined_group = df.drop(columns=to_drop).values
+                    refined_desc_arrs.append(refined_group)
 
-    # Calculate and print the final total descriptor dimension
+                desc_arrs = refined_desc_arrs
+    # 3. 计算并打印最终维度
     final_total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
     console.print(f"Final total descriptor dimension: [bold cyan]{final_total_dims}[/bold cyan]")
-    # Normalize data for each condition *before* cartesian product
+    # 4. 归一化 (Normalize data)
+    # 注意：归一化应该在每个独立的数组（代表一个条件类型的所有样本）上进行
     normalized_desc_arrs = []
-
     for desc_arr in desc_arrs:
-        normalized_desc_arrs.append(normalize_data(desc_arr, desc_normalize))
-
-    # Re-group the normalized arrays to match the original structure for cartesian product
-    grouped_normalized_arrs = []
-    start_index = 0
-    for group in desc_arrs:
-        end_index = start_index + len(group)
-        grouped_normalized_arrs.append(normalized_desc_arrs[start_index:end_index])
-        start_index = end_index
-    # Perform cartesian product on the processed arrays
+        # 对每个非空数组应用归一化
+        if desc_arr.size > 0:
+            normalized_desc_arrs.append(normalize_data(desc_arr, desc_normalize))
+        else:
+            # 如果数组为空，则保持原样，但在笛卡尔积中可能需要特殊处理
+            # 这里的实现是，如果一个条件类型没有样本，笛卡尔积结果将为空
+            normalized_desc_arrs.append(np.array([]))
+    # 5. 执行笛卡尔积 (Perform cartesian product)
+    # cartesian_product_3d 需要能处理描述符向量的拼接
     total_desc_arr = cartesian_product_3d(normalized_desc_arrs, data_type=float, info="descriptors")
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
     if len(total_desc_arr) > 0:
@@ -219,6 +276,7 @@ def array_process(
         console.print(
             "[yellow]Warning:[/yellow] No combinations were generated. Check input conditions.",
         )
+
     return total_name_arr, total_desc_arr
 
 

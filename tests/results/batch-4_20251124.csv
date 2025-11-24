@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+4,1,exploit,KOAc,P(fur)3,BuCN,0.057,90,2.62,0.079292383
+4,2,exploit,CsOPiv,PPh2Me,BuOAc,0.057,120,0.0,0.143998693
+4,3,exploit,KOAc,JackiePhos,BuCN,0.153,90,24.05,0.363522315
+4,4,exploit,KOAc,CgMe-PPh,BuCN,0.153,90,19.99,0.065243382

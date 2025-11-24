@@ -87,41 +87,58 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
         raise Exception("Normalization failed.") from e
 
 
-def _select_least_correlated_features(df: pd.DataFrame, k: int) -> List[int]:
+def _select_least_correlated_features(df: pd.DataFrame, k: int, feature_type: str = "") -> List[int]:
     """
-    从DataFrame中贪心选择k个相关性最低的特征。
+    从DataFrame中贪心选择k个相关性最低的特征，并显示进度条。
     Args:
         df (pd.DataFrame): 输入的特征DataFrame。
         k (int): 要选择的特征数量。
     Returns:
         List[int]: 被选中的列索引列表。
     """
-    if k >= df.shape[1]:
-        return list(range(df.shape[1]))
-    corr_matrix = df.corr().abs()
+    num_features = df.shape[1]
+    if k >= num_features:
+        return list(range(num_features))
 
+    # 如果k为0或负数，直接返回空列表
+    if k <= 0:
+        return []
+    corr_matrix = df.corr().abs()
     # 初始选择第一个特征
     selected_indices = [0]
-    candidate_indices = list(range(1, df.shape[1]))
-    while len(selected_indices) < k:
-        best_candidate = -1
-        lowest_avg_corr = float("inf")
-        # 遍历所有候选特征
-        for candidate_idx in candidate_indices:
-            # 计算候选特征与已选特征集合的平均相关性
-            avg_corr = corr_matrix.iloc[candidate_idx, selected_indices].mean()
+    candidate_indices = list(range(1, num_features))
+    # 设置 rich 进度条
+    progress_columns = [
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TextColumn("({task.completed} of {task.total})"),
+        TimeRemainingColumn(),
+    ]
+    with Progress(*progress_columns, transient=True) as progress:
+        # transient=True 可以在任务完成后移除进度条，使输出更整洁
+        task = progress.add_task(f"[cyan]Selecting features of {feature_type}...", total=k)
+        # 更新初始选择的第一个特征
+        progress.update(task, advance=1)
+        while len(selected_indices) < k:
+            best_candidate = -1
+            lowest_avg_corr = float("inf")
 
-            if avg_corr < lowest_avg_corr:
-                lowest_avg_corr = avg_corr
-                best_candidate = candidate_idx
-
-        if best_candidate != -1:
-            selected_indices.append(best_candidate)
-            candidate_indices.remove(best_candidate)
-        else:
-            # 如果没有候选者了，提前退出
-            break
-
+            # 遍历所有候选特征
+            for candidate_idx in candidate_indices:
+                # 计算候选特征与已选特征集合的平均相关性
+                avg_corr = corr_matrix.iloc[candidate_idx, selected_indices].mean()
+                if avg_corr < lowest_avg_corr:
+                    lowest_avg_corr = avg_corr
+                    best_candidate = candidate_idx
+            if best_candidate != -1:
+                selected_indices.append(best_candidate)
+                candidate_indices.remove(best_candidate)
+                # 每选择一个新特征，更新进度条
+                progress.update(task, advance=1)
+            else:
+                # 如果没有候选者了（理论上不应发生，除非k>num_features），提前退出
+                break
     return selected_indices
 
 
@@ -165,23 +182,20 @@ def array_process(
             # 计算每个数组的原始维度
             original_dims = np.array([arr.shape[1] for arr in desc_arrs if arr.size > 0])
             total_original_dims = sum(original_dims)
-            if total_original_dims > MAX_TOTAL_DIMS:
-                # 按比例分配目标维度
+            if total_original_dims > MAX_TOTAL_DIMS:  # 按比例分配目标维度
                 proportions = original_dims / total_original_dims
                 target_dims = (proportions * MAX_TOTAL_DIMS).astype(int)
-                # 确保最少有一个维度，并且不超过原始维度
                 target_dims = np.maximum(1, target_dims)
                 target_dims = np.minimum(original_dims, target_dims)
 
-                # 由于取整可能导致总和不完全等于MAX_TOTAL_DIMS，但通常足够接近
                 console.print(f"Total dimensions reduced from {total_original_dims} to ~{sum(target_dims)}.")
-                console.print(f"Target dimensions per group: {target_dims.tolist()}")
+                # console.print(f"Target dimensions per group: {target_dims.tolist()}")
             else:
                 # 如果总维度本来就不多，则无需缩减
                 target_dims = original_dims
                 console.print(f"Total dimensions ({total_original_dims}) is within the limit. No reduction needed.")
             arr_idx_with_data = 0
-            for i, desc_arr in enumerate(desc_arrs):
+            for i, (desc_arr, f_type) in enumerate(zip(desc_arrs, desc_dict.keys())):
                 if desc_arr.size == 0:
                     refined_desc_arrs.append(desc_arr)
                     continue
@@ -189,8 +203,7 @@ def array_process(
                 df = pd.DataFrame(desc_arr)
 
                 # 选择k个相关性最低的特征
-
-                keep_indices = _select_least_correlated_features(df, k)
+                keep_indices = _select_least_correlated_features(df, k, f_type)
 
                 refined_group = df.iloc[:, keep_indices].values
                 refined_desc_arrs.append(refined_group)
@@ -223,6 +236,12 @@ def array_process(
                     refined_desc_arrs.append(refined_group)
 
                 desc_arrs = refined_desc_arrs
+        elif refine_desc == "none":
+            console.print("No descriptor refinement applied.")
+        else:
+            console.print(f"[red]Error:[/red] Unknown refine_desc option '{refine_desc}'. No refinement applied.")
+            raise Exception(f"Unknown refine_desc option: {refine_desc}")
+
     # 3. 计算并打印最终维度
     final_total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
     console.print(f"Final total descriptor dimension: [bold cyan]{final_total_dims}[/bold cyan]")

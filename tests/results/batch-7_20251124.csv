@@ -1,0 +1,5 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield,cost
+7,1,exploit,CsOAc,X-Phos,BuOAc,0.057,90,61.71,0.110611176
+7,2,exploit,CsOPiv,PCy3 HBF4,BuOAc,0.057,90,0.0,0.14880791
+7,3,exploit,KOPiv,X-Phos,p-Xylene,0.057,90,23.45,0.04757534
+7,4,exploit,CsOAc,X-Phos,BuCN,0.057,120,72.21,0.121224204

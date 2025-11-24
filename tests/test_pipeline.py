@@ -5,6 +5,7 @@ import shutil
 from matplotlib import pyplot as plt
 import pandas as pd
 from rxnopt import ReactionOptimizer
+from rxnopt.descriptor.spoc_desc import calc_spoc_desc
 from rxnopt.utils import load_desc_dict, get_prev_rxn
 
 import seaborn as sns
@@ -105,9 +106,16 @@ date = datetime.now().strftime("%Y%m%d")
 for f in Path("results/").glob(f"batch-*.csv"):
     os.remove(f)
 
+
+def generate_onehot():
+    for name in ["base", "ligand", "solvent"]:
+        df = pd.read_csv(f"descriptors/{name}_dft.csv")
+        calc_spoc_desc(df[f"{name}_file_name"], save_path="descriptors", fp_type='OneHot', desc_type_to_filename=True)
+
+
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
-name_suffix = ["_dft", "_dft", "_dft", None, None]
+# name_suffix = ["_dft", "_dft", "_dft", None, None]
 opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}]  # cost(min), yield(max)
 
 desc_dict, condition_dict = load_desc_dict(

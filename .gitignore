@@ -2,3 +2,4 @@ rxnopt.egg-info
 __pycache__/
 .Trash
 .vscode/
+tests/results/

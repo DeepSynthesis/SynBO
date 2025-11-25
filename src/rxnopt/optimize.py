@@ -134,9 +134,8 @@ class Optimizer:
             # 任务4：初始化采样器与 Acquisition Function
             # ------------------------------
             # Adaptive MC sampling based on dimensionality and problem size
-            adaptive_mc_samples = max(self.mc_num_samples, 2 ** training_X.shape[1])  # Scale with dimension
-            adaptive_mc_samples = min(adaptive_mc_samples, 4096)  # Cap to avoid excessive samples
-            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([adaptive_mc_samples]), seed=self.seed)
+            # TODO: remove this adaptive MC sample strategy
+            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.seed)
             partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
             acq_func = self.acquisition_function_class(
                 model=self.global_model,

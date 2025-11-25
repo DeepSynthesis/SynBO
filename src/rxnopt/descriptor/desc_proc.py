@@ -171,7 +171,7 @@ def array_process(
             desc_arrs.append(np.array([[]]))  # 添加一个空数组占位
     name_arrs = [list(names) for names in condition_dict.values()]
     # 2. 描述符筛选 (Refine descriptors)
-    if refine_desc != "none":
+    if refine_desc != "pass":
         refined_desc_arrs = []
 
         # --- auto_select 逻辑 ---

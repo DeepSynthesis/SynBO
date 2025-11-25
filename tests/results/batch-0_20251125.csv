@@ -1,6 +1,6 @@
 batch,index,type,base,ligand,solvent,concentration,temperature,yield_predicted,yield_sigma,cost_predicted,cost_sigma,yield,cost
-0,1,explore,KOAc,CgMe-PPh,p-Xylene,0.1,105,-,-,-,-,35.6,0.060220115
-0,2,explore,KOAc,BrettPhos,p-Xylene,0.1,105,-,-,-,-,16.44,0.148146224
-0,3,explore,KOAc,GorlosPhos HBF4,p-Xylene,0.1,105,-,-,-,-,0.83,0.040735024
-0,4,explore,KOAc,JackiePhos,p-Xylene,0.1,105,-,-,-,-,5.36,0.358357507
-0,5,explore,KOAc,PPh2Me,p-Xylene,0.1,105,-,-,-,-,0.0,0.029676975
+0,1,explore,KOPiv,BrettPhos,DMAc,0.1,105,-,-,-,-,0.07,0.144665615
+0,2,explore,KOAc,tBPh-CPhos,DMAc,0.1,105,-,-,-,-,78.95,0.269139791
+0,3,explore,KOPiv,PPhMe2,DMAc,0.1,105,-,-,-,-,0.0,0.027511995
+0,4,explore,CsOAc,PPhMe2,DMAc,0.1,105,-,-,-,-,0.0,0.0741067409999999
+0,5,explore,CsOAc,PPhtBu2,DMAc,0.1,105,-,-,-,-,0.0,0.088701357

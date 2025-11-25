@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield_pred,yield_sigma,cost_pred,cost_sigma,yield,cost
-9,1,explore,KOPiv,GorlosPhos HBF4,DMAc,0.153,120,30.35,8.905,-0.02669,0.009251,61.33,0.032837496
-9,2,explore,KOPiv,GorlosPhos HBF4,BuCN,0.057,120,28.96,8.804,-0.02575,0.00916,64.48,0.078486468
-9,3,explore,CsOPiv,GorlosPhos HBF4,DMAc,0.153,90,28.99,8.815,-0.02592,0.009173,23.23,0.120195674
-9,4,explore,KOPiv,GorlosPhos HBF4,BuOAc,0.153,90,28.43,8.769,-0.02543,0.009133,5.65,0.040538016
-9,5,explore,CsOAc,GorlosPhos HBF4,DMAc,0.057,120,28.55,8.763,-0.02555,0.009137,16.77,0.094081907

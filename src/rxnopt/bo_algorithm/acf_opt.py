@@ -85,9 +85,6 @@ def optimize_acqf_discrete(
                 available_indices = available_indices[keep_mask]
 
             choices_batched = available_choices.unsqueeze(-2)
-            print("---------")
-            print(choices_batched.shape)
-            print("---------")
             with torch.no_grad():
                 with gpytorch.settings.cholesky_jitter(1e-3):
                     acq_values = _split_batch_eval_acqf(

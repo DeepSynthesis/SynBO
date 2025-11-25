@@ -15,7 +15,7 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame
     except Exception as e:
         raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{idx_col}' exists in the file.")
 
-    assert not df.isna(), f"Descriptor file {desc_file} contains NaN values. Please check the data."
+    assert not df.isna().any().any(), f"Descriptor file {desc_file} contains NaN values. Please check the data."
 
     return df
 

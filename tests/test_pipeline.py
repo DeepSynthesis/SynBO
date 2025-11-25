@@ -103,8 +103,8 @@ def fill_done_dir(i, date):
 
 
 date = datetime.now().strftime("%Y%m%d")
-for f in Path("results/").glob(f"batch-*.csv"):
-    os.remove(f)
+# for f in Path("results/").glob(f"batch-*.csv"):
+#     os.remove(f)
 
 
 # def generate_onehot():

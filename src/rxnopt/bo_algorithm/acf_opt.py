@@ -59,15 +59,35 @@ def optimize_acqf_discrete(
         candidate_list, acq_value_list = [], []
         available_choices = choices.clone()  # 创建候选点的副本
         available_indices = torch.arange(len(choices), device=choices.device)  # 追踪可用候选点的索引
-        
+
         for q_i in range(q):
             if len(available_choices) == 0:
                 acf_console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
                 break
-                
+
             progress.log(f"Chooseing candidate {q_i+1} of {q}", style="yellow")
+
+            if unique:
+                keep_mask = torch.ones(len(available_choices), dtype=torch.bool, device=available_choices.device)
+
+                # 检查与所有历史点（训练数据等）的距离
+                if exclude_points is not None:
+                    for exclude_point in exclude_points:
+                        distances = torch.norm(available_choices - exclude_point, dim=-1)
+                        keep_mask = keep_mask & (distances > min_distance)
+
+                # 检查与当前批次中已选择点的距离
+                for selected_point in candidate_list:
+                    distances = torch.norm(available_choices - selected_point.squeeze(), dim=-1)
+                    keep_mask = keep_mask & (distances > min_distance)
+
+                available_choices = available_choices[keep_mask]
+                available_indices = available_indices[keep_mask]
+
             choices_batched = available_choices.unsqueeze(-2)
-            
+            print("---------")
+            print(choices_batched.shape)
+            print("---------")
             with torch.no_grad():
                 with gpytorch.settings.cholesky_jitter(1e-3):
                     acq_values = _split_batch_eval_acqf(
@@ -78,28 +98,10 @@ def optimize_acqf_discrete(
                     )
             best_idx = torch.argmax(acq_values)
             selected_candidate = choices_batched[best_idx]
-            
+
             candidate_list.append(selected_candidate)
             acq_value_list.append(acq_values[best_idx])
-            
-            # 如果要求唯一性，从可用选择中移除距离过近的点
-            if unique:
-                keep_mask = torch.ones(len(available_choices), dtype=torch.bool, device=available_choices.device)
-                
-                # 检查与所有历史点（训练数据等）的距离
-                if exclude_points is not None:
-                    for exclude_point in exclude_points:
-                        distances = torch.norm(available_choices - exclude_point, dim=-1)
-                        keep_mask = keep_mask & (distances > min_distance)
-                
-                # 检查与当前批次中已选择点的距离
-                for selected_point in candidate_list:
-                    distances = torch.norm(available_choices - selected_point.squeeze(), dim=-1)
-                    keep_mask = keep_mask & (distances > min_distance)
-                
-                available_choices = available_choices[keep_mask]
-                available_indices = available_indices[keep_mask]
-            
+
             # 设置 pending points
             candidates = torch.cat(candidate_list, dim=-2)
             torch.cuda.empty_cache()  # 清空缓存（可选）
@@ -109,13 +111,13 @@ def optimize_acqf_discrete(
         # Reset acq_func to previous X_pending state
         acq_function.set_X_pending(acq_function.X_pending)
         return candidates, torch.stack(acq_value_list)
-
-    with torch.no_grad():
-        acq_values = _split_batch_eval_acqf(
-            acq_function=acq_function, X=choices_batched, max_batch_size=max_batch_size, maximum_metrics=maximum_metrics
-        )
-    best_idx = torch.argmax(acq_values)
-    return choices_batched[best_idx], acq_values[best_idx]
+    else:
+        with torch.no_grad():
+            acq_values = _split_batch_eval_acqf(
+                acq_function=acq_function, X=choices_batched, max_batch_size=max_batch_size, maximum_metrics=maximum_metrics
+            )
+        best_idx = torch.argmax(acq_values)
+        return choices_batched[best_idx], acq_values[best_idx]
 
 
 def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_batch_size: int, maximum_metrics: bool) -> Tensor:

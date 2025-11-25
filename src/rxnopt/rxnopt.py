@@ -53,7 +53,7 @@ class ReactionOptimizer:
             raise ValueError("opt_metrics must be str or list")
 
         if isinstance(opt_direct_info, dict):
-            opt_direct_info = [opt_direct_info]
+            opt_direct_info = [opt_direct_info] * len(opt_metrics)
         elif not isinstance(opt_direct_info, list):
             raise ValueError("opt_direct must be str or list")
 

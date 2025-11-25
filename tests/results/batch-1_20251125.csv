@@ -1,6 +1,6 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield_predicted,yield_sigma,yield,cost
-1,1,explore,KOAc,CgMe-PPh,p-Xylene,0.153,105,0.3362229727080728,0.0283959596568429,0.4164,0.054838238
-1,2,explore,KOAc,CgMe-PPh,p-Xylene,0.057,90,0.3301873827967896,0.0328914993400781,0.0845,0.071889446
-1,3,explore,KOAc,CgMe-PPh,p-Xylene,0.057,120,0.3301873827967896,0.0328914993400781,0.3114,0.071972258
-1,4,explore,KOAc,CgMe-PPh,p-Xylene,0.153,120,0.3260663605089233,0.0355750011577688,0.6029,0.054906306
-1,5,explore,KOAc,CgMe-PPh,p-Xylene,0.153,90,0.3260663605089233,0.0355750011577688,0.1695,0.054748126
+batch,index,type,base,ligand,solvent,concentration,temperature,yield_pred,yield_sigma,cost_pred,cost_sigma,yield,cost
+1,1,explore,KOAc,CgMe-PPh,p-Xylene,0.153,90,32.83,3.604,-0.03219,0.03439,16.95,0.054748126
+1,2,explore,KOAc,CgMe-PPh,p-Xylene,0.057,120,33.22,3.332,-0.03051,0.03176,31.14,0.071972258
+1,3,explore,KOAc,CgMe-PPh,p-Xylene,0.057,90,33.22,3.332,-0.03051,0.03176,8.45,0.071889446
+1,4,explore,KOAc,CgMe-PPh,p-Xylene,0.153,120,32.83,3.604,-0.03219,0.03439,60.29,0.054906306
+1,5,explore,CsOAc,CgMe-PPh,p-Xylene,0.1,105,26.57,6.221,-0.0597,0.05952,68.35,0.105840091

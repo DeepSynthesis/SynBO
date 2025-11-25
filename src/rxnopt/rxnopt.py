@@ -12,9 +12,9 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
-from sympy import refine
 import torch
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+import math
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -265,7 +265,7 @@ class ReactionOptimizer:
 
         # All initial points are exploration
         self.recommend_type = ["explore"] * batch_size
-        
+
         # For initialization, no prediction values available
         self.pred_mean = None
         self.pred_std = None
@@ -308,7 +308,7 @@ class ReactionOptimizer:
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
-        
+
         # Normalize target values using opt_range
         self.y_scalers = {}
         normalized_metrics = {}
@@ -341,7 +341,7 @@ class ReactionOptimizer:
         if self.pred_mean is not None and self.pred_std is not None:
             denormalized_pred_mean = self.pred_mean.copy()
             denormalized_pred_std = self.pred_std.copy()
-            
+
             for i, metric in enumerate(self.opt_metrics):
                 y_min = self.y_scalers[metric]["min"]
                 y_max = self.y_scalers[metric]["max"]
@@ -349,7 +349,7 @@ class ReactionOptimizer:
                 denormalized_pred_mean[:, i] = self.pred_mean[:, i] * (y_max - y_min) + y_min
                 # Denormalize predicted std: std_denorm = std_norm * (y_max - y_min)
                 denormalized_pred_std[:, i] = self.pred_std[:, i] * (y_max - y_min)
-            
+
             # Update the attributes with denormalized values
             self.pred_mean = denormalized_pred_mean
             self.pred_std = denormalized_pred_std
@@ -401,15 +401,29 @@ class ReactionOptimizer:
 
         # Prepare prediction data
         pred_data = {}
-        if hasattr(self, 'pred_mean') and self.pred_mean is not None:
+        if hasattr(self, "pred_mean") and self.pred_mean is not None:
             for i, metric in enumerate(self.opt_metrics):
-                pred_data[f"{metric}_predicted"] = self.pred_mean[:, i]
+                pred_data[f"{metric}_pred"] = self.pred_mean[:, i]
                 pred_data[f"{metric}_sigma"] = self.pred_std[:, i]
+            # Round to 4 significant digits
+
+            def _round_sig(v, sig=4):
+                try:
+                    fv = float(v)
+                except Exception:
+                    return v
+                if math.isnan(fv):
+                    return fv
+                # format to sig significant digits, then convert back to float
+                return float(f"{fv:.{sig}g}")
+
+            for d in pred_data:
+                pred_data[d] = [_round_sig(v, sig=4) for v in pred_data[d]]
         else:
             # For initialization phase, add empty columns
             for metric in self.opt_metrics:
-                pred_data[f"{metric}_predicted"] = [""] * len(self.selected_conditions)
-                pred_data[f"{metric}_sigma"] = [""] * len(self.selected_conditions)
+                pred_data[f"{metric}_predicted"] = ["-"] * len(self.selected_conditions)
+                pred_data[f"{metric}_sigma"] = ["-"] * len(self.selected_conditions)
 
         # Prepare output DataFrame
         output_df = pd.DataFrame(
@@ -419,31 +433,22 @@ class ReactionOptimizer:
                 "type": self.recommend_type,
                 **pd.DataFrame(self.selected_conditions, columns=self.condition_types).to_dict("list"),
                 **pred_data,
-                **{metric: "" for metric in self.opt_metrics},
+                **{metric: "[exp_data]" for metric in self.opt_metrics},
             }
         )
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=self.opt_console,
-        ) as progress:
-            task = progress.add_task("Saving recommendations...", total=None)
-
-            if filetype == "csv":
-                progress.update(task, description="Writing CSV file...")
-                output_df.to_csv(save_path.with_suffix(".csv"), index=False)
-            elif filetype == "excel":
-                progress.update(task, description="Writing Excel file...")
-                writer = ExcelWriter(condition_types=self.condition_types, opt_metrics=self.opt_metrics)
-                writer.write_to_excel(
-                    output_df=output_df,
-                    batch_id=self.batch_id,
-                    figure_output=figure_output,
-                    figure_path=figure_path,
-                    save_path=save_path,
-                )
-            else:
-                raise ValueError(f"Unknown filetype: {filetype}")
+        if filetype == "csv":
+            output_df.to_csv(save_path.with_suffix(".csv"), index=False)
+        elif filetype == "excel":
+            writer = ExcelWriter(condition_types=self.condition_types, opt_metrics=self.opt_metrics)
+            writer.write_to_excel(
+                output_df=output_df,
+                batch_id=self.batch_id,
+                figure_output=figure_output,
+                figure_path=figure_path,
+                save_path=save_path,
+            )
+        else:
+            raise ValueError(f"Unknown filetype: {filetype}")
 
         self.opt_console.print(f"✓ Saved recommendations to: [cyan]{save_path.with_suffix('.' + filetype)}[/cyan]", style="green")

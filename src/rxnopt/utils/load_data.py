@@ -15,6 +15,8 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame
     except Exception as e:
         raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{idx_col}' exists in the file.")
 
+    assert not df.isna(), f"Descriptor file {desc_file} contains NaN values. Please check the data."
+
     return df
 
 
@@ -31,7 +33,7 @@ def _convert_tag(tag, length):
 def load_desc_dict(
     reagent_types: list,
     desc_dir: list | str,
-    name_suffix: list | str = None,
+    name_suffix: list | str = None,  # TODO: do not set as None, must be _desc
     index_col: str = "SMILES",
     return_condition_dict: bool = False,
 ) -> dict:

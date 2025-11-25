@@ -1,0 +1,6 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield_pred,yield_sigma,cost_pred,cost_sigma,yield,cost
+7,1,explore,KOPiv,PPhtBu2,DMAc,0.1,105,17.93,5.745,-0.1435,0.02375,0.0,0.042106611
+7,2,explore,KOAc,PPhtBu2,p-Xylene,0.153,105,17.93,5.745,-0.1436,0.02375,0.0,0.040123498
+7,3,explore,KOAc,PPhMe2,p-Xylene,0.057,120,5.363,3.822,-0.03526,0.01606,0.0,0.042701224
+7,4,explore,KOPiv,tBPh-CPhos,BuOAc,0.057,120,18.57,5.742,-0.1473,0.02374,3.88,0.298114234
+7,5,explore,CsOPiv,tBPh-CPhos,DMAc,0.057,120,18.03,5.745,-0.144,0.02375,14.24,0.36545459

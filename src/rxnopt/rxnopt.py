@@ -44,7 +44,7 @@ class ReactionOptimizer:
     def __init__(
         self,
         opt_metrics: Union[str, List[str]],
-        opt_direct_info: Union[dict, List[dict]] = {"opt_direct:": "max", "opt_range": [0, 100]},
+        opt_direct_info: Union[dict, List[dict]] = {"opt_direct": "max", "opt_range": [0, 100]},
         opt_type: Literal["init", "opt", "auto"] = "auto",
     ) -> None:
         if isinstance(opt_metrics, str):
@@ -308,6 +308,16 @@ class ReactionOptimizer:
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
+        
+        # Normalize target values using opt_range
+        self.y_scalers = {}
+        normalized_metrics = {}
+        for i, (metric, direct_info) in enumerate(zip(self.opt_metrics, self.opt_direct_info)):
+            y_min, y_max = direct_info["opt_range"]
+            self.y_scalers[metric] = {"min": y_min, "max": y_max}
+            # Min-max normalization: (y - y_min) / (y_max - y_min)
+            normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)
+            normalized_metrics[metric] = normalized_y
 
         device = torch.device(f"cuda:{gpu_id}") if torch.cuda.is_available() else torch.device("cpu")
         optimizer = Optimizer(
@@ -319,13 +329,30 @@ class ReactionOptimizer:
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
             training_X=done_arr_desc,
-            training_y=done_arr_metrics,
+            training_y=normalized_metrics,
             candidate_X=self.total_desc_arr,
             opt_direct_info=self.opt_direct_info,
             device=device,
             batch_size=batch_size,
             opt_weights=opt_weights,
         )
+
+        # Denormalize prediction values using the same scalers
+        if self.pred_mean is not None and self.pred_std is not None:
+            denormalized_pred_mean = self.pred_mean.copy()
+            denormalized_pred_std = self.pred_std.copy()
+            
+            for i, metric in enumerate(self.opt_metrics):
+                y_min = self.y_scalers[metric]["min"]
+                y_max = self.y_scalers[metric]["max"]
+                # Denormalize predicted mean: y_denorm = y_norm * (y_max - y_min) + y_min
+                denormalized_pred_mean[:, i] = self.pred_mean[:, i] * (y_max - y_min) + y_min
+                # Denormalize predicted std: std_denorm = std_norm * (y_max - y_min)
+                denormalized_pred_std[:, i] = self.pred_std[:, i] * (y_max - y_min)
+            
+            # Update the attributes with denormalized values
+            self.pred_mean = denormalized_pred_mean
+            self.pred_std = denormalized_pred_std
 
         # Display optimization summary
         exploit_count = sum(1 for t in self.recommend_type if t == "exploit")

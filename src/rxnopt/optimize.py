@@ -69,9 +69,9 @@ class Optimizer:
         # Convert to tensors
         # TODO: deal with weights
 
-        # solved the min problem by transforming the training_y
+        # solved the maximum problem by transforming the training_y to a minimum problem
         for k, d in zip(training_y.keys(), opt_direct_info):
-            if d["opt_direct"] == "min":
+            if d["opt_direct"] == "max":
                 training_y[k] = -training_y[k]
 
         training_y_dict = training_y.copy()
@@ -85,42 +85,29 @@ class Optimizer:
         training_y_t = training_y_t.to(device=device, dtype=dtype)
         candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
         models = []
-        # ==============================================
-        # 核心：用 Progress 封装所有耗时步骤
-        # ==============================================
-        # 自定义进度条样式：描述 + 进度条 + 已完成/总数 + 剩余时间
+
         with Progress(
-            TextColumn("[bold cyan]{task.description}"),  # 任务描述（青色加粗）
-            BarColumn(bar_width=None),  # 进度条（自动适应终端宽度）
-            MofNCompleteColumn(),  # 已完成/总数（如 3/5）
-            TimeRemainingColumn(),  # 剩余时间
-            console=self.opt_console,  # 复用原有的 Console 实例（保持样式一致）
+            TextColumn("[bold cyan]{task.description}"),
+            BarColumn(bar_width=None),
+            MofNCompleteColumn(),
+            TimeRemainingColumn(),
+            console=self.opt_console,
         ) as progress:
-            # ------------------------------
-            # 任务1：训练每个输出维度的 Surrogate Model
-            # ------------------------------
+            # training surrogate models
             num_models = training_y_t.shape[1]
-            task_train = progress.add_task(
-                description="Training surrogate models", total=num_models, start=True  # 任务描述  # 总步数（输出维度数量）  # 立即启动任务
-            )
+            task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
             for i in range(num_models):
-                # 用 log 输出详细信息（不覆盖进度条）
                 key = list(training_y_dict.keys())[i]
                 progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
-                # 原训练逻辑（不变）
+
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=device, num_dims=training_X.shape[1])
                 model_i.fit(training_X_t, train_y_i)
                 models.append(model_i.model)
-                # 完成一个模型，进度+1
                 progress.update(task_train, advance=1)
-            # ------------------------------
-            # 任务2：创建多输出模型（单步任务）
-            # ------------------------------
             self.global_model = ModelListGP(*models)
-            # ------------------------------
-            # 任务3：计算 Pareto 前沿
-            # ------------------------------
+
+            # calculate pareto frontiers
             task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
             self.pareto_y = self.target_evaluator.calculate_target_function(training_y, progress, task_pareto).to(device=device)
             # Dynamic reference point based on training data

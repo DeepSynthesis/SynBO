@@ -11,8 +11,8 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 
 from .utils.util_func import compute_hvi
 
-from .bo_algorithm.GP_opt import GPSurrogateModel, EHVIAcquisitionFunction, ParetoFrontCalculator
-from .bo_algorithm.acf_opt import optimize_acqf_discrete
+from .bo_algorithm.GP_opt import GPSurrogateModel
+from .bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
 
 # 在文件顶部导入警告模块和具体警告类
 import warnings
@@ -156,6 +156,11 @@ class Optimizer:
             pred_mean = posterior.mean.cpu().numpy()  # (batch_size, num_objectives)
             pred_var = posterior.variance.cpu().numpy()  # (batch_size, num_objectives)
             pred_std = np.sqrt(pred_var)  # 标准差作为置信度
+
+        # 对最大化目标的预测结果进行反变换（重新取负号）
+        for i, d in enumerate(opt_direct_info):
+            if d["opt_direct"] == "max":
+                pred_mean[:, i] = -pred_mean[:, i]
 
         # 最终日志（用原 console 或 progress 的 console）
         self.opt_console.print("✅ Finish optimization", style="green")

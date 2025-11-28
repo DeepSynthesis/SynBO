@@ -131,9 +131,9 @@ for i in range(10):
     if i > 0:
         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
     if i == 0:
-        rxn_opt.initialize(batch_size=5, desc_normalize="zscore", sampling_method="cvt", refine_desc="pass")
+        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="cvt", refine_desc="pass")
     else:
-        rxn_opt.optimize(batch_size=5, desc_normalize="zscore", mc_num_samples=32, max_batch_size=32, refine_desc="pass")
+        rxn_opt.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="pass")
     rxn_opt.save_results(save_dir="results")
 
     fill_done_dir(i, date)
@@ -177,8 +177,7 @@ def calculate_max_hv_from_dataset(dataset_path="dataset/B-H_dataset.csv", opt_di
 
     dataset_df = pd.read_csv(dataset_path)
 
-    # 提取目标值，按照opt_metrics的顺序: ["cost", "yield"]
-    objectives = dataset_df[["cost", "yield"]].values.copy()
+    objectives = dataset_df[["yield", "cost"]].values.copy()
 
     # 根据opt_direct_info调整目标方向
     for i, direction_info in enumerate(opt_direct_info):
@@ -233,8 +232,7 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
         # 获取到当前batch为止的所有数据
         current_data = prev_rxn_df[prev_rxn_df["batch"] <= batch]
 
-        # 提取目标值，按照opt_metrics的顺序: ["cost", "yield"]
-        objectives = current_data[["cost", "yield"]].values.copy()
+        objectives = current_data[["yield", "cost"]].values.copy()
 
         # 根据opt_direct_info调整目标方向
         for i, direction_info in enumerate(opt_direct_info):

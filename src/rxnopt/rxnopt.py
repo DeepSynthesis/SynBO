@@ -315,8 +315,7 @@ class ReactionOptimizer:
         for i, (metric, direct_info) in enumerate(zip(self.opt_metrics, self.opt_direct_info)):
             y_min, y_max = direct_info["opt_range"]
             self.y_scalers[metric] = {"min": y_min, "max": y_max}
-            # Min-max normalization: (y - y_min) / (y_max - y_min)
-            normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)
+            normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min) # Min-max normalization: (y - y_min) / (y_max - y_min)
             normalized_metrics[metric] = normalized_y
 
         device = torch.device(f"cuda:{gpu_id}") if torch.cuda.is_available() else torch.device("cpu")

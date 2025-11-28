@@ -110,16 +110,11 @@ class Optimizer:
             # calculate pareto frontiers
             task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
             self.pareto_y = self.target_evaluator.calculate_target_function(training_y, progress, task_pareto).to(device=device)
-            # Dynamic reference point based on training data
-            # Use minimum values minus a small offset to ensure all points dominate ref_point
-            min_vals = torch.min(training_y_t, dim=0)[0]
-            range_vals = torch.max(training_y_t, dim=0)[0] - min_vals
-            # Set ref_point to be 10% below minimum values
-            self.ref_point = (min_vals - 0.1 * torch.abs(range_vals)).to(device=device)
 
-            # ------------------------------
-            # 任务4：初始化采样器与 Acquisition Function
-            # ------------------------------
+            # ref_point is in the upper right corner.
+            # That is, if opt_metric_info in opt_direct is max, take 0; if it is min, take 1
+            self.ref_point = torch.tensor([0 if omi["opt_direct"] == "max" else 1 for omi in opt_direct_info], dtype=float, device=device)
+
             # Adaptive MC sampling based on dimensionality and problem size
             # TODO: remove this adaptive MC sample strategy
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.seed)

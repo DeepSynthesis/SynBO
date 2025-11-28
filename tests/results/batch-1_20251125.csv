@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,yield_pred,yield_sigma,cost_pred,cost_sigma,yield,cost
-1,1,explore,CsOAc,PPh3,DMAc,0.057,90,57.5,15.73,-0.04972,0.03964,36.96,0.082026393
-1,2,explore,CsOAc,PPh3,DMAc,0.153,120,56.76,16.55,-0.0522,0.04169,78.19,0.067367128
-1,3,explore,CsOAc,PPh3,DMAc,0.057,120,57.5,15.73,-0.04972,0.03964,89.71,0.082178459
-1,4,explore,CsOAc,PPh3,DMAc,0.153,90,56.76,16.55,-0.0522,0.04169,31.85,0.06723354
-1,5,explore,CsOAc,PPh3,BuCN,0.1,90,48.91,20.14,-0.07822,0.05071,5.8,0.089659045

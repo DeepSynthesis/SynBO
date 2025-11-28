@@ -71,7 +71,7 @@ class Optimizer:
 
         # solved the maximum problem by transforming the training_y to a minimum problem
         for k, d in zip(training_y.keys(), opt_direct_info):
-            if d["opt_direct"] == "max":
+            if d["opt_direct"] == "min":
                 training_y[k] = -training_y[k]
 
         training_y_dict = training_y.copy()
@@ -113,7 +113,7 @@ class Optimizer:
 
             # ref_point is in the upper right corner.
             # That is, if opt_metric_info in opt_direct is max, take 0; if it is min, take 1
-            self.ref_point = torch.tensor([0 if omi["opt_direct"] == "max" else 1 for omi in opt_direct_info], dtype=float, device=device)
+            self.ref_point = torch.tensor([-1 if omi["opt_direct"] == "min" else 0 for omi in opt_direct_info], dtype=float, device=device)
 
             # Adaptive MC sampling based on dimensionality and problem size
             # TODO: remove this adaptive MC sample strategy
@@ -159,7 +159,7 @@ class Optimizer:
 
         # 对最大化目标的预测结果进行反变换（重新取负号）
         for i, d in enumerate(opt_direct_info):
-            if d["opt_direct"] == "max":
+            if d["opt_direct"] == "min":
                 pred_mean[:, i] = -pred_mean[:, i]
 
         # 最终日志（用原 console 或 progress 的 console）

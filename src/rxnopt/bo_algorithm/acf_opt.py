@@ -206,10 +206,10 @@ class ParetoFrontCalculator:
             # Compare with all points in current Pareto front
             for i, pf_point in enumerate(pareto_front):
                 # Check if the current point dominates any existing Pareto point
-                if np.all(point <= pf_point) and np.any(point < pf_point):
+                if np.all(point >= pf_point) and np.any(point > pf_point):
                     to_remove.append(i)
                 # Check if any existing Pareto point dominates the current point
-                elif np.all(point >= pf_point) and np.any(point > pf_point):
+                elif np.all(point <= pf_point) and np.any(point < pf_point):
                     is_pareto = False
                     break
 

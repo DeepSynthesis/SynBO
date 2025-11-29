@@ -103,8 +103,8 @@ def fill_done_dir(i, date):
 
 
 date = datetime.now().strftime("%Y%m%d")
-for f in Path("results/").glob(f"batch-*.csv"):
-    os.remove(f)
+# for f in Path("results/").glob(f"batch-*.csv"):
+#     os.remove(f)
 
 
 # def generate_onehot():
@@ -118,25 +118,29 @@ for f in Path("results/").glob(f"batch-*.csv"):
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
 name_suffix = ["_dft", "_dft", "_dft", None, None]
-opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "max", "opt_range": [0, 0.5]}]  # cost(min), yield(max)
+opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]  # cost(min), yield(max)
 
 desc_dict, condition_dict = load_desc_dict(
     reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
 )
 
-for i in range(20):
-    rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_direct_info=opt_direct_info, opt_type="auto")
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
-    rxn_opt.load_desc(desc_dict=desc_dict)
-    if i > 0:
-        rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
-    if i == 0:
-        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="cvt", refine_desc="filter_0.8")
-    else:
-        rxn_opt.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8")
-    rxn_opt.save_results(save_dir="results")
+# for i in range(20):
+#     rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_direct_info=opt_direct_info, opt_type="auto")
+#     rxn_opt.load_rxn_space(condition_dict=condition_dict)
+#     rxn_opt.load_desc(desc_dict=desc_dict)
+#     if i > 0:
+#         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
+#     if i == 0:
+#         rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="cvt", refine_desc="filter_0.8")
+#     else:
+#         rxn_opt.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8")
+#     rxn_opt.save_results(save_dir="results")
 
-    fill_done_dir(i, date)
+#     fill_done_dir(i, date)
+
+dfs = [pd.read_csv(f) for f in Path("results/").glob(f"batch-*.csv")]
+df = pd.concat(dfs, ignore_index=True)
+df.to_csv(f"results/all_batches_{date}.csv", index=False)
 
 
 def plot_optimization_process(file_pattern, save_path="results/optimization_process.png"):

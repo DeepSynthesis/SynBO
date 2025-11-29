@@ -261,7 +261,7 @@ class ReactionOptimizer:
         )
 
         initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
-        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
+        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size, seed=32)
 
         # All initial points are exploration
         self.recommend_type = ["explore"] * batch_size
@@ -324,7 +324,7 @@ class ReactionOptimizer:
             method=optimized_method,
             mc_num_samples=mc_num_samples,
             max_batch_size=max_batch_size,
-            seed=42,
+            seed=32,
         )
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(

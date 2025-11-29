@@ -78,7 +78,7 @@ class Initializer:
         self.name_data = name_data
 
     def sampling(
-        self, method: Literal["LHS", "sobol", "kmeans", "cvt", "hypersphere", "random"] = "LHS", batch_size: int = 5, random_seed: int = 42
+        self, method: Literal["LHS", "sobol", "kmeans", "cvt", "hypersphere", "random"] = "LHS", batch_size: int = 5, seed: int = 42
     ) -> np.ndarray:
         """Sample initial conditions using specified method.
 
@@ -94,7 +94,7 @@ class Initializer:
             ValueError: If unknown sampling method specified
         """
         self.batch_size = batch_size
-        np.random.seed(random_seed)
+        np.random.seed(seed)
 
         console.print(f"Sampling {batch_size} conditions using {method} method", style="cyan")
 

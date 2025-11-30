@@ -1,0 +1,6 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,hvi_pred,hvi_sigma,yield,cost,hvi
+8,1,explore,KOPiv,CgMe-PPh,DMAc,0.153,90,40.49,1.496,61.09,0.052194994,27.356407816540003
+8,2,explore,KOPiv,CgMe-PPh,DMAc,0.1,90,37.64,1.636,55.7,0.056829946,24.6845720078
+8,3,explore,KOPiv,CgMe-PPh,DMAc,0.1,105,39.2,0.977,89.76,0.056928134,39.77013069216
+8,4,explore,KOPiv,CgMe-PPh,DMAc,0.057,90,34.42,1.866,62.75,0.066977902,27.1721366495
+8,5,explore,CsOAc,tBPh-CPhos,DMAc,0.1,120,6.934,1.387,62.6,0.314593104,11.6064716896

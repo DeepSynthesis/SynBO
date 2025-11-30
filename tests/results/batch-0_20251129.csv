@@ -1,0 +1,6 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,hvi_predicted,hvi_sigma,yield,cost,hvi
+0,1,explore,CsOAc,P(fur)3,DMAc,0.1,105,-,-,45.21,0.08422285,18.7972849515
+0,2,explore,CsOAc,PPhMe2,DMAc,0.1,105,-,-,0.0,0.0741067409999999,0.0
+0,3,explore,CsOAc,GorlosPhos HBF4,DMAc,0.1,105,-,-,19.97,0.083963501,8.30824888503
+0,4,explore,CsOAc,tBPh-CPhos,DMAc,0.1,105,-,-,29.31,0.314497136,5.437088943839999
+0,5,explore,CsOAc,PPhMe2,DMAc,0.1,105,-,-,0.0,0.0741067409999999,0.0

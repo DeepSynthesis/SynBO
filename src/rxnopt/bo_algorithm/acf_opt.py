@@ -128,7 +128,7 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
             acq_values = acq_function(X_batches)
             acq_values_list.append(acq_values)
     acq_values = torch.cat(acq_values_list, dim=0)
-    print(acq_values.max(), acq_values.min(), acq_values.mean())  # TODO: need to remove before release
+    # print(acq_values.max(), acq_values.min(), acq_values.mean())  # TODO: need to remove before release
     return acq_values
 
 

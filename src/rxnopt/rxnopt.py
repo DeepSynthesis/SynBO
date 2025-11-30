@@ -261,7 +261,7 @@ class ReactionOptimizer:
         )
 
         initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
-        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
+        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size, seed=32)
 
         # All initial points are exploration
         self.recommend_type = ["explore"] * batch_size
@@ -315,8 +315,7 @@ class ReactionOptimizer:
         for i, (metric, direct_info) in enumerate(zip(self.opt_metrics, self.opt_direct_info)):
             y_min, y_max = direct_info["opt_range"]
             self.y_scalers[metric] = {"min": y_min, "max": y_max}
-            # Min-max normalization: (y - y_min) / (y_max - y_min)
-            normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)
+            normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
             normalized_metrics[metric] = normalized_y
 
         device = torch.device(f"cuda:{gpu_id}") if torch.cuda.is_available() else torch.device("cpu")
@@ -325,6 +324,7 @@ class ReactionOptimizer:
             method=optimized_method,
             mc_num_samples=mc_num_samples,
             max_batch_size=max_batch_size,
+            seed=32,
         )
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(

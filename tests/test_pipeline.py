@@ -103,8 +103,8 @@ def fill_done_dir(i, date):
 
 
 date = datetime.now().strftime("%Y%m%d")
-for f in Path("results/").glob(f"batch-*.csv"):
-    os.remove(f)
+# for f in Path("results/").glob(f"batch-*.csv"):
+#     os.remove(f)
 
 
 # def generate_onehot():
@@ -118,25 +118,29 @@ for f in Path("results/").glob(f"batch-*.csv"):
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
 index_col = [f"{r}_file_name" for r in reagent_types]
 name_suffix = ["_dft", "_dft", "_dft", None, None]
-opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0.02, 0.5]}]  # cost(min), yield(max)
+opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]  # cost(min), yield(max)
 
 desc_dict, condition_dict = load_desc_dict(
     reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
 )
 
-for i in range(10):
+for i in range(20):
     rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_direct_info=opt_direct_info, opt_type="auto")
     rxn_opt.load_rxn_space(condition_dict=condition_dict)
     rxn_opt.load_desc(desc_dict=desc_dict)
     if i > 0:
         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
     if i == 0:
-        rxn_opt.initialize(batch_size=5, desc_normalize="zscore", sampling_method="cvt", refine_desc="pass")
+        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="cvt", refine_desc="filter_0.8")
     else:
-        rxn_opt.optimize(batch_size=5, desc_normalize="zscore", mc_num_samples=32, max_batch_size=32, refine_desc="pass")
+        rxn_opt.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8")
     rxn_opt.save_results(save_dir="results")
 
     fill_done_dir(i, date)
+
+dfs = [pd.read_csv(f) for f in Path("results/").glob(f"batch-*.csv")]
+df = pd.concat(dfs, ignore_index=True)
+df.to_csv(f"results/all_batches_{date}.csv", index=False)
 
 
 def plot_optimization_process(file_pattern, save_path="results/optimization_process.png"):
@@ -177,8 +181,7 @@ def calculate_max_hv_from_dataset(dataset_path="dataset/B-H_dataset.csv", opt_di
 
     dataset_df = pd.read_csv(dataset_path)
 
-    # 提取目标值，按照opt_metrics的顺序: ["cost", "yield"]
-    objectives = dataset_df[["cost", "yield"]].values.copy()
+    objectives = dataset_df[["yield", "cost"]].values.copy()
 
     # 根据opt_direct_info调整目标方向
     for i, direction_info in enumerate(opt_direct_info):
@@ -213,7 +216,7 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
     绘制HV百分比随batch变化的图
     """
     if opt_direct_info is None:
-        opt_direct_info = [{"opt_direct": "min", "opt_range": [0, 0.5]}, {"opt_direct": "max", "opt_range": [0, 100]}]
+        opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
 
     # 计算全空间最大HV和参考点
     max_hv, ref_point = calculate_max_hv_from_dataset(dataset_path, opt_direct_info)
@@ -233,8 +236,7 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
         # 获取到当前batch为止的所有数据
         current_data = prev_rxn_df[prev_rxn_df["batch"] <= batch]
 
-        # 提取目标值，按照opt_metrics的顺序: ["cost", "yield"]
-        objectives = current_data[["cost", "yield"]].values.copy()
+        objectives = current_data[["yield", "cost"]].values.copy()
 
         # 根据opt_direct_info调整目标方向
         for i, direction_info in enumerate(opt_direct_info):

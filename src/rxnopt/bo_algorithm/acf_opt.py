@@ -1,10 +1,13 @@
+import numpy as np
 import gpytorch
 import torch
 from torch import Tensor
-from botorch.acquisition.acquisition import (
-    AcquisitionFunction,
-    OneShotAcquisitionFunction,
-)
+from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.models import ModelListGP
+from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImprovement
+from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
+from botorch.sampling.normal import SobolQMCNormalSampler
+
 from rich.console import Console
 
 
@@ -125,4 +128,97 @@ def _split_batch_eval_acqf(acq_function: AcquisitionFunction, X: Tensor, max_bat
             acq_values = acq_function(X_batches)
             acq_values_list.append(acq_values)
     acq_values = torch.cat(acq_values_list, dim=0)
+    # print(acq_values.max(), acq_values.min(), acq_values.mean())  # TODO: need to remove before release
     return acq_values
+
+
+class BaseAcquisitionFunction:
+    """Base class for acquisition functions"""
+
+    def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler):
+        self.model = model
+        self.sampler = sampler
+
+    def evaluate(self, x: torch.Tensor) -> torch.Tensor:
+        """Evaluate the acquisition function"""
+        raise NotImplementedError
+
+
+class EHVIAcquisitionFunction(BaseAcquisitionFunction):
+    """Enhanced Expected Hypervolume Improvement acquisition function with exploration bonus"""
+
+    def __init__(
+        self,
+        model: ModelListGP,
+        sampler: SobolQMCNormalSampler,
+        ref_point: torch.Tensor,
+        partitioning: NondominatedPartitioning,
+        maximum_metrics: bool,
+        exploration_weight: float = 0.1,  # New parameter for exploration
+    ):
+        super().__init__(model, sampler)
+        self.ref_point = ref_point
+        self.partitioning = partitioning
+        self.exploration_weight = exploration_weight
+
+        self.ehvi = qLogExpectedHypervolumeImprovement(
+            model=model,
+            sampler=sampler,
+            ref_point=ref_point,
+            partitioning=partitioning,
+        )
+
+    def evaluate_with_exploration(self, X: torch.Tensor) -> torch.Tensor:
+        """Enhanced evaluation with exploration bonus"""
+        # Standard EHVI
+        ehvi_val = self.ehvi(X)
+
+        # Add exploration bonus based on predictive variance
+        with torch.no_grad():
+            posterior = self.model.posterior(X)
+            # Average variance across objectives as exploration signal
+            exploration_bonus = torch.mean(posterior.variance, dim=-1)
+
+        return ehvi_val + self.exploration_weight * exploration_bonus
+
+
+class ParetoFrontCalculator:
+    """Class for calculating Pareto fronts"""
+
+    @staticmethod
+    def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
+        """
+        Calculate Pareto front for points in arbitrary dimensions
+
+        Args:
+            points: numpy array of shape (n_points, n_dimensions)
+
+        Returns:
+            numpy array of Pareto optimal points
+        """
+        if len(points) == 0:
+            return np.array([])
+        pareto_front = [points[0]]  # Initialize list of Pareto optimal points
+        for point in points[1:]:
+            progress.update(task, advance=1)
+            is_pareto = True
+            to_remove = []
+            # Compare with all points in current Pareto front
+            for i, pf_point in enumerate(pareto_front):
+                # Check if the current point dominates any existing Pareto point
+                if np.all(point >= pf_point) and np.any(point > pf_point):
+                    to_remove.append(i)
+                # Check if any existing Pareto point dominates the current point
+                elif np.all(point <= pf_point) and np.any(point < pf_point):
+                    is_pareto = False
+                    break
+
+            # Remove dominated points from Pareto front
+            for i in reversed(to_remove):
+                pareto_front.pop(i)
+
+            # Add current point if it's Pareto optimal
+            if is_pareto:
+                pareto_front.append(point)
+        print(pareto_front)  # TODO: need to remove before release
+        return torch.tensor(np.array(pareto_front))

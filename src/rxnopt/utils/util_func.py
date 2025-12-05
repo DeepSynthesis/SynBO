@@ -32,6 +32,20 @@ def track_called(func):
     return wrapper
 
 
+def check_SMILES(smiles_string: str) -> bool:
+    from rdkit import Chem
+
+    smiles_list = smiles_string.split(",")
+    valid_smiles_list, invalid_smiles_list = [], []
+    for smi in smiles_list:
+        try:
+            assert Chem.MolFromSmiles(smi) is not None
+        except Exception:
+            invalid_smiles_list.append(smi)
+
+    return len(invalid_smiles_list) == 0, invalid_smiles_list
+
+
 def generate_onehot_desc(condition_dict):
     # TODO: use SPOC onehot descriptors
     desc_dict = {}

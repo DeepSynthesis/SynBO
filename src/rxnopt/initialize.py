@@ -78,7 +78,7 @@ class Initializer:
         self.name_data = name_data
 
     def sampling(
-        self, method: Literal["LHS", "sobol", "kmeans", "cvt", "hypersphere", "random"] = "LHS", batch_size: int = 5, seed: int = 42
+        self, method: Literal["LHS", "sobol", "kmeans", "hypersphere", "random"] = "LHS", batch_size: int = 5, seed: int = 42
     ) -> np.ndarray:
         """Sample initial conditions using specified method.
 
@@ -113,8 +113,6 @@ class Initializer:
                     selected_indices = self.sobel_sequence_sampling()
                 case "kmeans":
                     selected_indices = self.kmeans_sampling()
-                case "cvt":
-                    selected_indices = self.cvt_sampling()
                 case "hypersphere":
                     selected_indices = self.hypersphere_sampling()
                 case "random":
@@ -139,29 +137,6 @@ class Initializer:
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.numerical_data)
         _, indices = nbrs.kneighbors(lhs_samples)
         return indices
-
-    def cvt_sampling(self):
-        from sklearn.decomposition import PCA
-        from scipy.spatial import Voronoi, KDTree
-        import numpy as np
-
-        # 降维到50维（可调整）
-        pca = PCA(n_components=10)
-        data_lowdim = pca.fit_transform(self.numerical_data)
-        # 随机初始化种子点（降维后）
-        if data_lowdim.shape[0] <= self.batch_size:
-            return np.arange(data_lowdim.shape[0])
-        seeds = data_lowdim[np.random.choice(data_lowdim.shape[0], self.batch_size, replace=False)]
-        # 迭代优化（简化版）
-        for _ in range(50):
-            kdtree = KDTree(data_lowdim)
-            _, regions = kdtree.query(seeds, k=100)  # 每个种子找最近100个点作为区域
-            new_seeds = np.array([data_lowdim[r].mean(axis=0) for r in regions])
-            seeds = new_seeds
-        # 返回原始高维空间的最近邻索引
-        nbrs = NearestNeighbors(n_neighbors=1).fit(self.numerical_data)
-        _, indices = nbrs.kneighbors(pca.inverse_transform(seeds))  # 将种子映射回高维
-        return indices.flatten()
 
     def kmeans_sampling(self):
         from sklearn.cluster import KMeans

@@ -242,7 +242,7 @@ class ReactionOptimizer:
         self,
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
-        sampling_method: Literal["sobol", "random", "lhs", "cvt"] = "cvt",
+        sampling_method: Literal["sobol", "random", "lhs", "kmeans"] = "kmeans",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
     ) -> None:
         """Initialize reaction optimization with initial sampling.

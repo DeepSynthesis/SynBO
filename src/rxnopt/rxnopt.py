@@ -371,7 +371,7 @@ class ReactionOptimizer:
     def save_results(
         self,
         save_dir: Union[str, Path],
-        filetype: Literal["csv", "excel"] = "csv",
+        filetype: Literal["csv", "excel", "json"] = "csv",
         figure_output: List[str] = None,
         figure_path: Optional[Union[str, Path]] = None,
         suffix: Optional[str] = None,
@@ -448,6 +448,8 @@ class ReactionOptimizer:
                 figure_path=figure_path,
                 save_path=save_path,
             )
+        elif filetype == "json":
+            output_df.to_json(save_path.with_suffix(".json"), index=False, orient="records")
         else:
             raise ValueError(f"Unknown filetype: {filetype}")
 

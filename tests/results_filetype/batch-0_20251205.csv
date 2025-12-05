@@ -1,0 +1,6 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,yield_predicted,yield_sigma,cost_predicted,cost_sigma,yield,cost
+0,1,explore,CsOAc,PCy3 HBF4,DMAc,0.1,105,-,-,-,-,[exp_data],[exp_data]
+0,2,explore,CsOAc,PPhtBu2,DMAc,0.1,105,-,-,-,-,[exp_data],[exp_data]
+0,3,explore,CsOAc,PPh2Me,DMAc,0.1,105,-,-,-,-,[exp_data],[exp_data]
+0,4,explore,CsOAc,P(fur)3,DMAc,0.1,105,-,-,-,-,[exp_data],[exp_data]
+0,5,explore,CsOAc,GorlosPhos HBF4,DMAc,0.1,105,-,-,-,-,[exp_data],[exp_data]

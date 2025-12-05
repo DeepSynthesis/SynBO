@@ -170,6 +170,7 @@ class ReactionOptimizer:
         if missing_types:
             raise ValueError(f"Missing condition types: {missing_types}")
 
+        prev_rxn_info[self.condition_types] = prev_rxn_info[self.condition_types].astype(str)
         # Check for missing species in each condition type
         for condition_type in self.condition_types:
             missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])

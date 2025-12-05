@@ -16,7 +16,7 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame
         raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{idx_col}' exists in the file.")
 
     assert not df.isna().any().any(), f"Descriptor file {desc_file} contains NaN values. Please check the data."
-
+    df.index = df.index.astype("str")
     return df
 
 
@@ -49,11 +49,10 @@ def load_desc_dict(
             desc_file = desc_dir / f"{r_type}_desc.csv"
         assert desc_file.exists(), f"Descriptor file `{desc_file}` for {r_type} does not exist in {desc_dir}."
 
-        df = load_desc_from_file(desc_file, idx_col=idx_col)
-        desc_dict[r_type] = df
+        desc_dict[r_type] = load_desc_from_file(desc_file, idx_col=idx_col)
 
     if return_condition_dict:
-        condition_dict = {k: v.index.tolist() for k, v in desc_dict.items()}
+        condition_dict = {str(k): v.index.astype("str").tolist() for k, v in desc_dict.items()}
         return desc_dict, condition_dict
     else:
         return desc_dict
@@ -70,7 +69,7 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
         if index_col is not None:
             assert idx_col in df.columns, f"Index column {idx_col} not found in {rxn_space_file}."
             df.set_index(idx_col, inplace=True)
-        condition_dict[r_type] = df.index.tolist()
+        condition_dict[r_type] = df.index.astype("str").tolist()
     return condition_dict
 
 

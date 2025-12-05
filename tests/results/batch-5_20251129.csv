@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,hvi_pred,hvi_sigma,yield,cost,hvi
-5,1,explore,KOPiv,P(fur)3,DMAc,0.1,120,34.95,0.7397,76.02,0.037716922,35.14275958956
-5,2,explore,KOPiv,P(fur)3,DMAc,0.1,105,26.55,1.032,73.59,0.037709917,34.01992720797
-5,3,explore,KOPiv,P(fur)3,DMAc,0.057,105,26.81,1.119,64.12,0.047810249,28.994406834120003
-5,4,explore,KOPiv,P(fur)3,DMAc,0.153,105,26.8,1.115,64.46,0.033033107,30.100685922779995
-5,5,explore,KOAc,P(fur)3,BuOAc,0.153,105,9.404,1.273,14.19,0.041866937,6.50090816397

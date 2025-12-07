@@ -455,3 +455,29 @@ class ReactionOptimizer:
             raise ValueError(f"Unknown filetype: {filetype}")
 
         self.opt_console.print(f"✓ Saved recommendations to: [cyan]{save_path.with_suffix('.' + filetype)}[/cyan]", style="green")
+
+    def get_rxn_space_size(self) -> int:
+        """Get the size of the reaction space.
+
+        Returns:
+            Size of the reaction space
+        """
+        size = 1
+        for values in self.condition_dict.values():
+            size *= len(values)
+        return size
+
+    def get_descriptor_shape(self) -> int:
+        """Get the shape of the descriptor array.
+
+        Returns:
+            Shape of the descriptor array
+        """
+        if not self.desc_dict:
+            raise ValueError("Descriptor dictionary is empty. Load descriptors first.")
+        total_shape = 0
+        for desc_df in self.desc_dict.values():
+            total_shape += desc_df.shape[1]
+        return total_shape
+    
+    

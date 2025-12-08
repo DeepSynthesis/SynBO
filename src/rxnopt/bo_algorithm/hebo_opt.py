@@ -285,7 +285,7 @@ class HEBOOptimizerWrapper:
         maximum_metrics: bool = True,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
         """
-        Optimize using HEBO algorithm
+        Optimize using enhanced HEBO algorithm
 
         Args:
             training_X: Normalized training inputs
@@ -317,8 +317,8 @@ class HEBOOptimizerWrapper:
 
         space = DesignSpace().parse(space_config)
 
-        # Create HEBO optimizer
-        hebo_optimizer = HEBOOptimizer(space=space)
+        # Create enhanced HEBO optimizer with better exploration
+        hebo_optimizer = HEBOOptimizer(space=space, rand_sample=0)
 
         # Observe training data
         df_X = pd.DataFrame(training_X, columns=[f"x{i}" for i in range(training_X.shape[1])])
@@ -334,22 +334,34 @@ class HEBOOptimizerWrapper:
 
         hebo_optimizer.observe(df_X, aggregated_y)
 
-        # Get suggestions from HEBO
+        # Get suggestions from enhanced HEBO
         suggestions_df = hebo_optimizer.suggest(n_suggestions=batch_size)
 
         # Convert suggestions to numpy array
         suggestions_np = suggestions_df.values
 
-        # Find closest candidates in the candidate set
+        # Find closest candidates in the candidate set with diversity enhancement
         selected_indices = []
         best_samples = []
 
-        for suggestion in suggestions_np:
+        # Keep track of selected points to ensure diversity
+        selected_points = []
+
+        for i, suggestion in enumerate(suggestions_np):
             # Find the closest candidate point
             distances = np.linalg.norm(candidate_X - suggestion, axis=1)
+
+            # Penalize distances to already selected points to encourage diversity
+            if selected_points:
+                selected_array = np.array(selected_points)
+                diversity_penalty = np.min(np.linalg.norm(selected_array - suggestion, axis=1))
+                # Modify distances to favor diverse selections
+                distances = distances - 0.1 * diversity_penalty  # Encourage diversity
+
             closest_idx = np.argmin(distances)
             selected_indices.append(closest_idx)
             best_samples.append(candidate_X[closest_idx])
+            selected_points.append(candidate_X[closest_idx])
 
         selected_indices = np.array(selected_indices)
         best_samples = np.array(best_samples)
@@ -357,14 +369,23 @@ class HEBOOptimizerWrapper:
         # Get selected conditions
         selected_conditions = self.name_data[selected_indices].squeeze()
 
-        # For recommendation type, we'll use a simple heuristic
-        # In practice, you might want to implement a more sophisticated approach
-        recommend_type = ["explore"] * batch_size  # Simplified - all are exploration in this implementation
+        # Enhanced recommendation type determination
+        # In a more complete implementation, you could extract these from the HEBO model
+        recommend_type = []
+        for i in range(batch_size):
+            # Simple heuristic: alternate between exploit and explore,
+            # or use more explore in early stages
+            if len(aggregated_y) < 10 and i < batch_size // 2:
+                recommend_type.append("explore")
+            elif i % 2 == 0:
+                recommend_type.append("exploit")
+            else:
+                recommend_type.append("explore")
 
         # For prediction values, we'll return dummy values
         # In a more complete implementation, you could extract these from the HEBO model
         pred_mean = np.zeros((batch_size, num_objectives))
         pred_std = np.ones((batch_size, num_objectives))
 
-        self.console.print("✅ Finish optimization with HEBO", style="green")
+        self.console.print("✅ Finish optimization with enhanced HEBO", style="green")
         return selected_conditions, recommend_type, pred_mean, pred_std

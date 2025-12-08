@@ -191,28 +191,98 @@ class EvolutionOptimizer:
 class HEBOOptimizer:
     """Simplified HEBO optimizer implementation"""
 
-    def __init__(self, space, rand_sample=None):
+    def __init__(self, space, rand_sample=10):
         self.space = space
         self.X = pd.DataFrame(columns=self.space.para_names)
         self.y = np.zeros((0, 1))
-        self.rand_sample = rand_sample or max(2, 1 + self.space.num_paras)
+        self.rand_sample = rand_sample
 
     def suggest(self, n_suggestions=1, fix_input=None):
         """Suggest next points to evaluate"""
+        # Always consider existing data, even in random sampling phase
         if self.X.shape[0] < self.rand_sample:
-            # Random sampling phase
-            samp = np.random.uniform(
+            # Random sampling phase with intelligent guidance
+            n_candidates = max(n_suggestions * 50, 500)  # Generate more candidates
+
+            # Mix of pure random and guided sampling
+            n_random = n_candidates // 2
+            n_guided = n_candidates - n_random
+
+            # Pure random samples
+            samp_random = np.random.uniform(
                 self.space.opt_lb,
                 self.space.opt_ub,
-                size=(n_suggestions, self.space.num_paras)
+                size=(n_random, self.space.num_paras)
             )
-            df_samp = pd.DataFrame(samp, columns=self.space.para_names)
 
+            candidates = [samp_random]
+
+            # Guided sampling based on existing data (if available)
+            if len(self.X) > 0 and len(self.y) > 0:
+                # Add samples near good performing points
+                y_flat = self.y.flatten()
+                n_good = min(10, len(y_flat))
+                good_indices = np.argpartition(y_flat, n_good)[:n_good]  # Best values
+
+                for idx in good_indices:
+                    # Sample around good points
+                    center = self.X.iloc[idx][self.space.para_names].values
+                    # Add some noise around the center
+                    noise = np.random.normal(0, 0.1, size=(5, self.space.num_paras))
+                    guided_samples = center + noise
+                    # Clip to bounds
+                    guided_samples = np.clip(guided_samples, self.space.opt_lb, self.space.opt_ub)
+                    candidates.append(guided_samples)
+
+                # Add samples away from poor performing points
+                n_poor = min(5, len(y_flat))
+                poor_indices = np.argpartition(y_flat, -n_poor)[-n_poor:]  # Worst values
+
+                for idx in poor_indices:
+                    # Sample far from poor points
+                    center = self.X.iloc[idx][self.space.para_names].values
+                    # Add larger noise to move away
+                    noise = np.random.normal(0, 0.3, size=(3, self.space.num_paras))
+                    exploratory_samples = center + noise
+                    # Clip to bounds
+                    exploratory_samples = np.clip(exploratory_samples, self.space.opt_lb, self.space.opt_ub)
+                    candidates.append(exploratory_samples)
+
+            # Combine all candidates
+            all_candidates = np.vstack(candidates)
+
+            # Convert to DataFrame
+            df_candidates = pd.DataFrame(all_candidates, columns=self.space.para_names)
+
+            # Apply fixed inputs if provided
             if fix_input is not None:
                 for k, v in fix_input.items():
-                    df_samp[k] = v
+                    df_candidates[k] = v
 
-            return df_samp
+            # Remove candidates that are too close to existing observations
+            if len(self.X) > 0:
+                candidate_values = df_candidates[self.space.para_names].values
+                observed_values = self.X[self.space.para_names].values
+
+                # Calculate minimum distance to any observed point for each candidate
+                keep_indices = []
+                min_distance_threshold = 0.005 * np.linalg.norm(self.space.opt_ub - self.space.opt_lb)
+
+                for i, candidate in enumerate(candidate_values):
+                    distances = np.linalg.norm(observed_values - candidate, axis=1)
+                    if np.min(distances) > min_distance_threshold:
+                        keep_indices.append(i)
+
+                if keep_indices:
+                    df_candidates = df_candidates.iloc[keep_indices]
+
+            # Rank candidates by diversity and return requested number
+            if len(df_candidates) >= n_suggestions:
+                # Simple diversity ranking: shuffle and take first n
+                df_candidates = df_candidates.sample(n=min(n_suggestions, len(df_candidates)), random_state=42)
+                return df_candidates.reset_index(drop=True)
+            else:
+                return df_candidates.reset_index(drop=True)
         else:
             # Model-based optimization phase
             # Fit surrogate model

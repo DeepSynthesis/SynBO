@@ -13,6 +13,7 @@ from .utils.util_func import compute_hvi
 
 from .bo_algorithm.GP_opt import GPSurrogateModel
 from .bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
+from .bo_algorithm.hebo_opt import HEBOOptimizerWrapper
 
 # 在文件顶部导入警告模块和具体警告类
 import warnings
@@ -78,14 +79,49 @@ class Optimizer:
         training_y_dict = training_y.copy()
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
-        training_X_t = torch.tensor(training_X).double()
-        training_y_t = torch.tensor(training_y).double()
-        candidate_X_t = torch.tensor(candidate_X).double()
-        dtype = torch.double
-        training_X_t = training_X_t.to(device=device, dtype=dtype)
-        training_y_t = training_y_t.to(device=device, dtype=dtype)
-        candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
-        models = []
+
+        # Handle HEBO method separately
+        if self.method == "HEBO":
+            hebo_optimizer = HEBOOptimizerWrapper(
+                name_data=self.name_data,
+                mc_num_samples=self.mc_num_samples,
+                max_batch_size=self.max_batch_size,
+                seed=self.seed
+            )
+
+            selected_conditions, recommend_type, pred_mean, pred_std = hebo_optimizer.optimize(
+                training_X=training_X,
+                training_y=training_y_dict,
+                candidate_X=candidate_X,
+                opt_direct_info=opt_direct_info,
+                device=device,
+                batch_size=batch_size,
+                opt_weights=opt_weights,
+                maximum_metrics=maximum_metrics,
+            )
+
+            self.selected_conditions = selected_conditions
+            self.recommend_type = recommend_type
+            self.pred_mean = pred_mean
+            self.pred_std = pred_std
+
+            # 对最大化目标的预测结果进行反变换（重新取负号）
+            for i, d in enumerate(opt_direct_info):
+                if d["opt_direct"] == "min" and self.pred_mean is not None:
+                    self.pred_mean[:, i] = -self.pred_mean[:, i]
+
+            # 最终日志（用原 console 或 progress 的 console）
+            self.opt_console.print("✅ Finish optimization", style="green")
+            return selected_conditions, recommend_type, pred_mean, pred_std
+        else:
+            training_X_t = torch.tensor(training_X).double()
+            training_y_t = torch.tensor(training_y).double()
+            candidate_X_t = torch.tensor(candidate_X).double()
+            dtype = torch.double
+            training_X_t = training_X_t.to(device=device, dtype=dtype)
+            training_y_t = training_y_t.to(device=device, dtype=dtype)
+            candidate_X_t = candidate_X_t.to(device=device, dtype=dtype)
+            models = []
 
         with Progress(
             TextColumn("[bold cyan]{task.description}"),

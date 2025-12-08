@@ -6,6 +6,7 @@ from rich.console import Console
 import math
 from copy import deepcopy
 
+
 class DesignSpace:
     """Simplified design space implementation"""
 
@@ -133,11 +134,7 @@ class EvolutionOptimizer:
         best_candidates = []
 
         # Generate initial population
-        pop_X = np.random.uniform(
-            self.space.opt_lb,
-            self.space.opt_ub,
-            size=(self.pop, self.space.num_paras)
-        )
+        pop_X = np.random.uniform(self.space.opt_lb, self.space.opt_ub, size=(self.pop, self.space.num_paras))
 
         # Evaluate population
         pop_acq = self.acq_func(torch.tensor(pop_X)).detach().cpu().numpy()
@@ -145,7 +142,7 @@ class EvolutionOptimizer:
         # Evolutionary loop
         for _ in range(self.iters):
             # Select best individuals
-            elite_idx = np.argsort(pop_acq)[-self.pop//2:]
+            elite_idx = np.argsort(pop_acq)[-self.pop // 2 :]
             elite_X = pop_X[elite_idx]
 
             # Generate new population through mutation and crossover
@@ -202,11 +199,7 @@ class HEBOOptimizer:
         # Skip random sampling phase entirely since all data is provided upfront
         if self.X.shape[0] == 0:
             # No data provided, return random samples
-            samp = np.random.uniform(
-                self.space.opt_lb,
-                self.space.opt_ub,
-                size=(n_suggestions, self.space.num_paras)
-            )
+            samp = np.random.uniform(self.space.opt_lb, self.space.opt_ub, size=(n_suggestions, self.space.num_paras))
             df_samp = pd.DataFrame(samp, columns=self.space.para_names)
 
             if fix_input is not None:
@@ -237,9 +230,7 @@ class HEBOOptimizer:
             # If we don't have enough unique suggestions, add random ones
             if len(rec) < n_suggestions:
                 additional_samp = np.random.uniform(
-                    self.space.opt_lb,
-                    self.space.opt_ub,
-                    size=(n_suggestions - len(rec), self.space.num_paras)
+                    self.space.opt_lb, self.space.opt_ub, size=(n_suggestions - len(rec), self.space.num_paras)
                 )
                 df_additional = pd.DataFrame(additional_samp, columns=self.space.para_names)
                 rec = pd.concat([rec, df_additional], ignore_index=True)
@@ -263,11 +254,7 @@ class HEBOOptimizer:
 class HEBOOptimizerWrapper:
     """Wrapper class for HEBO optimization in reactionopt framework"""
 
-    def __init__(self,
-                 name_data: np.ndarray,
-                 mc_num_samples: int = 64,
-                 max_batch_size: int = 128,
-                 seed: int = 1145141):
+    def __init__(self, name_data: np.ndarray, mc_num_samples: int = 64, max_batch_size: int = 128, seed: int = 1145141):
         """
         Initialize HEBO optimizer wrapper
 
@@ -286,15 +273,17 @@ class HEBOOptimizerWrapper:
         # Don't set fixed random seed to allow different results each time
         # np.random.seed(seed)
 
-    def optimize(self,
-                 training_X: np.ndarray,
-                 training_y: Dict[str, np.ndarray],
-                 candidate_X: np.ndarray,
-                 opt_direct_info: List[Dict],
-                 device: torch.device,
-                 batch_size: int = 5,
-                 opt_weights: Dict = None,
-                 maximum_metrics: bool = True) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
+    def optimize(
+        self,
+        training_X: np.ndarray,
+        training_y: Dict[str, np.ndarray],
+        candidate_X: np.ndarray,
+        opt_direct_info: List[Dict],
+        device: torch.device,
+        batch_size: int = 5,
+        opt_weights: Dict = None,
+        maximum_metrics: bool = True,
+    ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
         """
         Optimize using HEBO algorithm
 
@@ -324,7 +313,7 @@ class HEBOOptimizerWrapper:
         space_config = {}
         for i in range(training_X.shape[1]):
             # Assuming normalized space [-1, 1] - you may need to adjust based on your data
-            space_config[f'x{i}'] = ('num', [-1.0, 1.0])
+            space_config[f"x{i}"] = ("num", [-1.0, 1.0])
 
         space = DesignSpace().parse(space_config)
 
@@ -332,7 +321,7 @@ class HEBOOptimizerWrapper:
         hebo_optimizer = HEBOOptimizer(space=space)
 
         # Observe training data
-        df_X = pd.DataFrame(training_X, columns=[f'x{i}' for i in range(training_X.shape[1])])
+        df_X = pd.DataFrame(training_X, columns=[f"x{i}" for i in range(training_X.shape[1])])
         # For multi-objective, we'll use a simple aggregation (you might want to improve this)
         if num_objectives > 1:
             # Simple weighted sum (or use first objective if no weights provided)

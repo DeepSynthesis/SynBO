@@ -131,7 +131,7 @@ for i in range(20):
     if i > 0:
         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
     if i == 0:
-        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="kmeans", refine_desc="filter_0.8")
+        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="lhs", refine_desc="filter_0.8")
     else:
         rxn_opt.optimize(
             batch_size=5, optimize_method="HEBO", desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8"

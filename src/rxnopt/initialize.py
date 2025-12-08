@@ -78,7 +78,7 @@ class Initializer:
         self.name_data = name_data
 
     def sampling(
-        self, method: Literal["LHS", "sobol", "kmeans", "hypersphere", "random"] = "LHS", batch_size: int = 5, seed: int = 42
+        self, method: Literal["LHS", "sobol", "kmeans", "hypersphere", "random"] = "LHS", batch_size: int = 5, seed: int = 32
     ) -> np.ndarray:
         """Sample initial conditions using specified method.
 

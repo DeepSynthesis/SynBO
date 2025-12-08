@@ -124,7 +124,7 @@ desc_dict, condition_dict = load_desc_dict(
     reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
 )
 
-for i in range(20):
+for i in range(50):
     rxn_opt = ReactionOptimizer(opt_metrics=["yield"], opt_direct_info=opt_direct_info, opt_type="auto")
     rxn_opt.load_rxn_space(condition_dict=condition_dict)
     rxn_opt.load_desc(desc_dict=desc_dict)
@@ -134,7 +134,7 @@ for i in range(20):
         rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="lhs", refine_desc="filter_0.8")
     else:
         rxn_opt.optimize(
-            batch_size=5, optimize_method="HEBO", desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8"
+            batch_size=2, optimize_method="HEBO", desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8"
         )
     rxn_opt.save_results(save_dir="results")
 

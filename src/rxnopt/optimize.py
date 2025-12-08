@@ -33,6 +33,7 @@ class Optimizer:
             max_batch_size (int, optional): _description_. Defaults to 128.
             seed (int, optional): _description_. Defaults to 1145141.
         """
+        self.method = method
         self.name_data = name_data
         self.mc_num_samples = mc_num_samples
         self.seed = seed

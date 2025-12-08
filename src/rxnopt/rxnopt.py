@@ -280,7 +280,7 @@ class ReactionOptimizer:
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
-        optimized_method: str = "default",
+        optimized_method: str = "default_BO",
         opt_weights: Optional[List[float]] = None,
         mc_num_samples: int = 128,
         max_batch_size: int = 128,
@@ -479,5 +479,3 @@ class ReactionOptimizer:
         for desc_df in self.desc_dict.values():
             total_shape += desc_df.shape[1]
         return total_shape
-    
-    

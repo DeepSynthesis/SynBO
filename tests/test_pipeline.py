@@ -103,8 +103,8 @@ def fill_done_dir(i, date):
 
 
 date = datetime.now().strftime("%Y%m%d")
-# for f in Path("results/").glob(f"batch-*.csv"):
-#     os.remove(f)
+for f in Path("results/").glob(f"batch-*.csv"):
+    os.remove(f)
 
 
 # def generate_onehot():
@@ -133,7 +133,9 @@ for i in range(20):
     if i == 0:
         rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="kmeans", refine_desc="filter_0.8")
     else:
-        rxn_opt.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8")
+        rxn_opt.optimize(
+            batch_size=5, optimize_method="HEBO", desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8"
+        )
     rxn_opt.save_results(save_dir="results")
 
     fill_done_dir(i, date)

@@ -280,7 +280,7 @@ class ReactionOptimizer:
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
-        optimized_method: str = "default_BO",
+        optimize_method: str = "default_BO",
         opt_weights: Optional[List[float]] = None,
         mc_num_samples: int = 128,
         max_batch_size: int = 128,
@@ -322,7 +322,7 @@ class ReactionOptimizer:
         device = torch.device(f"cuda:{gpu_id}") if torch.cuda.is_available() else torch.device("cpu")
         optimizer = Optimizer(
             name_data=self.total_name_arr,
-            method=optimized_method,
+            method=optimize_method,
             mc_num_samples=mc_num_samples,
             max_batch_size=max_batch_size,
             seed=32,
@@ -364,7 +364,7 @@ class ReactionOptimizer:
                 f"[green]Optimization Complete![/green]\n"
                 f"Recommended: {batch_size} conditions\n"
                 f"Exploit: {exploit_count} | Explore: {explore_count}\n"
-                f"Method: {optimized_method} | Device: {device}",
+                f"Method: {optimize_method} | Device: {device}",
                 title="🎯 Results Summary",
             )
         )

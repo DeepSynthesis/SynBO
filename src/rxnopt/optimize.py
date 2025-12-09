@@ -18,7 +18,6 @@ from .bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunctio
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
 
-# 静音该警告（全局生效，或按需用上下文管理器）
 warnings.filterwarnings("ignore", category=NumericalWarning)
 
 

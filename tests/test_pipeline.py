@@ -124,14 +124,14 @@ desc_dict, condition_dict = load_desc_dict(
     reagent_types=reagent_types, desc_dir="dataset/descriptors", name_suffix=name_suffix, return_condition_dict=True, index_col=index_col
 )
 
-for i in range(50):
+for i in range(10):
     rxn_opt = ReactionOptimizer(opt_metrics=["yield"], opt_direct_info=opt_direct_info, opt_type="auto")
     rxn_opt.load_rxn_space(condition_dict=condition_dict)
     rxn_opt.load_desc(desc_dict=desc_dict)
     if i > 0:
         rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
     if i == 0:
-        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="lhs", refine_desc="filter_0.8")
+        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="kmeans", refine_desc="filter_0.8")
     else:
         rxn_opt.optimize(
             batch_size=5,

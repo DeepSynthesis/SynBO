@@ -123,7 +123,7 @@ desc_dict, condition_dict = load_desc_dict(
 )
 
 for i in range(10):
-    rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_direct_info=opt_direct_info, opt_type="auto", random_seed=199)
+    rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_setting=opt_direct_info, opt_type="auto", random_seed=199)
     rxn_opt.load_rxn_space(condition_dict=condition_dict)
     rxn_opt.load_desc(desc_dict=desc_dict)
     if i > 0:

@@ -48,10 +48,9 @@ class Optimizer:
         training_X: np.ndarray,
         training_y: np.ndarray,
         candidate_X: np.ndarray,
-        opt_direct_info: List[dict],
+        opt_metric_setting: List[dict],
         device: torch.device,
         batch_size: int = 5,
-        opt_weights: dict = None,
         maximum_metrics: bool = True,
     ) -> List[int]:
         """
@@ -70,7 +69,7 @@ class Optimizer:
         # TODO: deal with weights
 
         # solved the maximum problem by transforming the training_y to a minimum problem
-        for k, d in zip(training_y.keys(), opt_direct_info):
+        for k, d in zip(training_y.keys(), opt_metric_setting):
             if d["opt_direct"] == "min":
                 training_y[k] = -training_y[k]
 
@@ -83,6 +82,7 @@ class Optimizer:
         else:
             training_X_t = torch.tensor(training_X).double()
             training_y_t = torch.tensor(training_y).double()
+            training_y_t = self._weight_y(training_y_t, opt_metric_setting)
             candidate_X_t = torch.tensor(candidate_X).double()
             dtype = torch.double
             training_X_t = training_X_t.to(device=device, dtype=dtype)
@@ -117,7 +117,9 @@ class Optimizer:
 
             # ref_point is in the upper right corner.
             # That is, if opt_metric_info in opt_direct is max, take 0; if it is min, take 1
-            self.ref_point = torch.tensor([-1 if omi["opt_direct"] == "min" else 0 for omi in opt_direct_info], dtype=float, device=device)
+            self.ref_point = torch.tensor(
+                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_setting], dtype=float, device=device
+            )
 
             # Adaptive MC sampling based on dimensionality and problem size
             # TODO: remove this adaptive MC sample strategy
@@ -162,7 +164,7 @@ class Optimizer:
             pred_std = np.sqrt(pred_var)  # 标准差作为置信度
 
         # 对最大化目标的预测结果进行反变换（重新取负号）
-        for i, d in enumerate(opt_direct_info):
+        for i, d in enumerate(opt_metric_setting):
             if d["opt_direct"] == "min":
                 pred_mean[:, i] = -pred_mean[:, i]
 
@@ -193,3 +195,13 @@ class Optimizer:
                 f"Explore Score = {explore_scores[i]:.3f}"
             )
         return ["exploit" if exploit_scores[i] > explore_scores[i] else "explore" for i in range(self.acq_result.shape[0])]
+
+    def _weight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:
+        weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
+        training_y = training_y * weights.unsqueeze(1)
+        return training_y
+
+    def _unweight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:
+        weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
+        training_y = training_y / weights.unsqueeze(1)
+        return training_y

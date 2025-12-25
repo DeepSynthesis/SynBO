@@ -166,6 +166,8 @@ class Optimizer:
             if d["opt_direct"] == "min":
                 pred_mean[:, i] = -pred_mean[:, i]
 
+        pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_setting).numpy()
+        pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_setting).numpy()
         # 最终日志（用原 console 或 progress 的 console）
         self.opt_console.print("✅ Finish optimization", style="green")
         return selected_conditions, recommend_type, pred_mean, pred_std
@@ -203,5 +205,5 @@ class Optimizer:
 
     def _unweight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:
         weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
-        training_y = training_y / weights.unsqueeze(1)
+        training_y = training_y / weights
         return training_y

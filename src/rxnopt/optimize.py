@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", category=NumericalWarning)
 
 
 class Optimizer:
-    def __init__(self, method, name_data, mc_num_samples: int = 64, max_batch_size: int = 128, seed: int = 1145141):
+    def __init__(self, method, name_data, mc_num_samples: int = 64, max_batch_size: int = 128, random_seed: int = 42):
         """_summary_
 
         Args:
@@ -30,12 +30,12 @@ class Optimizer:
             name_data (_type_): _description_
             mc_num_samples (int, optional): . Defaults to 64.
             max_batch_size (int, optional): _description_. Defaults to 128.
-            seed (int, optional): _description_. Defaults to 1145141.
+            seed (int, optional): _description_. Defaults to 42.
         """
         self.method = method
         self.name_data = name_data
         self.mc_num_samples = mc_num_samples
-        self.seed = seed
+        self.random_seed = random_seed
         self.surrogate_model_class = GPSurrogateModel
         self.acquisition_function_class = EHVIAcquisitionFunction
         self.target_evaluator = ParetoFrontCalculator()
@@ -121,7 +121,7 @@ class Optimizer:
 
             # Adaptive MC sampling based on dimensionality and problem size
             # TODO: remove this adaptive MC sample strategy
-            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.seed)
+            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
             partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
             acq_func = self.acquisition_function_class(
                 model=self.global_model,

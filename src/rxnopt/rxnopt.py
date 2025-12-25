@@ -46,6 +46,7 @@ class ReactionOptimizer:
         opt_metrics: Union[str, List[str]],
         opt_direct_info: Union[dict, List[dict]] = {"opt_direct": "max", "opt_range": [0, 100]},
         opt_type: Literal["init", "opt", "auto"] = "auto",
+        random_seed: int = 42,
     ) -> None:
         if isinstance(opt_metrics, str):
             opt_metrics = [opt_metrics]
@@ -70,6 +71,7 @@ class ReactionOptimizer:
         self.opt_type = opt_type
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
+        self.random_seed = random_seed
         self.opt_console = Console()
 
         self.opt_console.print(
@@ -261,8 +263,8 @@ class ReactionOptimizer:
             self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
         )
 
-        initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr)
-        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size, seed=32)
+        initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr, random_seed=self.random_seed)
+        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
 
         # All initial points are exploration
         self.recommend_type = ["explore"] * batch_size
@@ -325,7 +327,7 @@ class ReactionOptimizer:
             method=optimize_method,
             mc_num_samples=mc_num_samples,
             max_batch_size=max_batch_size,
-            seed=32,
+            random_seed=self.random_seed,
         )
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(

@@ -13,10 +13,9 @@ from scipy.spatial import distance
 from sklearn.neighbors import NearestNeighbors
 
 console = Console()
-np.random.seed(42)
 
 
-def dist_validate(arr: np.ndarray, indices: np.ndarray, num_samples: int = 1000, random_seed: Optional[int] = None) -> tuple[float, float]:
+def dist_validate(arr: np.ndarray, indices: np.ndarray, num_samples: int = 1000, random_seed: Optional[int] = 42) -> tuple[float, float]:
     """Validate distance distribution of selected points.
 
     Args:
@@ -28,8 +27,7 @@ def dist_validate(arr: np.ndarray, indices: np.ndarray, num_samples: int = 1000,
     Returns:
         Tuple of (baseline_avg_distance, selected_avg_distance)
     """
-    if random_seed is not None:
-        np.random.seed(random_seed)
+    np.random.seed(random_seed)
 
     # Generate unique pairs for baseline calculation
     all_pairs = np.random.choice(num_samples, size=(num_samples, 2), replace=True)
@@ -70,22 +68,22 @@ class Initializer:
         ValueError: If neither numerical nor name data provided
     """
 
-    def __init__(self, numerical_data: Optional[np.ndarray] = None, name_data: Optional[np.ndarray] = None) -> None:
+    def __init__(self, numerical_data: Optional[np.ndarray] = None, name_data: Optional[np.ndarray] = None, random_seed: int = 42) -> None:
+        # TODO: check if all random_seed has been set
+
         if numerical_data is None and name_data is None:
             raise ValueError("Please provide either numerical data or name data")
 
         self.numerical_data = numerical_data
         self.name_data = name_data
+        self.random_seed = random_seed
 
-    def sampling(
-        self, method: Literal["LHS", "sobol", "kmeans", "hypersphere", "random"] = "LHS", batch_size: int = 5, seed: int = 32
-    ) -> np.ndarray:
+    def sampling(self, method: Literal["LHS", "sobol", "kmeans", "hypersphere", "random"] = "LHS", batch_size: int = 5) -> np.ndarray:
         """Sample initial conditions using specified method.
 
         Args:
             method: Sampling strategy to use
             batch_size: Number of samples to generate
-            random_seed: Random seed for reproducibility
 
         Returns:
             Array of selected condition combinations
@@ -94,7 +92,7 @@ class Initializer:
             ValueError: If unknown sampling method specified
         """
         self.batch_size = batch_size
-        np.random.seed(seed)
+        np.random.seed(self.random_seed)
 
         console.print(f"Sampling {batch_size} conditions using {method} method", style="cyan")
 
@@ -141,7 +139,7 @@ class Initializer:
     def kmeans_sampling(self):
         from sklearn.cluster import KMeans
 
-        kmeans = KMeans(n_clusters=self.batch_size, random_state=42).fit(self.numerical_data)
+        kmeans = KMeans(n_clusters=self.batch_size, random_state=self.random_seed).fit(self.numerical_data)
         nbrs = NearestNeighbors(n_neighbors=1).fit(self.numerical_data)
         _, indices = nbrs.kneighbors(kmeans.cluster_centers_)
         return indices.flatten()
@@ -152,7 +150,7 @@ class Initializer:
 
         data = torch.as_tensor(self.numerical_data, dtype=torch.float32)
         sobol_points = draw_sobol_samples(
-            bounds=torch.tensor([[0.0] * data.shape[1], [1.0] * data.shape[1]]), n=self.batch_size, q=1
+            bounds=torch.tensor([[0.0] * data.shape[1], [1.0] * data.shape[1]]), n=self.batch_size, q=1, seed=self.random_seed
         ).squeeze(1)
         # 最近邻搜索：找到 data_normalized 中最接近 sobol_points 的点
         nbrs = NearestNeighbors(n_neighbors=1).fit(data.numpy())
@@ -162,6 +160,7 @@ class Initializer:
         return indices
 
     def min_max_sampling(self):
+        np.random.seed(self.random_seed)
         selected_indices = []
 
         # First select min and max

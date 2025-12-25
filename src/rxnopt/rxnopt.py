@@ -283,11 +283,9 @@ class ReactionOptimizer:
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
         optimize_method: str = "default_BO",
-        opt_weights: Optional[List[float]] = None,
         mc_num_samples: int = 128,
         max_batch_size: int = 128,
         gpu_id: int = 0,
-        object_weights: Optional[Dict[str, float]] = None,
     ) -> None:
         """Optimize reaction conditions using Bayesian Optimization.
 
@@ -338,7 +336,6 @@ class ReactionOptimizer:
             opt_metric_setting=self.opt_metric_setting,
             device=device,
             batch_size=batch_size,
-            opt_weights=opt_weights,
         )
 
         # Denormalize prediction values using the same scalers

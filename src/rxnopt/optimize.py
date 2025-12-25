@@ -51,7 +51,6 @@ class Optimizer:
         opt_metric_setting: List[dict],
         device: torch.device,
         batch_size: int = 5,
-        maximum_metrics: bool = True,
     ) -> List[int]:
         """
         Core Bayesian Optimization routine
@@ -130,7 +129,6 @@ class Optimizer:
                 sampler=sampler,
                 ref_point=self.ref_point,
                 partitioning=partitioning,
-                maximum_metrics=maximum_metrics,
             )
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
@@ -198,7 +196,9 @@ class Optimizer:
 
     def _weight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:
         weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
-        training_y = training_y * weights.unsqueeze(1)
+
+        training_y = training_y * weights
+        print(training_y, weights)
         return training_y
 
     def _unweight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:

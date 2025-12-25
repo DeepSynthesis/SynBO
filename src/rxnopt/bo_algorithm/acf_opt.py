@@ -153,7 +153,6 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         sampler: SobolQMCNormalSampler,
         ref_point: torch.Tensor,
         partitioning: NondominatedPartitioning,
-        maximum_metrics: bool,
         exploration_weight: float = 0.1,  # New parameter for exploration
     ):
         super().__init__(model, sampler)

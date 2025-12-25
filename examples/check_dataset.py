@@ -19,8 +19,8 @@ def process_reagent_data(file_path, reagent_cols):
 
 
 # Example usage
-file_path = "suzuki-science/suzuki-HTE.csv"
-reagent_cols = ["product", "solvent", "catalyst", "ligand", "reactant2", "reactant1", "base"]
+file_path = "1430-ultra-HTE/1430-Ultra-high-throughput.csv"
+reagent_cols = ["Reaction1", "Reaction2", "Catalyst1", "Catalyst2"]
 result_df, coverage, counts = process_reagent_data(file_path, reagent_cols)
 print(f"Coverage Ratio: {coverage}")
 print("Reagent Counts:")

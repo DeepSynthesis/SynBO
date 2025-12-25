@@ -1,0 +1,4 @@
+batch,index,type,Catalyst1,Catalyst2,Reaction1,Reaction2,yield,ee
+0,1,explore,CC/[N+](CC)=C1C=CC2=C(C3=C(OC2=C\1)C=C(C=C3)N(CC)CC)C4=CC=CC=C4C(O)=O.[Cl-],FC(C1=CC(C([C@@H]2CCCN2)(O[Si](C)(C)C)C3=CC(C(F)(F)F)=CC(C(F)(F)F)=C3)=CC(C(F)(F)F)=C1)(F)F,[H]C(CCCCC#C)=O,CC1=CC=C(C(CBr)=O)C=C1,,
+0,2,explore,C[N+]1=C2C=CC=CC2=C(C3=C(C)C=CC=C3C)C4=C1C=CC=C4.O=Cl(=O)([O-])=O,CN1[C@H](C(C)(C)C)N[C@@H](CC2=CC=CC=C2)C1=O,[H]C(CCCCC#C)=O,OC1=CC=C(C(CBr)=O)C=C1,,
+0,3,explore,CN(C1=CC2=[S+]C3=C(C=CC(N(C)C)=C3)N=C2C=C1)C.[Cl-],O=C([C@H]1NCSC1)N,[H]C(CCCCC#C)=O,O=C(CBr)C1=CC=C(OC)C=C1,,

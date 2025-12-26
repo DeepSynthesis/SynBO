@@ -26,6 +26,8 @@ from .utils.util_func import check_desc_completeness, generate_onehot_desc, trac
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 
+default_setting = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
+
 
 class ReactionOptimizer:
     """Reaction Optimization Framework.
@@ -56,9 +58,10 @@ class ReactionOptimizer:
         if isinstance(opt_metric_setting, dict):
             opt_metric_setting = [opt_metric_setting] * len(opt_metrics)
         elif not isinstance(opt_metric_setting, list):
-            raise ValueError("opt_direct must be str or list")
+            raise ValueError("opt_metric_setting must be str or list")
+        opt_metric_setting = [{**default_setting, **d} for d in opt_metric_setting]
 
-        assert all(type(d) == dict for d in opt_metric_setting), "opt_direct must be dict or list of dict"
+        assert all(type(d) == dict for d in opt_metric_setting), "opt_metric_setting must be dict or list of dict"
         assert all(d["opt_direct"] in ["max", "min"] for d in opt_metric_setting), "opt_direct must be 'max' or 'min'"
 
         if opt_type not in ["init", "opt", "auto"]:
@@ -188,11 +191,11 @@ class ReactionOptimizer:
 
         # Convert metrics to float
         for opt_metric in self.opt_metrics:
-            prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
             try:
+                prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
                 assert any(np.isnan(prev_rxn_info[opt_metric])) == False
             except:
-                raise ValueError("Some of target properties do not have any value. Check your input previous data.")
+                raise ValueError("Some of target properties do not have any value or be '[exp_data]'. Check your input previous data.")
 
         # drop non metric columns
         prev_rxn_info = prev_rxn_info[prev_rxn_info[opt_metric].notna()]

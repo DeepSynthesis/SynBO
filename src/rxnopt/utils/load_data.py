@@ -62,9 +62,9 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
     index_col = _convert_tag(index_col, len(reagent_types))
     condition_dict = {}
     rxn_space_dir = Path(rxn_space_dir)
-    for idx_col, r_type in zip(reagent_types, index_col):
+    for idx_col, r_type in zip(index_col, reagent_types):
         rxn_space_file = rxn_space_dir / f"{r_type}.csv"
-        assert rxn_space_file.exists(), f"Reaction space file for {r_type} does not exist in {rxn_space_dir}."
+        assert rxn_space_file.exists(), f"Reaction space file for `{r_type}` does not exist in `{rxn_space_dir}`."
         df = pd.read_csv(rxn_space_file)
         if index_col is not None:
             assert idx_col in df.columns, f"Index column {idx_col} not found in {rxn_space_file}."

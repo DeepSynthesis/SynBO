@@ -1,8 +1,9 @@
-import os
 import json
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+from tqdm import tqdm
+
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
 from plots import plot_optimization_process, plot_hv_percentage
@@ -40,7 +41,7 @@ CONFIG["reaction_space"]["index_col"] = [f"{r}_file_name" for r in CONFIG["react
 
 def fill_done_dir(batch_idx, output_dir, dataset_path):
     """get yield and cost from dataset and fill into the saved batch file."""
-    file_path = output_dir / f"batch-{batch_idx}.csv"
+    file_path = output_dir / f"batch-{batch_idx}_{datetime.now().strftime('%Y%m%d')}.csv"
     current_df = pd.read_csv(file_path)
 
     cols_to_drop = [c for c in ["yield", "cost"] if c in current_df.columns]
@@ -74,8 +75,7 @@ def main():
         return_condition_dict=True,
     )
 
-    for i in range(CONFIG["iterations"]):
-        print(f"\n--- 正在进行 Batch {i} ---")
+    for i in tqdm(range(CONFIG["iterations"]), desc="Overall Optimization Progress"):
 
         rxn_opt = ReactionOptimizer(
             opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
@@ -118,8 +118,12 @@ def main():
     df_all = pd.concat(dfs, ignore_index=True)
     df_all.to_csv(run_dir / "all_batches_final.csv", index=False)
 
-    plot_optimization_process(file_pattern=str(run_dir / "batch-*.csv"))
-    plot_hv_percentage(file_pattern=str(run_dir / "batch-*.csv"), opt_direct_info=CONFIG["optimization_settings"]["opt_direct_info"])
+    plot_optimization_process(file_pattern=str(run_dir / "batch-*.csv"), save_path=run_dir / "optimization_process.png")
+    plot_hv_percentage(
+        file_pattern=str(run_dir / "batch-*.csv"),
+        opt_direct_info=CONFIG["optimization_settings"]["opt_direct_info"],
+        save_path=run_dir / "hv_percentage.png",
+    )
 
 
 if __name__ == "__main__":

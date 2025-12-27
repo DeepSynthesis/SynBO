@@ -9,10 +9,11 @@ from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from .utils.util_func import compute_hvi
+from rxnopt.utils.util_func import compute_hvi
+from rxnopt.utils.logger import console
+from rxnopt.bo_algorithm.GP_opt import GPSurrogateModel
+from rxnopt.bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
 
-from .bo_algorithm.GP_opt import GPSurrogateModel
-from .bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
 
 # 在文件顶部导入警告模块和具体警告类
 import warnings
@@ -41,7 +42,7 @@ class Optimizer:
         self.target_evaluator = ParetoFrontCalculator()
         self.max_batch_size = max_batch_size
 
-        self.opt_console = Console()
+        self.opt_console = console
 
     def optimize(
         self,
@@ -200,7 +201,6 @@ class Optimizer:
         weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
 
         training_y = training_y * weights
-        print(training_y, weights)
         return training_y
 
     def _unweight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:

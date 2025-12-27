@@ -6,13 +6,11 @@ Modern initialization strategies with rich progress indicators.
 from typing import Literal, Optional
 
 import numpy as np
-from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from tqdm import tqdm
 from scipy.spatial import distance
 from sklearn.neighbors import NearestNeighbors
-
-console = Console()
+from rxnopt.utils.logger import console
 
 
 def dist_validate(arr: np.ndarray, indices: np.ndarray, num_samples: int = 1000, random_seed: Optional[int] = 42) -> tuple[float, float]:

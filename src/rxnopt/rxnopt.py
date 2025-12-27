@@ -267,7 +267,7 @@ class ReactionOptimizer:
         check_desc_completeness(self.desc_dict, self.condition_dict)
 
         self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc, self.opt_console
+            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
         )
 
         initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr, random_seed=self.random_seed)
@@ -312,7 +312,7 @@ class ReactionOptimizer:
             raise Exception("No previous reaction information was loaded.")
         check_desc_completeness(self.desc_dict, self.condition_dict)
         self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc, self.opt_console
+            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
         )
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
@@ -430,7 +430,7 @@ class ReactionOptimizer:
         else:
             # For initialization phase, add empty columns
             for metric in self.opt_metrics:
-                pred_data[f"{metric}_predicted"] = ["-"] * len(self.selected_conditions)
+                pred_data[f"{metric}_pred"] = ["-"] * len(self.selected_conditions)
                 pred_data[f"{metric}_sigma"] = ["-"] * len(self.selected_conditions)
 
         # Prepare output DataFrame

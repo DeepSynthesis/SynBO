@@ -13,8 +13,10 @@ class Optimizer:
         self.name_data = name_data
         self.opt_console = console
 
-        if self.method == "BO":
-            self.bo_optimizer = DefaultBO(mc_num_samples=mc_num_samples, max_batch_size=max_batch_size, random_seed=random_seed)
+        if self.method == "default_BO":
+            self.optimizer = DefaultBO(mc_num_samples=mc_num_samples, max_batch_size=max_batch_size, random_seed=random_seed)
+        else:
+            raise Exception(f"Unknown optimization method: {self.method}")
 
     def optimize(
         self,
@@ -37,7 +39,7 @@ class Optimizer:
             raise Exception("newBO method has not been implemented yet.")
         elif self.method == "random":
             raise Exception("random method has not been implemented yet.")
-        elif self.method == "BO":
+        elif self.method == "default_BO":
             training_X_t = torch.tensor(training_X).double()
             training_y_t = torch.tensor(training_y).double()
             training_y_t = self._weight_y(training_y_t, opt_metric_setting)
@@ -59,7 +61,7 @@ class Optimizer:
                 task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
                 task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
 
-                acq_result, acq_value = self.bo_optimizer.optimize(
+                acq_result, acq_value = self.optimizer.optimize(
                     training_X_t=training_X_t,
                     training_y_t=training_y_t,
                     candidate_X_t=candidate_X_t,
@@ -71,7 +73,6 @@ class Optimizer:
                     task_pareto=task_pareto,
                     task_acq_opt=task_acq_opt,
                     training_y_dict=training_y_dict,
-                    opt_console=self.opt_console,
                 )
 
             if device.type == "cuda":
@@ -79,13 +80,13 @@ class Optimizer:
             else:
                 best_samples = [res.numpy() for res in acq_result]
 
-            recommend_type = self.bo_optimizer.get_exploit_or_explore(acq_value, self.opt_console)
+            recommend_type = self.optimizer.get_exploit_or_explore(acq_value, self.opt_console)
 
             selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
             selected_indices = np.array(selected_indices).squeeze()
             selected_conditions = self.name_data[selected_indices].squeeze()
 
-            pred_mean, pred_std = self.bo_optimizer.get_predictions()
+            pred_mean, pred_std = self.optimizer.get_predictions()
 
             for i, d in enumerate(opt_metric_setting):
                 if d["opt_direct"] == "min":

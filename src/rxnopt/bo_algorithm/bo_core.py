@@ -39,7 +39,6 @@ class DefaultBO:
         task_pareto,
         task_acq_opt,
         training_y_dict: dict,
-        opt_console,
     ):
         models = []
         num_models = training_y_t.shape[1]

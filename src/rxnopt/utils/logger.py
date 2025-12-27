@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Optional
-import logging
 from pathlib import Path
 from rich.console import Console
 from rich.theme import Theme
@@ -17,7 +16,7 @@ class RXNConsole:
     def __init__(
         self,
         *,
-        level: int = logging.INFO,
+        quiet: bool = False,
         logfile: Optional[Path | str] = None,
         force_terminal: bool = False,
     ):
@@ -34,39 +33,15 @@ class RXNConsole:
                 "path": "magenta",
             }
         )
-        self.console = Console(
-            theme=self.theme,
-            force_terminal=force_terminal,
-            quiet=False if level > 0 else True,
-        )
-
-        self._configure_logging(level=level, logfile=logfile)
-
-    def _configure_logging(self, *, level: int, logfile: Optional[Path | str]) -> None:
-        handler = RichHandler(
-            console=self.console,
-            show_time=True,
-            show_level=True,
-            show_path=False,
-            markup=True,
-        )
-        logging.basicConfig(level=level, handlers=[handler], format="%(message)s")
-        logging.getLogger().setLevel(level)
-
-        if logfile:
-            log_path = Path(logfile)
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            file_handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
-            file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
-            logging.getLogger().addHandler(file_handler)
+        self.console = Console(theme=self.theme, force_terminal=force_terminal, quiet=quiet)
 
     def get_console(self) -> Console:
         return self.console
 
-    def set_level(self, level: int) -> None:
-        logging.getLogger().setLevel(level)
+    def _set_quiet(self, quiet: bool) -> None:
+        self.console.quiet = quiet
 
 
 # module-level singleton console，整个项目直接 import 使用
-_default = RXNConsole()
-console: Console = _default.get_console()
+_logger_default = RXNConsole()
+console: Console = _logger_default.get_console()

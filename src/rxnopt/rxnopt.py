@@ -15,7 +15,6 @@ import pandas as pd
 import torch
 import math
 
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.rule import Rule
@@ -25,6 +24,7 @@ from .descriptor.desc_proc import array_process, done_array_process
 from .utils.util_func import check_desc_completeness, generate_onehot_desc, track_called, get_opt_type
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
+from .utils.logger import _default, console
 
 default_setting = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
 
@@ -49,6 +49,7 @@ class ReactionOptimizer:
         opt_metric_setting: Union[dict, List[dict]] = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
         opt_type: Literal["init", "opt", "auto"] = "auto",
         random_seed: int = 42,
+        quiet: bool = False,
     ) -> None:
         if isinstance(opt_metrics, str):
             opt_metrics = [opt_metrics]
@@ -67,6 +68,8 @@ class ReactionOptimizer:
         if opt_type not in ["init", "opt", "auto"]:
             raise ValueError("opt_type must be 'init', 'opt' or 'auto'")
 
+        _default.set_level(0 if quiet else 20)
+
         self.condition_dict: Dict[str, List[Any]] = {}
         self.desc_dict: Dict[str, Any] = {}
         self.opt_metrics = opt_metrics
@@ -75,7 +78,8 @@ class ReactionOptimizer:
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
         self.random_seed = random_seed
-        self.opt_console = Console()
+        self.quiet = quiet
+        self.opt_console = console
 
         self.opt_console.print(
             Panel(
@@ -263,7 +267,7 @@ class ReactionOptimizer:
         check_desc_completeness(self.desc_dict, self.condition_dict)
 
         self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
+            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc, self.opt_console
         )
 
         initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr, random_seed=self.random_seed)
@@ -308,7 +312,7 @@ class ReactionOptimizer:
             raise Exception("No previous reaction information was loaded.")
         check_desc_completeness(self.desc_dict, self.condition_dict)
         self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
+            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc, self.opt_console
         )
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
         done_arr_desc = self.total_desc_arr[self.done_arr_index]

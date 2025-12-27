@@ -6,10 +6,8 @@ import numpy as np
 import pandas as pd
 from rich.console import Console
 
-console = Console()
 
-
-def cartesian_product_3d(arr: List[List[Any]], data_type: type, info: str = "") -> np.ndarray:
+def cartesian_product_3d(arr: List[List[Any]], data_type: type, info: str = "", console: Console = None) -> np.ndarray:
     """Create cartesian product of 3D array with rich progress bar.
 
     Args:
@@ -83,7 +81,6 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
             case _:
                 raise ValueError(f"Unknown normalization method: {desc_normalize}")
     except ValueError as e:
-        console.print(f"Normalization error: {str(e)}", style="red")
         raise Exception("Normalization failed.") from e
 
 
@@ -148,6 +145,7 @@ def array_process(
     condition_types: List[str],
     desc_normalize: str,
     refine_desc: str,
+    console: Console,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     处理数组，包括描述符筛选、归一化和笛卡尔积。
@@ -258,8 +256,8 @@ def array_process(
             normalized_desc_arrs.append(np.array([]))
     # 5. 执行笛卡尔积 (Perform cartesian product)
     # cartesian_product_3d 需要能处理描述符向量的拼接
-    total_desc_arr = cartesian_product_3d(normalized_desc_arrs, data_type=float, info="descriptors")
-    total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
+    total_desc_arr = cartesian_product_3d(normalized_desc_arrs, data_type=float, info="descriptors", console=console)
+    total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names", console=console)
     if len(total_desc_arr) > 0:
         console.print(f"Generated [bold]{len(total_desc_arr):,}[/bold] total combinations", style="green")
     else:
@@ -270,7 +268,7 @@ def array_process(
     return total_name_arr, total_desc_arr
 
 
-def done_array_process(prev_rxn_info: pd.DataFrame, total_name_arr: np.ndarray, condition_types: List[str]) -> np.ndarray:
+def done_array_process(prev_rxn_info: pd.DataFrame, total_name_arr: np.ndarray, condition_types: List[str], console: Console) -> np.ndarray:
     """Process completed reactions with validation.
 
     Args:

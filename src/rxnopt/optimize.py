@@ -65,8 +65,6 @@ class Optimizer:
         Returns:
             Indices of selected points from candidate_x
         """
-        # Convert to tensors
-        # TODO: deal with weights
 
         # solved the maximum problem by transforming the training_y to a minimum problem
         for k, d in zip(training_y.keys(), opt_metric_setting):

@@ -27,7 +27,7 @@ CONFIG = {
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "lhs",
+        "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
         "mc_num_samples": 32,

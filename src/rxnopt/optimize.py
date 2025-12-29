@@ -4,16 +4,20 @@ import torch
 
 from rxnopt.utils.logger import console
 from rxnopt.bo_algorithm.bo_core import DefaultBO
+from rxnopt.other_algorithm.random_select import RandomSelect
 
 
 class Optimizer:
-    def __init__(self, method, name_data, mc_num_samples: int = 64, max_batch_size: int = 128, random_seed: int = 42):
+    def __init__(self, method, name_data, random_seed: int = 42):
         self.method = method
         self.name_data = name_data
+        self.random_seed = random_seed
         self.opt_console = console
 
         if self.method == "default_BO":
-            self.optimizer = DefaultBO(mc_num_samples=mc_num_samples, max_batch_size=max_batch_size, random_seed=random_seed, opt_console=console)
+            self.optimizer = DefaultBO(mc_num_samples=mc_num_samples, max_batch_size=max_batch_size, random_seed=random_seed)
+        elif self.method == "random_select":
+            self.optimizer = RandomSelect(random_seed=random_seed)
         else:
             raise Exception(f"Unknown optimization method: {self.method}")
 
@@ -23,8 +27,9 @@ class Optimizer:
         training_y: np.ndarray,
         candidate_X: np.ndarray,
         opt_metric_setting: List[dict],
-        device: torch.device,
-        batch_size: int = 5,
+        # device: torch.device,
+        # batch_size: int = 5,
+        **optimization_kwargs,
     ) -> List[int]:
         for k, d in zip(training_y.keys(), opt_metric_setting):
             if d["opt_direct"] == "min":
@@ -34,7 +39,7 @@ class Optimizer:
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
 
-        if self.method == "default_BO":
+        if self.method in ["default_BO", "random_select"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
                 training_y=training_y,

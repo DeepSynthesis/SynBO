@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 import math
+import inspect
 
 from rich.panel import Panel
 from rich.table import Table
@@ -290,9 +291,7 @@ class ReactionOptimizer:
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
         optimize_method: str = "default_BO",
-        mc_num_samples: int = 128,
-        max_batch_size: int = 128,
-        gpu_id: int = 0,
+        **optimization_kwargs: Any,
     ) -> None:
         """Optimize reaction conditions using Bayesian Optimization.
 
@@ -327,12 +326,10 @@ class ReactionOptimizer:
             normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
             normalized_metrics[metric] = normalized_y
 
-        device = torch.device(f"cuda:{gpu_id}") if torch.cuda.is_available() else torch.device("cpu")
+        device = torch.device(f"cuda:2") if torch.cuda.is_available() else torch.device("cpu")
         optimizer = Optimizer(
             name_data=self.total_name_arr,
             method=optimize_method,
-            mc_num_samples=mc_num_samples,
-            max_batch_size=max_batch_size,
             random_seed=self.random_seed,
         )
 
@@ -341,8 +338,9 @@ class ReactionOptimizer:
             training_y=normalized_metrics,
             candidate_X=self.total_desc_arr,
             opt_metric_setting=self.opt_metric_setting,
-            device=device,
-            batch_size=batch_size,
+            # device=device,
+            # batch_size=batch_size,
+            **optimization_kwargs,
         )
 
         # Denormalize prediction values using the same scalers

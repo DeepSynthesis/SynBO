@@ -8,6 +8,7 @@ from botorch.utils.multi_objective.box_decompositions import NondominatedPartiti
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 from rxnopt.utils.util_func import compute_hvi
+from rxnopt.utils.logger import console
 from rxnopt.bo_algorithm.GP_opt import GPSurrogateModel
 from rxnopt.bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
 
@@ -18,14 +19,9 @@ warnings.filterwarnings("ignore", category=NumericalWarning)
 
 
 class DefaultBO:
-    def __init__(self, mc_num_samples: int = 64, max_batch_size: int = 128, random_seed: int = 42, opt_console=None):
-        self.mc_num_samples = mc_num_samples
+    def __init__(self, random_seed: int = 42):
         self.random_seed = random_seed
-        self.max_batch_size = max_batch_size
-        self.surrogate_model_class = GPSurrogateModel
-        self.acquisition_function_class = EHVIAcquisitionFunction
-        self.target_evaluator = ParetoFrontCalculator()
-        self.opt_console = opt_console
+        self.console = console
 
     def optimize(
         self,
@@ -36,7 +32,15 @@ class DefaultBO:
         device: torch.device,
         batch_size: int,
         training_y_dict: dict,
+        mc_num_samples: int = 64,
+        max_batch_size: int = 128,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
+        self.mc_num_samples = mc_num_samples
+        self.max_batch_size = max_batch_size
+        self.surrogate_model_class = GPSurrogateModel
+        self.acquisition_function_class = EHVIAcquisitionFunction
+        self.target_evaluator = ParetoFrontCalculator()
+
         training_X_t = torch.tensor(training_X).double().to(device=device)
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_setting).to(device=device)
@@ -47,11 +51,11 @@ class DefaultBO:
             BarColumn(bar_width=None),
             MofNCompleteColumn(),
             TimeRemainingColumn(),
-            console=self.opt_console,
+            console=self.console,
         ) as progress:
             num_models = training_y_t.shape[1]
             task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
-            
+
             models = []
             for i in range(num_models):
                 key = list(training_y_dict.keys())[i]
@@ -69,7 +73,9 @@ class DefaultBO:
             training_y_np = training_y_t.cpu().numpy()
             self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=device)
 
-            self.ref_point = torch.tensor([-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_setting], dtype=float, device=device)
+            self.ref_point = torch.tensor(
+                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_setting], dtype=float, device=device
+            )
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
             partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
@@ -121,7 +127,7 @@ class DefaultBO:
         explore_scores = 1 - exploit_scores
 
         for i in range(self.acq_result.shape[0]):
-            self.opt_console.log(
+            self.console.log(
                 f"Point {i}: "
                 f"EHVI = {ehvi_values[i]:.3f}, "
                 f"HVI = {hvi_values[i]:.3f}, "

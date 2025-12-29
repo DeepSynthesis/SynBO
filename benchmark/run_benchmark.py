@@ -79,7 +79,7 @@ def main():
 
         rxn_opt = ReactionOptimizer(
             opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
-            opt_metric_setting=CONFIG["optimization_settings"]["opt_direct_info"],
+            opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
             opt_type=CONFIG["optimization_settings"]["opt_type"],
             random_seed=CONFIG["seed"],
             quiet=True,

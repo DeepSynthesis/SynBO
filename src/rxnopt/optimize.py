@@ -29,11 +29,11 @@ class Optimizer:
         training_X: np.ndarray,
         training_y: np.ndarray,
         candidate_X: np.ndarray,
-        opt_metric_setting: List[dict],
+        opt_metric_settings: List[dict],
         device: torch.device,
         batch_size: int = 5,
     ) -> List[int]:
-        for k, d in zip(training_y.keys(), opt_metric_setting):
+        for k, d in zip(training_y.keys(), opt_metric_settings):
             if d["opt_direct"] == "min":
                 training_y[k] = -training_y[k]
 
@@ -46,7 +46,7 @@ class Optimizer:
                 training_X=training_X,
                 training_y=training_y,
                 candidate_X=candidate_X,
-                opt_metric_setting=opt_metric_setting,
+                opt_metric_settings=opt_metric_settings,
                 device=device,
                 batch_size=batch_size,
                 training_y_dict=training_y_dict,

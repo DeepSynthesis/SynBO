@@ -52,7 +52,7 @@ desc_dict, condition_dict = load_desc_dict(
 )
 
 for i in range(20):
-    rxn_opt = ReactionOptimizer(opt_metrics=["hvi"], opt_metric_setting=opt_direct_info, opt_type="auto")
+    rxn_opt = ReactionOptimizer(opt_metrics=["hvi"], opt_metric_settings=opt_direct_info, opt_type="auto")
     rxn_opt.load_rxn_space(condition_dict=condition_dict)
     rxn_opt.load_desc(desc_dict=desc_dict)
     if i > 0:

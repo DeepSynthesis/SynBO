@@ -53,7 +53,7 @@ class DefaultBO:
         training_X: np.ndarray,
         training_y: np.ndarray,
         candidate_X: np.ndarray,
-        opt_metric_setting: List[dict],
+        opt_metric_settings: List[dict],
         device: torch.device,
         batch_size: int,
         training_y_dict: dict,
@@ -61,7 +61,7 @@ class DefaultBO:
 
         training_X_t = torch.tensor(training_X).double().to(device=device)
         training_y_t = torch.tensor(training_y).double()
-        training_y_t = self._weight_y(training_y_t, opt_metric_setting).to(device=device)
+        training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=device)
         candidate_X_t = torch.tensor(candidate_X).double().to(device=device)
 
         with Progress(
@@ -92,7 +92,7 @@ class DefaultBO:
             self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=device)
 
             self.ref_point = torch.tensor(
-                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_setting], dtype=float, device=device
+                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=device
             )
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
@@ -125,12 +125,12 @@ class DefaultBO:
         recommend_type = self._get_exploit_or_explore()
         pred_mean, pred_std = self._get_predictions()
 
-        for i, d in enumerate(opt_metric_setting):
+        for i, d in enumerate(opt_metric_settings):
             if d["opt_direct"] == "min":
                 pred_mean[:, i] = -pred_mean[:, i]
 
-        pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_setting).numpy()
-        pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_setting).numpy()
+        pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_settings).numpy()
+        pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
 
         return best_samples, recommend_type, pred_mean, pred_std
 
@@ -162,12 +162,12 @@ class DefaultBO:
             pred_std = np.sqrt(pred_var)
         return pred_mean, pred_std
 
-    def _weight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:
-        weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
+    def _weight_y(self, training_y: torch.Tensor, opt_metric_settings: List[dict]) -> torch.Tensor:
+        weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings])
         training_y = training_y * weights
         return training_y
 
-    def _unweight_y(self, training_y: torch.Tensor, opt_metric_setting: List[dict]) -> torch.Tensor:
-        weights = torch.tensor([d["metric_weight"] for d in opt_metric_setting])
+    def _unweight_y(self, training_y: torch.Tensor, opt_metric_settings: List[dict]) -> torch.Tensor:
+        weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings])
         training_y = training_y / weights
         return training_y

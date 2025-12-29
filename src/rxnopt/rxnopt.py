@@ -27,7 +27,7 @@ from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 from .utils.logger import _logger_default, console
 
-default_setting = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
+default_settings = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
 
 
 class ReactionOptimizer:
@@ -47,7 +47,7 @@ class ReactionOptimizer:
     def __init__(
         self,
         opt_metrics: Union[str, List[str]],
-        opt_metric_setting: Union[dict, List[dict]] = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+        opt_metric_settings: Union[dict, List[dict]] = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
         opt_type: Literal["init", "opt", "auto"] = "auto",
         random_seed: int = 42,
         quiet: bool = False,
@@ -57,14 +57,14 @@ class ReactionOptimizer:
         elif not isinstance(opt_metrics, list):
             raise ValueError("opt_metrics must be str or list")
 
-        if isinstance(opt_metric_setting, dict):
-            opt_metric_setting = [opt_metric_setting] * len(opt_metrics)
-        elif not isinstance(opt_metric_setting, list):
-            raise ValueError("opt_metric_setting must be str or list")
-        opt_metric_setting = [{**default_setting, **d} for d in opt_metric_setting]
+        if isinstance(opt_metric_settings, dict):
+            opt_metric_settings = [opt_metric_settings] * len(opt_metrics)
+        elif not isinstance(opt_metric_settings, list):
+            raise ValueError("opt_metric_settings must be str or list")
+        opt_metric_settings = [{**default_settings, **d} for d in opt_metric_settings]
 
-        assert all(type(d) == dict for d in opt_metric_setting), "opt_metric_setting must be dict or list of dict"
-        assert all(d["opt_direct"] in ["max", "min"] for d in opt_metric_setting), "opt_direct must be 'max' or 'min'"
+        assert all(type(d) == dict for d in opt_metric_settings), "opt_metric_settings must be dict or list of dict"
+        assert all(d["opt_direct"] in ["max", "min"] for d in opt_metric_settings), "opt_direct must be 'max' or 'min'"
 
         if opt_type not in ["init", "opt", "auto"]:
             raise ValueError("opt_type must be 'init', 'opt' or 'auto'")
@@ -74,7 +74,7 @@ class ReactionOptimizer:
         self.condition_dict: Dict[str, List[Any]] = {}
         self.desc_dict: Dict[str, Any] = {}
         self.opt_metrics = opt_metrics
-        self.opt_metric_setting = opt_metric_setting
+        self.opt_metric_settings = opt_metric_settings
         self.opt_type = opt_type
         self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
@@ -320,7 +320,7 @@ class ReactionOptimizer:
         # Normalize target values using opt_range
         self.y_scalers = {}
         normalized_metrics = {}
-        for i, (metric, opt_metric) in enumerate(zip(self.opt_metrics, self.opt_metric_setting)):
+        for i, (metric, opt_metric) in enumerate(zip(self.opt_metrics, self.opt_metric_settings)):
             y_min, y_max = opt_metric["opt_range"]
             self.y_scalers[metric] = {"min": y_min, "max": y_max}
             normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
@@ -338,9 +338,9 @@ class ReactionOptimizer:
             training_X=done_arr_desc,
             training_y=normalized_metrics,
             candidate_X=self.total_desc_arr,
-            opt_metric_setting=self.opt_metric_setting,
+            opt_metric_settings=self.opt_metric_settings,
             device=device,
-            batch_size=batch_size,  
+            batch_size=batch_size,
         )
 
         # Denormalize prediction values using the same scalers

@@ -19,9 +19,34 @@ warnings.filterwarnings("ignore", category=NumericalWarning)
 
 
 class DefaultBO:
-    def __init__(self, random_seed: int = 42):
+    def __init__(
+        self,
+        random_seed: int = 42,
+        mc_num_samples: int = 64,
+        max_batch_size: int = 128,
+        surrogate_model: str = "GP",
+        acq_func: str = "EHVI",
+        target_eval: str = "Pareto",
+    ):
         self.random_seed = random_seed
         self.console = console
+        self.mc_num_samples = mc_num_samples
+        self.max_batch_size = max_batch_size
+
+        if surrogate_model == "GP":
+            self.surrogate_model_class = GPSurrogateModel
+        else:
+            raise ValueError(f"Unknown surrogate model: {surrogate_model}")
+
+        if acq_func == "EHVI":
+            self.acquisition_function_class = EHVIAcquisitionFunction
+        else:
+            raise ValueError(f"Unknown acquisition function: {acq_func}")
+
+        if target_eval == "Pareto":
+            self.target_evaluator = ParetoFrontCalculator()
+        else:
+            raise ValueError(f"Unknown target evaluator: {target_eval}")
 
     def optimize(
         self,
@@ -32,14 +57,7 @@ class DefaultBO:
         device: torch.device,
         batch_size: int,
         training_y_dict: dict,
-        mc_num_samples: int = 64,
-        max_batch_size: int = 128,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
-        self.mc_num_samples = mc_num_samples
-        self.max_batch_size = max_batch_size
-        self.surrogate_model_class = GPSurrogateModel
-        self.acquisition_function_class = EHVIAcquisitionFunction
-        self.target_evaluator = ParetoFrontCalculator()
 
         training_X_t = torch.tensor(training_X).double().to(device=device)
         training_y_t = torch.tensor(training_y).double()

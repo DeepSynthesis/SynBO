@@ -8,16 +8,19 @@ from rxnopt.other_algorithm.random_select import RandomSelect
 
 
 class Optimizer:
-    def __init__(self, method, name_data, random_seed: int = 42):
+    def __init__(self, method, name_data, random_seed: int = 42, **optimization_kwargs):
         self.method = method
         self.name_data = name_data
         self.random_seed = random_seed
         self.opt_console = console
 
         if self.method == "default_BO":
-            self.optimizer = DefaultBO(mc_num_samples=mc_num_samples, max_batch_size=max_batch_size, random_seed=random_seed)
+            self.optimizer = DefaultBO(random_seed=random_seed, **optimization_kwargs)
+        # elif self.method == "HEBO":
+        #     self.optimizer = HEBOOptimizer(random_seed=random_seed, sedp=sedp, ffm=ffm)
         elif self.method == "random_select":
             self.optimizer = RandomSelect(random_seed=random_seed)
+
         else:
             raise Exception(f"Unknown optimization method: {self.method}")
 
@@ -27,9 +30,8 @@ class Optimizer:
         training_y: np.ndarray,
         candidate_X: np.ndarray,
         opt_metric_setting: List[dict],
-        # device: torch.device,
-        # batch_size: int = 5,
-        **optimization_kwargs,
+        device: torch.device,
+        batch_size: int = 5,
     ) -> List[int]:
         for k, d in zip(training_y.keys(), opt_metric_setting):
             if d["opt_direct"] == "min":

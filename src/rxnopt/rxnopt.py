@@ -331,6 +331,7 @@ class ReactionOptimizer:
             name_data=self.total_name_arr,
             method=optimize_method,
             random_seed=self.random_seed,
+            **optimization_kwargs,
         )
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
@@ -338,9 +339,8 @@ class ReactionOptimizer:
             training_y=normalized_metrics,
             candidate_X=self.total_desc_arr,
             opt_metric_setting=self.opt_metric_setting,
-            # device=device,
-            # batch_size=batch_size,
-            **optimization_kwargs,
+            device=device,
+            batch_size=batch_size,  
         )
 
         # Denormalize prediction values using the same scalers

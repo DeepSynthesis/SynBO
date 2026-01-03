@@ -24,6 +24,18 @@ dataset_info = {
         "file_path": "suzuki-science/suzuki-HTE.csv",
         "reagent_columns": ["product", "solvent", "catalyst", "ligand", "reactant2", "reactant1", "base"],
     },
+    "amidation": {
+        "file_path": "amidation/amidation.csv",
+        "reagent_columns": ["solvent_name", "base_smiles", "solvent_smiles", "activator_smiles", "nucleophile_smiles"],
+    },
+    "C-H_arylation": {
+        "file_path": "C-H_arylation/C-H_arylation.csv",
+        "reagent_columns": ["ligand_smiles", "electrophile_smiles", "nucleophile_smiles"],
+    },
+    "deoxyf": {
+        "file_path": "deoxyf/deoxyf.csv",
+        "reagent_columns": ["base_smiles", "fluoride_smiles", "substrate_smiles"],
+    },
 }
 
 
@@ -45,7 +57,7 @@ def process_reagent_data(file_path, reagent_cols):
 
 
 # Example usage
-dataset = "suzuki"
+dataset = "deoxyf"
 file_path = dataset_info[dataset]["file_path"]
 reagent_cols = dataset_info[dataset]["reagent_columns"]
 result_df, coverage, counts = process_reagent_data(file_path, reagent_cols)

@@ -1,9 +1,10 @@
+import sys
 import pandas as pd
 from itertools import product
 
 dataset_info = {
-    "asym-hydrogenation": {
-        "file_path": "asym-hydrogenation/asym_hydrogenation.csv",
+    "asym_hydrogenation": {
+        "file_path": "asym_hydrogenation/asym_hydrogenation.csv",
         "reagent_columns": [
             "reagent",
             "solvent",
@@ -15,13 +16,13 @@ dataset_info = {
             "time",
         ],
     },
-    "1430-UHTE": {
-        "file_path": "1430-ultra-HTE/1430-Ultra-high-throughput.csv",
+    "asym_alkylation": {
+        "file_path": "asym_alkylation/asym_alkylation.csv",
         "reagent_columns": ["Reaction1", "Reaction2", "Catalyst1", "Catalyst2"],
     },
-    "B-H-HTE": {"file_path": "B-H-HTE/B-H-dataset.csv", "reagent_columns": ["base", "ligand", "solvent", "concentration", "temperature"]},
-    "suzuki": {
-        "file_path": "suzuki-science/suzuki-HTE.csv",
+    "B-H_HTE": {"file_path": "B-H_HTE/B-H_HTE.csv", "reagent_columns": ["base", "ligand", "solvent", "concentration", "temperature"]},
+    "suzuki_HTE": {
+        "file_path": "suzuki_HTE/suzuki_HTE.csv",
         "reagent_columns": ["product", "solvent", "catalyst", "ligand", "reactant2", "reactant1", "base"],
     },
     "amidation": {
@@ -57,7 +58,8 @@ def process_reagent_data(file_path, reagent_cols):
 
 
 # Example usage
-dataset = "deoxyf"
+# dataset = "读取python的第一个参数"
+dataset = sys.argv[1] if len(sys.argv) > 1 else "deoxyf"
 file_path = dataset_info[dataset]["file_path"]
 reagent_cols = dataset_info[dataset]["reagent_columns"]
 result_df, coverage, counts = process_reagent_data(file_path, reagent_cols)

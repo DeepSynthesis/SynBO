@@ -1,4 +1,40 @@
-## Dataset Information
+
+
+
+# Dataset Information
+
+## Buchwald-Hartwig reaction HTE dataset
+
+- paper: 
+
+- dataset information
+
+| dataset size | reagent type                          | exp data coverage | target type |
+|--------------|---------------------------------------|-------------------|-------------|
+| 1728         | base, ligand, solvent, concentration, temperature | 100.0%             | yield, cost |
+
+- mark: have their calculated QM descriptor
+
+### Suzuki reaction HTE dataset
+
+- paper:
+
+- dataset information
+
+| dataset size | reagent type                          | exp data coverage | target type |
+|--------------|---------------------------------------|-------------------|-------------|
+| 5760         | solvent, ligand, reactant1, reactant2, base | 53.6%             | conversion |
+
+### α-asymmetric alkylation of aldehyde with photocatalyst
+
+- paper: 
+
+- dataset information
+
+| dataset size | reagent type                          | exp data coverage | target type |
+|--------------|---------------------------------------|-------------------|-------------|
+| 5760         | solvent, ligand, reactant1, reactant2, base | 53.6%             | conversion |
+-----
 
 搜集一些已经比较成熟的数据集，方便后续实验使用。
 

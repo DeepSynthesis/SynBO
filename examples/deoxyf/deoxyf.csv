@@ -1,4 +1,4 @@
-base_smiles,fluoride_smiles,substrate_smiles,yield
+base,fluoride,substrate,yield
 C1CCC2=NCCCN2CC1,O=S(=O)(F)c1ccc(Cl)cc1,OCCCCc1ccccc1,42
 C1CCC2=NCCCN2CC1,O=S(=O)(F)c1ccccn1,OCCCCc1ccccc1,48
 C1CCC2=NCCCN2CC1,O=S(=O)(F)c1ccc(C(F)(F)F)cc1,OCCCCc1ccccc1,47

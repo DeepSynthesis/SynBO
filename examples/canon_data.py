@@ -2,8 +2,8 @@ from quanda.utils import canonicalize_input_SMILES_file
 
 
 {
-    "amidation": {
-        "file_path": "amidation/amidation.csv",
+    "amide_coupling": {
+        "file_path": "amide_coupling/amide_coupling.csv",
         "reagent_columns": ["solvent_name", "base_smiles", "solvent_smiles", "activator_smiles", "nucleophile_smiles"],
     },
     "C-H_arylation": {

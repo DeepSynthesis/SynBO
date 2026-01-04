@@ -25,17 +25,17 @@ dataset_info = {
         "file_path": "suzuki_HTE/suzuki_HTE.csv",
         "reagent_columns": ["product", "solvent", "catalyst", "ligand", "reactant2", "reactant1", "base"],
     },
-    "amidation": {
-        "file_path": "amidation/amidation.csv",
-        "reagent_columns": ["solvent_name", "base_smiles", "solvent_smiles", "activator_smiles", "nucleophile_smiles"],
+    "amide_coupling": {
+        "file_path": "amide_coupling/amide_coupling.csv",
+        "reagent_columns": ["solvent", "base", "activator", "nucleophile"],
     },
     "C-H_arylation": {
         "file_path": "C-H_arylation/C-H_arylation.csv",
-        "reagent_columns": ["ligand_smiles", "electrophile_smiles", "nucleophile_smiles"],
+        "reagent_columns": ["ligand", "electrophile", "nucleophile"],
     },
     "deoxyf": {
         "file_path": "deoxyf/deoxyf.csv",
-        "reagent_columns": ["base_smiles", "fluoride_smiles", "substrate_smiles"],
+        "reagent_columns": ["base", "fluoride", "substrate"],
     },
 }
 

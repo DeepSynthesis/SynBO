@@ -1,4 +1,4 @@
-ligand_smiles,electrophile_smiles,nucleophile_smiles,product_smiles,yield
+ligand,electrophile,nucleophile,product,yield
 CN(C)c1ccc(P(C2CCCCC2)C2CCCCC2)cc1,CCOC(=O)c1cc(Br)cn1CC,CC(C)c1nccn1C,CCOC(=O)c1cc(-c2cnc(C(C)C)n2C)cn1CC,4.68
 COc1ccc(OC)c(P(C2CCCCC2)C2CCCCC2)c1-c1c(C(C)C)cc(C(C)C)cc1C(C)C,CCOC(=O)c1cc(Br)cn1CC,CC(C)c1nccn1C,CCOC(=O)c1cc(-c2cnc(C(C)C)n2C)cn1CC,1.83
 CCCCC1(P(C2CCCCC2)C2CCCCC2)c2ccccc2-c2ccccc21,CCOC(=O)c1cc(Br)cn1CC,CC(C)c1nccn1C,CCOC(=O)c1cc(-c2cnc(C(C)C)n2C)cn1CC,2.04

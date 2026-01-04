@@ -1,4 +1,6 @@
+from typing import List
 import numpy as np
+import torch
 
 
 class RandomSelect:
@@ -12,4 +14,19 @@ class RandomSelect:
         training_X: np.ndarray,
         training_y: np.ndarray,
         candidate_X: np.ndarray,
-    ): ...
+        opt_metric_settings: List[dict],
+        batch_size: int,
+        training_y_dict: dict,
+    ):
+        training_set = {tuple(row) for row in training_X}
+
+        available_indices = [i for i, row in enumerate(candidate_X) if tuple(row) not in training_set]
+        num_available = len(available_indices)
+        if num_available < batch_size:
+            raise ValueError(
+                f"Insufficient number of samplable samples: {batch_size} are needed, but after excluding existing points, only {num_available} remain."
+            )
+        new_candidate_samples = np.random.choice(available_indices, size=batch_size, replace=False).tolist()
+        recommend_type = ["random_select"] * batch_size
+
+        return (new_candidate_samples, recommend_type, [0.0] * batch_size, [0.0] * batch_size)

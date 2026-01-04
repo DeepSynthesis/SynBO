@@ -331,6 +331,7 @@ class ReactionOptimizer:
             name_data=self.total_name_arr,
             method=optimize_method,
             random_seed=self.random_seed,
+            device=device,
             **optimization_kwargs,
         )
 
@@ -339,7 +340,6 @@ class ReactionOptimizer:
             training_y=normalized_metrics,
             candidate_X=self.total_desc_arr,
             opt_metric_settings=self.opt_metric_settings,
-            device=device,
             batch_size=batch_size,
         )
 

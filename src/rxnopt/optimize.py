@@ -8,14 +8,14 @@ from rxnopt.other_algorithm.random_select import RandomSelect
 
 
 class Optimizer:
-    def __init__(self, method, name_data, random_seed: int = 42, **optimization_kwargs):
+    def __init__(self, method, name_data, random_seed: int = 42, device: torch.device = torch.device("cpu"), **optimization_kwargs):
         self.method = method
         self.name_data = name_data
         self.random_seed = random_seed
         self.opt_console = console
 
         if self.method == "default_BO":
-            self.optimizer = DefaultBO(random_seed=random_seed, **optimization_kwargs)
+            self.optimizer = DefaultBO(random_seed=random_seed, device=device, **optimization_kwargs)
         # elif self.method == "HEBO":
         #     self.optimizer = HEBOOptimizer(random_seed=random_seed, sedp=sedp, ffm=ffm)
         elif self.method == "random_select":
@@ -30,7 +30,6 @@ class Optimizer:
         training_y: np.ndarray,
         candidate_X: np.ndarray,
         opt_metric_settings: List[dict],
-        device: torch.device,
         batch_size: int = 5,
     ) -> List[int]:
         for k, d in zip(training_y.keys(), opt_metric_settings):
@@ -47,7 +46,6 @@ class Optimizer:
                 training_y=training_y,
                 candidate_X=candidate_X,
                 opt_metric_settings=opt_metric_settings,
-                device=device,
                 batch_size=batch_size,
                 training_y_dict=training_y_dict,
             )

@@ -27,11 +27,13 @@ class DefaultBO:
         surrogate_model: str = "GP",
         acq_func: str = "EHVI",
         target_eval: str = "Pareto",
+        device: torch.device = torch.device("cpu"),
     ):
         self.random_seed = random_seed
         self.console = console
         self.mc_num_samples = mc_num_samples
         self.max_batch_size = max_batch_size
+        self.device = device
 
         if surrogate_model == "GP":
             self.surrogate_model_class = GPSurrogateModel
@@ -54,15 +56,14 @@ class DefaultBO:
         training_y: np.ndarray,
         candidate_X: np.ndarray,
         opt_metric_settings: List[dict],
-        device: torch.device,
         batch_size: int,
         training_y_dict: dict,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
-        training_X_t = torch.tensor(training_X).double().to(device=device)
+        training_X_t = torch.tensor(training_X).double().to(device=self.device)
         training_y_t = torch.tensor(training_y).double()
-        training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=device)
-        candidate_X_t = torch.tensor(candidate_X).double().to(device=device)
+        training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
+        candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
 
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
@@ -89,10 +90,10 @@ class DefaultBO:
 
             task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
             training_y_np = training_y_t.cpu().numpy()
-            self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=device)
+            self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
 
             self.ref_point = torch.tensor(
-                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=device
+                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
             )
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
@@ -117,7 +118,7 @@ class DefaultBO:
                 task=task_acq_opt,
             )
 
-        if device.type == "cuda":
+        if self.device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]
         else:
             best_samples = [res.numpy() for res in self.acq_result]

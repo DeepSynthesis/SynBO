@@ -1,8 +1,6 @@
 import unittest
-import os
-import shutil
 
-from click import Path
+from pathlib import Path
 from rxnopt import ReactionOptimizer
 from rxnopt.utils.load_data import load_desc_dict
 
@@ -12,7 +10,7 @@ class TestReactionOptimizer(unittest.TestCase):
     def setUpClass(cls):
         cls.reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
         cls.opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
-        cls.save_dir = "test_results_unit"
+        cls.save_dir = "test_results"
 
         # 预加载数据
         cls.desc_dict, cls.condition_dict = load_desc_dict(
@@ -20,11 +18,14 @@ class TestReactionOptimizer(unittest.TestCase):
             desc_dir="dataset/descriptors",
             name_suffix=["_dft", "_dft", "_dft", None, None],
             index_col=cls.reagent_types,
+            return_condition_dict=True,
         )
 
     def tearDown(self):
-        if Path(self.save_dir).exists():
-            shutil.rmtree(self.save_dir)
+        if Path(self.save_dir).exists:
+            for f in Path(self.save_dir).glob("*"):
+                if f.is_file():
+                    f.unlink()
 
     def _run_optimization_workflow(self, opt_method, normalize, refine, filetype):
         # core code

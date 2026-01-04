@@ -1,6 +1,7 @@
 import unittest
-
 from pathlib import Path
+import pandas as pd
+
 from rxnopt import ReactionOptimizer
 from rxnopt.utils.load_data import load_desc_dict
 
@@ -32,6 +33,7 @@ class TestReactionOptimizer(unittest.TestCase):
         rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto")
         rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
         rxn_opt.load_desc(desc_dict=self.desc_dict)
+        rxn_opt.load_prev_rxn(pd.read_csv("testfile/start_file.csv", index_col=False))
 
         rxn_opt.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method)
         rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)

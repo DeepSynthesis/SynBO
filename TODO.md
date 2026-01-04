@@ -13,13 +13,13 @@
 
 2. evaluate with different algorithm
 
-    - [ ] 随机梯度下降
+- [ ] 随机梯度下降
 
-    - [ ] 进化/遗传算法
+- [ ] 进化/遗传算法
 
-    - [ ] 粒子群算法
+- [ ] 粒子群算法
 
-    - [ ] 
+- [ ] 人工优化？
 
 
 3. descriptor influence

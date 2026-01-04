@@ -227,3 +227,4 @@ tests/results/
 benchmark/results/
 .pytest_cache/
 .venv/
+tests/test_results/

@@ -4,9 +4,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 import numpy as np
 import pandas as pd
-from rich.console import Console
 
 from rxnopt.utils.logger import console
+
+MAX_TOTAL_DIMS = 200
+EVAL_STEP = 0.05
+
+MIN_THRESHOLD = 0.5
 
 
 def cartesian_product_3d(arr: List[List[Any]], data_type: type, info: str = "") -> np.ndarray:
@@ -176,39 +180,55 @@ def array_process(
         # --- auto_select 逻辑 ---
         if refine_desc == "auto_select":
             console.print("Using 'auto_select' to refine descriptors...")
-            MAX_TOTAL_DIMS = 200
+            valid_groups = []  # 存储 (索引, DataFrame, 相关性矩阵)
+            total_original_dims = 0
 
-            # 计算每个数组的原始维度
-            original_dims = np.array([arr.shape[1] for arr in desc_arrs if arr.size > 0])
-            total_original_dims = sum(original_dims)
-            if total_original_dims > MAX_TOTAL_DIMS:  # 按比例分配目标维度
-                proportions = original_dims / total_original_dims
-                target_dims = (proportions * MAX_TOTAL_DIMS).astype(int)
-                target_dims = np.maximum(1, target_dims)
-                target_dims = np.minimum(original_dims, target_dims)
-
-                console.print(f"Total dimensions reduced from {total_original_dims} to ~{sum(target_dims)}.")
-                # console.print(f"Target dimensions per group: {target_dims.tolist()}")
-            else:
-                # 如果总维度本来就不多，则无需缩减
-                target_dims = original_dims
-                console.print(f"Total dimensions ({total_original_dims}) is within the limit. No reduction needed.")
-            arr_idx_with_data = 0
             for i, (desc_arr, f_type) in enumerate(zip(desc_arrs, desc_dict.keys())):
-                if desc_arr.size == 0:
-                    refined_desc_arrs.append(desc_arr)
-                    continue
-                k = target_dims[arr_idx_with_data]
                 df = pd.DataFrame(desc_arr)
+                corr_matrix = df.corr().abs()
+                valid_groups.append({"idx": i, "df": df, "corr": corr_matrix, "f_type": f_type})
+                total_original_dims += desc_arr.shape[1]
+            if total_original_dims <= MAX_TOTAL_DIMS:
+                console.print(f"Total dimensions ({total_original_dims}) is within the limit. No reduction needed.")
+            else:
+                current_threshold = 0.95
+                final_keep_indices = {}
+                while current_threshold >= MIN_THRESHOLD:
+                    total_dims_at_threshold = 0
+                    temp_keep_indices = {}
+                    for group in valid_groups:
+                        corr_matrix = group["corr"]
+                        upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+                        to_drop = [column for column in upper.columns if any(upper[column] > current_threshold)]
 
-                # 选择k个相关性最低的特征
-                keep_indices = _select_least_correlated_features(df, k, f_type)
+                        # 计算保留的索引
+                        all_cols = range(corr_matrix.shape[1])
+                        keep = [c for c in all_cols if c not in to_drop]
 
-                refined_group = df.iloc[:, keep_indices].values
-                refined_desc_arrs.append(refined_group)
-                arr_idx_with_data += 1
+                        temp_keep_indices[group["idx"]] = keep
+                        total_dims_at_threshold += len(keep)
+                    if total_dims_at_threshold <= MAX_TOTAL_DIMS:
+                        console.print(f"Threshold found: {current_threshold:.2f}, Total dimensions: {total_dims_at_threshold}")
+                        final_keep_indices = temp_keep_indices
+                        break
 
-            desc_arrs = refined_desc_arrs
+                    current_threshold -= EVAL_STEP
+                else:
+                    console.print(
+                        f"Warning: Could not reach {MAX_TOTAL_DIMS} even at threshold {MIN_THRESHOLD}. Using current best.", style="yellow"
+                    )
+                    final_keep_indices = temp_keep_indices
+                refined_desc_arrs = []
+                for i, desc_arr in enumerate(desc_arrs):
+                    if desc_arr.size == 0:
+                        refined_desc_arrs.append(desc_arr)
+                    elif i in final_keep_indices:
+                        keep_idx = final_keep_indices[i]
+                        refined_desc_arrs.append(desc_arr[:, keep_idx])
+                    else:
+                        # 兜底逻辑：如果该组没有经过筛选（比如所有列都被删了，虽然这不应该发生）
+                        refined_desc_arrs.append(desc_arr)
+                desc_arrs = refined_desc_arrs
         # --- filter_x.x 逻辑 ---
         elif refine_desc.startswith("filter_"):
             try:

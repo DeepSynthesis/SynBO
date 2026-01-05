@@ -8,6 +8,12 @@ from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImp
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
+from botorch.acquisition.monte_carlo import qUpperConfidenceBound
+from botorch.acquisition.logei import qLogExpectedImprovement, qLogNoisyExpectedImprovement
+from botorch.acquisition.objective import GenericMCObjective
+
+# from botorch.utils.multi_objective.scalarization import get_chebyshev_objective
+
 from rich.console import Console
 
 
@@ -159,14 +165,17 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         self.partitioning = partitioning
         self.exploration_weight = exploration_weight
 
-        self.ehvi = qLogExpectedHypervolumeImprovement(
+        self.acquisition_function = qLogExpectedHypervolumeImprovement(
             model=model,
             sampler=sampler,
             ref_point=ref_point,
             partitioning=partitioning,
         )
 
-    def evaluate_with_exploration(self, X: torch.Tensor) -> torch.Tensor:
+    @property
+    def acq_func(self):
+        return self.acquisition_function
+        # def evaluate_with_exploration(self, X: torch.Tensor) -> torch.Tensor:
         """Enhanced evaluation with exploration bonus"""
         # Standard EHVI
         ehvi_val = self.ehvi(X)
@@ -178,6 +187,113 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             exploration_bonus = torch.mean(posterior.variance, dim=-1)
 
         return ehvi_val + self.exploration_weight * exploration_bonus
+
+
+class UCBAcquisitionFunction(BaseAcquisitionFunction):
+    """
+    Upper Confidence Bound acquisition function.
+    对于多目标，通常会对合并后的标量化目标进行 UCB 计算。
+    """
+
+    def __init__(
+        self,
+        model: ModelListGP,
+        sampler: SobolQMCNormalSampler,
+        beta: float = 2.0,
+        weights: Tensor = None,  # 用于标量化多目标的权重
+    ):
+        super().__init__(model, sampler)
+        self.beta = beta
+
+        # 如果提供了权重，则进行线性标量化
+        objective = None
+        if weights is not None:
+            objective = GenericMCObjective(lambda Z, X: Z @ weights)
+        self.acq_func = qUpperConfidenceBound(
+            model=model,
+            beta=beta,
+            sampler=sampler,
+            objective=objective,
+        )
+
+    @property
+    def acq_func(self):
+        return self.acq_func
+
+
+# ---------------------------------------------------------------------------
+# 2. qParEGO (通过随机标量化解决多目标问题)
+# ---------------------------------------------------------------------------
+# class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
+#     """
+#     ParEGO: 使用随机切比雪夫标量化将多目标转化为单目标，
+#     然后应用 Expected Improvement (EI)。
+#     """
+
+#     def __init__(
+#         self,
+#         model: ModelListGP,
+#         sampler: SobolQMCNormalSampler,
+#         X_baseline: Tensor,  # 训练数据的输入特征
+#         num_objectives: int,
+#     ):
+#         super().__init__(model, sampler)
+
+#         # 1. 随机生成权重
+#         weights = torch.randn(num_objectives).abs()
+#         weights /= weights.sum()
+
+#         # 2. 获取当前训练集的模型预测值用于标量化参考
+#         with torch.no_grad():
+#             posterior = model.posterior(X_baseline)
+#             Y_baseline = posterior.mean
+
+#         # 3. 构建切比雪夫标量化目标
+#         # get_chebyshev_objective 会自动处理最大化/最小化
+#         objective = get_chebyshev_objective(weights=weights, Y=Y_baseline)
+
+#         # 4. 计算当前最佳标量化值
+#         scalarized_Y = objective(Y_baseline)
+#         best_f = scalarized_Y.max()
+#         self.acq_func = qLogExpectedImprovement(
+#             model=model,
+#             best_f=best_f,
+#             sampler=sampler,
+#             objective=objective,
+#         )
+
+#     def __call__(self, X: torch.Tensor) -> torch.Tensor:
+#         return self.acq_func(X)
+
+
+# ---------------------------------------------------------------------------
+# 3. qLogNEI (适用于有噪声的多目标观测)
+# ---------------------------------------------------------------------------
+class NEIAcquisitionFunction(BaseAcquisitionFunction):
+    """
+    Noisy Expected Improvement.
+    当观测值存在显著噪声，或者无法直接确定 'best_f' 时效果极佳。
+    """
+
+    def __init__(
+        self,
+        model: ModelListGP,
+        sampler: SobolQMCNormalSampler,
+        X_baseline: Tensor,  # 必须提供已有的观察点
+    ):
+        super().__init__(model, sampler)
+
+        # 对于多目标 NEI，通常需要指定如何整合多个输出
+        # 这里默认采用求和或者你可以传入 objective
+        self.acq_func = qLogNoisyExpectedImprovement(
+            model=model,
+            X_baseline=X_baseline,
+            sampler=sampler,
+            # objective=... (可选)
+        )
+
+    def __call__(self, X: torch.Tensor) -> torch.Tensor:
+        return self.acq_func(X)
 
 
 class ParetoFrontCalculator:

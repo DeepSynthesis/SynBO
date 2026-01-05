@@ -10,7 +10,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.sg_model import GPSurrogateModel
-from rxnopt.algorithm.acf import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
+from rxnopt.algorithm.acq_function import optimize_acqf_discrete, EHVIAcquisitionFunction, UCBAcquisitionFunction, ParetoFrontCalculator
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -42,6 +42,8 @@ class DefaultBO:
 
         if acq_func == "EHVI":
             self.acquisition_function_class = EHVIAcquisitionFunction
+        elif acq_func == "UCB":
+            self.acquisition_function_class = UCBAcquisitionFunction
         else:
             raise ValueError(f"Unknown acquisition function: {acq_func}")
 
@@ -107,7 +109,7 @@ class DefaultBO:
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = optimize_acqf_discrete(
-                acq_function=acq_func.ehvi,
+                acq_function=acq_func.acq_func,
                 choices=candidate_X_t,
                 q=batch_size,
                 max_batch_size=self.max_batch_size,

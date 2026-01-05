@@ -29,32 +29,32 @@ class TestReactionOptimizer(unittest.TestCase):
                 if f.is_file():
                     f.unlink()
 
-    def _run_optimization_workflow(self, opt_method, normalize, refine, filetype):
+    def _run_optimization_workflow(self, opt_method, normalize, refine, filetype, **opt_kwargs):
         # core code
         rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
         rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
         rxn_opt.load_desc(desc_dict=self.desc_dict)
         rxn_opt.load_prev_rxn(pd.read_csv("testfile/start_file.csv", index_col=False))
 
-        rxn_opt.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method)
+        rxn_opt.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
         rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)
 
     def test_combinations(self):
         test_params = [
-            # ("default_BO", "minmax", "auto_select", "csv"),
+            ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "UCB"}),
             # ("default_BO", "zscore", "filter_0.8", "xlsx"),
-            ("random_select", "minmax", "auto_select", "csv"),
+            # ("random_select", "minmax", "auto_select", "csv"),
         ]
 
         passed, failed = 0, 0
 
         pbar = tqdm(test_params, desc="Optimization Tests", unit="task")
 
-        for method, norm, refine, ftype in pbar:
-            pbar.set_description(f"Testing: {method}-{norm}")
+        for method, norm, refine, ftype, opt_kwargs in pbar:
+            pbar.set_description(f"Testing: {method}")
             try:
                 with self.subTest(method=method, norm=norm, refine=refine, ftype=ftype):
-                    self._run_optimization_workflow(method, norm, refine, ftype)
+                    self._run_optimization_workflow(method, norm, refine, ftype, **opt_kwargs)
                     passed += 1
             except Exception as e:
                 failed += 1

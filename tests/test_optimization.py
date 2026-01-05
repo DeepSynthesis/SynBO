@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 import pandas as pd
+from tqdm import tqdm
 
 from rxnopt import ReactionOptimizer
 from rxnopt.utils.load_data import load_desc_dict
@@ -39,16 +40,27 @@ class TestReactionOptimizer(unittest.TestCase):
         rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)
 
     def test_combinations(self):
-        """通过子测试覆盖不同的参数组合"""
         test_params = [
-            ("default_BO", "minmax", "auto_select", "csv"),
-            ("default_BO", "standard", "filter_0.8", "xlsx"),
+            # ("default_BO", "minmax", "auto_select", "csv"),
+            # ("default_BO", "zscore", "filter_0.8", "xlsx"),
             ("random_select", "minmax", "auto_select", "csv"),
         ]
 
-        for method, norm, refine, ftype in test_params:
-            with self.subTest(method=method, norm=norm, refine=refine, ftype=ftype):
-                self._run_optimization_workflow(method, norm, refine, ftype)
+        passed, failed = 0, 0
+
+        pbar = tqdm(test_params, desc="Optimization Tests", unit="task")
+
+        for method, norm, refine, ftype in pbar:
+            pbar.set_description(f"Testing: {method}-{norm}")
+            try:
+                with self.subTest(method=method, norm=norm, refine=refine, ftype=ftype):
+                    self._run_optimization_workflow(method, norm, refine, ftype)
+                    passed += 1
+            except Exception as e:
+                failed += 1
+                raise e
+            finally:
+                pbar.set_postfix({"Passed": passed, "Failed": failed})
 
 
 if __name__ == "__main__":

@@ -74,20 +74,17 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
     Raises:
         ValueError: If unknown normalization method specified
     """
-    try:
-        match desc_normalize:
-            case "minmax":
-                return MinMaxScaler().fit_transform(total_desc_arr)
-            case "zscore":
-                return StandardScaler().fit_transform(total_desc_arr)
-            case "l2":
-                return Normalizer(norm="l2").fit_transform(total_desc_arr)
-            case "none":
-                return total_desc_arr.copy()
-            case _:
-                raise ValueError(f"Unknown normalization method: {desc_normalize}")
-    except ValueError as e:
-        raise Exception("Normalization failed.") from e
+    match desc_normalize:
+        case "minmax":
+            return MinMaxScaler().fit_transform(total_desc_arr)
+        case "zscore":
+            return StandardScaler().fit_transform(total_desc_arr)
+        case "l2":
+            return Normalizer(norm="l2").fit_transform(total_desc_arr)
+        case "none":
+            return total_desc_arr.copy()
+        case _:
+            raise ValueError(f"Unknown normalization method: {desc_normalize}")
 
 
 def _select_least_correlated_features(df: pd.DataFrame, k: int, feature_type: str = "") -> List[int]:

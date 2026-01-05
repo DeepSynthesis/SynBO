@@ -1,3 +1,4 @@
+from hmac import new
 from typing import List
 import numpy as np
 import torch
@@ -26,12 +27,13 @@ class RandomSelect:
             raise ValueError(
                 f"Insufficient number of samplable samples: {batch_size} are needed, but after excluding existing points, only {num_available} remain."
             )
-        new_candidate_samples = np.random.choice(available_indices, size=batch_size, replace=False).tolist()
-        recommend_type = ["random_select"] * batch_size
+        new_candidate_indices = np.random.choice(available_indices, size=batch_size, replace=False)
+        new_candidate_samples = candidate_X[new_candidate_indices]
 
+        recommend_type = ["random_select"] * batch_size
         return (
             new_candidate_samples,
             recommend_type,
-            [[0.0] * len(opt_metric_settings)] * batch_size,
-            [[0.0] * len(opt_metric_settings)] * batch_size,
+            np.array([[0.0] * len(opt_metric_settings)] * batch_size),
+            np.array([[0.0] * len(opt_metric_settings)] * batch_size),
         )

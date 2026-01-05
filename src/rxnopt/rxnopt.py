@@ -351,9 +351,7 @@ class ReactionOptimizer:
             for i, metric in enumerate(self.opt_metrics):
                 y_min = self.y_scalers[metric]["min"]
                 y_max = self.y_scalers[metric]["max"]
-                # Denormalize predicted mean: y_denorm = y_norm * (y_max - y_min) + y_min
                 denormalized_pred_mean[:, i] = self.pred_mean[:, i] * (y_max - y_min) + y_min
-                # Denormalize predicted std: std_denorm = std_norm * (y_max - y_min)
                 denormalized_pred_std[:, i] = self.pred_std[:, i] * (y_max - y_min)
 
             # Update the attributes with denormalized values
@@ -431,7 +429,6 @@ class ReactionOptimizer:
                 pred_data[f"{metric}_pred"] = ["-"] * len(self.selected_conditions)
                 pred_data[f"{metric}_sigma"] = ["-"] * len(self.selected_conditions)
 
-        # Prepare output DataFrame
         output_df = pd.DataFrame(
             {
                 "batch": [self.batch_id] * len(self.selected_conditions),
@@ -445,7 +442,7 @@ class ReactionOptimizer:
 
         if filetype == "csv":
             output_df.to_csv(save_path.with_suffix(".csv"), index=False)
-        elif filetype == "excel":
+        elif filetype == "excel" or filetype == "xlsx":
             writer = ExcelWriter(condition_types=self.condition_types, opt_metrics=self.opt_metrics)
             writer.write_to_excel(
                 output_df=output_df,

@@ -51,7 +51,6 @@ def process_reagent_data(file_path, reagent_cols):
     total_combinations = 1
     for values in unique_values:
         total_combinations *= len(values)
-    print(len(df), total_combinations)
     coverage_ratio = len(df) / total_combinations
     reagent_counts = {col: len(df[col].dropna().unique()) for col in reagent_cols}
     return df, coverage_ratio, reagent_counts

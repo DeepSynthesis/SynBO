@@ -132,9 +132,6 @@ class DefaultBO:
 
         pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_settings).numpy()
         pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
-        print(pred_mean)
-        print("-----")
-        print(pred_std)
         return best_samples, recommend_type, pred_mean, pred_std
 
     def _get_exploit_or_explore(self) -> List[str]:

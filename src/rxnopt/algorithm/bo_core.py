@@ -9,8 +9,8 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
-from rxnopt.bo_algorithm.GP_opt import GPSurrogateModel
-from rxnopt.bo_algorithm.acf_opt import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
+from rxnopt.bo_algorithm.sg_model import GPSurrogateModel
+from rxnopt.bo_algorithm.acf import optimize_acqf_discrete, EHVIAcquisitionFunction, ParetoFrontCalculator
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning

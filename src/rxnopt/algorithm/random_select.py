@@ -1,7 +1,5 @@
-from hmac import new
 from typing import List
 import numpy as np
-import torch
 
 
 class RandomSelect:

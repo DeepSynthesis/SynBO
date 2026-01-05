@@ -30,7 +30,7 @@ class TestReactionOptimizer(unittest.TestCase):
 
     def _run_optimization_workflow(self, opt_method, normalize, refine, filetype):
         # core code
-        rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto")
+        rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
         rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
         rxn_opt.load_desc(desc_dict=self.desc_dict)
         rxn_opt.load_prev_rxn(pd.read_csv("testfile/start_file.csv", index_col=False))
@@ -42,8 +42,8 @@ class TestReactionOptimizer(unittest.TestCase):
         """通过子测试覆盖不同的参数组合"""
         test_params = [
             ("default_BO", "minmax", "auto_select", "csv"),
-            ("default_BO", "standard", None, "xlsx"),
-            ("random_search", "none", "auto_select", "json"),  # 假设支持random_search
+            ("default_BO", "standard", "filter_0.8", "xlsx"),
+            ("random_select", "minmax", "auto_select", "csv"),
         ]
 
         for method, norm, refine, ftype in test_params:

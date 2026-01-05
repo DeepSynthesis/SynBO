@@ -81,7 +81,7 @@ class DefaultBO:
                 progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
 
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
-                model_i = self.surrogate_model_class(device=device, num_dims=training_X_t.shape[1])
+                model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
                 model_i.fit(training_X_t, train_y_i)
                 models.append(model_i.model)
                 progress.update(task_train, advance=1)
@@ -132,7 +132,9 @@ class DefaultBO:
 
         pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_settings).numpy()
         pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
-
+        print(pred_mean)
+        print("-----")
+        print(pred_std)
         return best_samples, recommend_type, pred_mean, pred_std
 
     def _get_exploit_or_explore(self) -> List[str]:

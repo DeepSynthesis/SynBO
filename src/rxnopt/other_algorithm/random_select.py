@@ -29,4 +29,9 @@ class RandomSelect:
         new_candidate_samples = np.random.choice(available_indices, size=batch_size, replace=False).tolist()
         recommend_type = ["random_select"] * batch_size
 
-        return (new_candidate_samples, recommend_type, [0.0] * batch_size, [0.0] * batch_size)
+        return (
+            new_candidate_samples,
+            recommend_type,
+            [[0.0] * len(opt_metric_settings)] * batch_size,
+            [[0.0] * len(opt_metric_settings)] * batch_size,
+        )

@@ -18,7 +18,7 @@ class RXNConsole:
         *,
         quiet: bool = False,
         logfile: Optional[Path | str] = None,
-        force_terminal: bool = False,
+        force_terminal: bool = True,
     ):
         if getattr(self, "_initialized", False):
             return
@@ -33,7 +33,7 @@ class RXNConsole:
                 "path": "magenta",
             }
         )
-        self.console = Console(theme=self.theme, force_terminal=force_terminal, quiet=quiet)
+        self.console = Console(theme=self.theme, force_terminal=force_terminal, quiet=quiet, color_system="auto")
 
     def get_console(self) -> Console:
         return self.console

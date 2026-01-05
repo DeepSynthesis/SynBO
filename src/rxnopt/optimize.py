@@ -3,8 +3,8 @@ import numpy as np
 import torch
 
 from rxnopt.utils.logger import console
-from rxnopt.bo_algorithm.bo_core import DefaultBO
-from rxnopt.other_algorithm.random_select import RandomSelect
+from rxnopt.algorithm.bo_core import DefaultBO
+from rxnopt.algorithm.random_select import RandomSelect
 
 
 class Optimizer:

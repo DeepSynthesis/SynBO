@@ -32,6 +32,7 @@ dependencies = [
   "ax-platform>=0.2.0",
   "rdkit>=2024.9.1",
   "pyDOE>=0.3.8",
+  "lxml">=6.0.2,
 ]
 description = "A multi-objective reaction optimization framework based on Bayesian Optimization"
 keywords = ["chemistry", "reaction optimization", "bayesian optimization", "machine learning", "catalysis"]

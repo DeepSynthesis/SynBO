@@ -42,8 +42,7 @@ class TestReactionOptimizer(unittest.TestCase):
     def test_combinations(self):
         test_params = [
             ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "UCB"}),
-            # ("default_BO", "zscore", "filter_0.8", "xlsx"),
-            # ("random_select", "minmax", "auto_select", "csv"),
+            ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "EHVI"}),
         ]
 
         passed, failed = 0, 0

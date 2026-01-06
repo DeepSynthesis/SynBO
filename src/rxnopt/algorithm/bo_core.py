@@ -10,7 +10,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.sg_model import GPSurrogateModel
-from rxnopt.algorithm.acq_function import optimize_acqf_discrete, EHVIAcquisitionFunction, UCBAcquisitionFunction, ParetoFrontCalculator
+from rxnopt.algorithm.acq_function import EHVIAcquisitionFunction, UCBAcquisitionFunction, ParetoFrontCalculator
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -22,17 +22,16 @@ class DefaultBO:
     def __init__(
         self,
         random_seed: int = 42,
-        mc_num_samples: int = 64,
-        max_batch_size: int = 128,
         surrogate_model: str = "GP",
         acq_func: str = "EHVI",
-        target_eval: str = "Pareto",
         device: torch.device = torch.device("cpu"),
+        accuracy: str = "medium",
     ):
         self.random_seed = random_seed
         self.console = console
-        self.mc_num_samples = mc_num_samples
-        self.max_batch_size = max_batch_size
+
+        if accuracy == "medium":
+            self.mc_num_samples, self.max_batch_size = 128, 128
         self.device = device
 
         if surrogate_model == "GP":
@@ -47,10 +46,7 @@ class DefaultBO:
         else:
             raise ValueError(f"Unknown acquisition function: {acq_func}")
 
-        if target_eval == "Pareto":
-            self.target_evaluator = ParetoFrontCalculator()
-        else:
-            raise ValueError(f"Unknown target evaluator: {target_eval}")
+        self.target_evaluator = ParetoFrontCalculator()
 
     def optimize(
         self,
@@ -99,19 +95,30 @@ class DefaultBO:
             )
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
-            partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
-            acq_func = self.acquisition_function_class(
-                model=self.global_model,
-                sampler=sampler,
-                ref_point=self.ref_point,
-                partitioning=partitioning,
-            )
+            
+            if self.acquisition_function_class == EHVIAcquisitionFunction:
+                partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model,
+                    sampler=sampler,
+                    ref_point=self.ref_point,
+                    partitioning=partitioning,
+                )
+            elif self.acquisition_function_class == UCBAcquisitionFunction:
+                weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model,
+                    sampler=sampler,
+                    beta=2.0,
+                    weights=weights,
+                )
+            else:
+                raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
-            self.acq_result, self.acq_value = optimize_acqf_discrete(
-                acq_function=acq_func.acq_func,
-                choices=candidate_X_t,
+            self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
                 q=batch_size,
+                choices=candidate_X_t,
                 max_batch_size=self.max_batch_size,
                 unique=True,
                 exclude_points=training_X_t,

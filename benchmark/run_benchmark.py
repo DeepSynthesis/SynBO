@@ -9,12 +9,18 @@ from rxnopt.utils import load_desc_dict, get_prev_rxn
 from plots import plot_optimization_process, plot_hv_percentage
 
 # =================================================CONFIG=================================================
+global_dir = Path(__file__).parent
+data_dir = global_dir / Path("../examples/")
 CONFIG = {
     "experiment_name": "B-H_Optimization",
     "seed": 199,
     "iterations": 10,
     "batch_size": 5,
-    "data_paths": {"dataset_file": "dataset/B-H_dataset.csv", "descriptor_dir": "dataset/descriptors", "results_base_dir": "results"},
+    "data_paths": {
+        "dataset_file": str(data_dir / "B-H_HTE/B-H_HTE.csv"),
+        "descriptor_dir": str(data_dir / "B-H_HTE/descriptors"),
+        "results_base_dir": str(global_dir / "results"),
+    },
     "reaction_space": {
         "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
         "name_suffix": ["_dft", "_dft", "_dft", None, None],
@@ -30,8 +36,10 @@ CONFIG = {
         "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "mc_num_samples": 32,
-        "max_batch_size": 32,
+        "kwargs": {
+            "acq_func": "UCB",
+            "surrogate_model": "GP",
+        },
     },
 }
 
@@ -89,7 +97,7 @@ def main():
         rxn_opt.load_desc(desc_dict=desc_dict)
 
         if i > 0:
-            prev_rxns = get_prev_rxn(file_pattern=str(run_dir / "batch-*.csv"))
+            prev_rxns = get_prev_rxn(file_root_dir=run_dir, file_pattern=str("batch-*.csv"))
             rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxns)
 
         if i == 0:
@@ -104,9 +112,8 @@ def main():
                 batch_size=CONFIG["batch_size"],
                 optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                 desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                mc_num_samples=CONFIG["optimization_settings"]["mc_num_samples"],
-                max_batch_size=CONFIG["optimization_settings"]["max_batch_size"],
                 refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                optimization_kwargs=CONFIG["optimization_settings"]["kwargs"],
             )
 
         rxn_opt.save_results(save_dir=str(run_dir))

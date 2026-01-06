@@ -209,7 +209,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         objective = None
         if weights is not None:
             objective = GenericMCObjective(lambda Z, X: Z @ weights)
-        self.acq_func = qUpperConfidenceBound(
+        self.acqusition_function = qUpperConfidenceBound(
             model=model,
             beta=beta,
             sampler=sampler,
@@ -218,7 +218,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
 
     @property
     def acq_func(self):
-        return self.acq_func
+        return self.acqusition_function
 
 
 # ---------------------------------------------------------------------------

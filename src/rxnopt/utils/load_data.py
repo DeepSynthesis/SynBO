@@ -15,7 +15,12 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame
     except Exception as e:
         raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{idx_col}' exists in the file.")
 
-    assert not df.isna().any().any(), f"Descriptor file {desc_file} contains NaN values. Please check the data."
+    assert not df.isna().any().any(), f"Descriptor file `{desc_file}` contains NaN values. Please check the data."
+
+    if df.index.duplicated().any():
+        duplicated_items = df.index[df.index.duplicated()].unique().tolist()
+        raise ValueError(f"Descriptor file {desc_file} contains duplicated molecules: {duplicated_items}")
+
     df.index = df.index.astype("str")
     return df
 

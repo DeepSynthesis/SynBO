@@ -161,6 +161,7 @@ def array_process(
         Tuple[np.ndarray, np.ndarray]: (name_array, descriptor_array)
     """
     # 1. 准备原始数据
+    from IPython import embed; embed()
     desc_arrs = []
     for k in condition_types:
         # 确保 condition_dict[k] 中的名称存在于 desc_dict[k] 的索引中
@@ -181,6 +182,7 @@ def array_process(
             total_original_dims = 0
 
             for i, (desc_arr, f_type) in enumerate(zip(desc_arrs, desc_dict.keys())):
+                print(len(desc_arr))
                 df = pd.DataFrame(desc_arr)
                 corr_matrix = df.corr().abs()
                 valid_groups.append({"idx": i, "df": df, "corr": corr_matrix, "f_type": f_type})
@@ -265,6 +267,7 @@ def array_process(
     # 注意：归一化应该在每个独立的数组（代表一个条件类型的所有样本）上进行
     normalized_desc_arrs = []
     for desc_arr in desc_arrs:
+        print(len(desc_arr))
         # 对每个非空数组应用归一化
         if desc_arr.size > 0:
             normalized_desc_arrs.append(normalize_data(desc_arr, desc_normalize))
@@ -274,6 +277,7 @@ def array_process(
             normalized_desc_arrs.append(np.array([]))
     # 5. 执行笛卡尔积 (Perform cartesian product)
     # cartesian_product_3d 需要能处理描述符向量的拼接
+    print(normalized_desc_arrs[0].shape)
     total_desc_arr = cartesian_product_3d(normalized_desc_arrs, data_type=float, info="descriptors")
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
     if len(total_desc_arr) > 0:

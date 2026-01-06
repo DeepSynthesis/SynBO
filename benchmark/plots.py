@@ -149,7 +149,7 @@ def calculate_max_hv_from_dataset(dataset_path="dataset/B-H_dataset.csv", opt_di
 
 
 def plot_hv_percentage(
-    root_dir, file_pattern, dataset_path="dataset/B-H_dataset.csv", opt_direct_info=None, save_path="results/hv_percentage.png"
+    root_dir, file_pattern, dataset_path, opt_direct_info=None, save_path="results/hv_percentage.png"
 ):
     """
     绘制HV百分比随batch变化的图

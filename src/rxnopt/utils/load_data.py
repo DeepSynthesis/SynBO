@@ -79,4 +79,6 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
 
 
 def get_prev_rxn(file_root_dir: str = ".", file_pattern: str = "results/batch-*.csv") -> pd.DataFrame:
+    iter_file = Path(file_root_dir).glob(file_pattern)
+    assert len(list(iter_file)) > 0, f"There are no file with `{file_pattern}`."
     return pd.concat([pd.read_csv(f) for f in Path(file_root_dir).glob(file_pattern)])

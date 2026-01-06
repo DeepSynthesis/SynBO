@@ -17,7 +17,7 @@ class TestReactionOptimizer(unittest.TestCase):
         # 预加载数据
         cls.desc_dict, cls.condition_dict = load_desc_dict(
             reagent_types=cls.reagent_types,
-            desc_dir="dataset/descriptors",
+            desc_dir=Path(__file__).parent / "dataset/descriptors",
             name_suffix=["_dft", "_dft", "_dft", None, None],
             index_col=cls.reagent_types,
             return_condition_dict=True,
@@ -34,7 +34,7 @@ class TestReactionOptimizer(unittest.TestCase):
         rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
         rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
         rxn_opt.load_desc(desc_dict=self.desc_dict)
-        rxn_opt.load_prev_rxn(pd.read_csv("testfile/start_file.csv", index_col=False))
+        rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
 
         rxn_opt.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
         rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)
@@ -42,8 +42,7 @@ class TestReactionOptimizer(unittest.TestCase):
     def test_combinations(self):
         test_params = [
             ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "UCB"}),
-            # ("default_BO", "zscore", "filter_0.8", "xlsx"),
-            # ("random_select", "minmax", "auto_select", "csv"),
+            ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "EHVI"}),
         ]
 
         passed, failed = 0, 0

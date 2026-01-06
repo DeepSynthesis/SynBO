@@ -83,12 +83,12 @@ def get_pareto_front(points):
     return points[is_pareto]
 
 
-def plot_optimization_process(file_pattern, save_path="results/optimization_process.png"):
+def plot_optimization_process(root_dir, file_pattern, save_path="results/optimization_process.png"):
     """
     绘制优化过程中每个目标值随batch_id变化的曲线
     使用散点图+箱型图组合展示
     """
-    prev_rxn_df = get_prev_rxn(file_pattern=file_pattern)
+    prev_rxn_df = get_prev_rxn(file_root_dir=root_dir, file_pattern=file_pattern)
     target_columns = ["yield", "cost"]
     sns.set_style("whitegrid")
     plt.figure(figsize=(15, 6))
@@ -148,7 +148,9 @@ def calculate_max_hv_from_dataset(dataset_path="dataset/B-H_dataset.csv", opt_di
     return max_hv, ref_point
 
 
-def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt_direct_info=None, save_path="results/hv_percentage.png"):
+def plot_hv_percentage(
+    root_dir, file_pattern, dataset_path, opt_direct_info=None, save_path="results/hv_percentage.png"
+):
     """
     绘制HV百分比随batch变化的图
     """
@@ -163,7 +165,7 @@ def plot_hv_percentage(file_pattern, dataset_path="dataset/B-H_dataset.csv", opt
         return
 
     # 获取优化过程数据
-    prev_rxn_df = get_prev_rxn(file_pattern=file_pattern)
+    prev_rxn_df = get_prev_rxn(file_root_dir=root_dir, file_pattern=file_pattern)
 
     # 计算每个batch的当前最大HV
     batch_hv_percentages = []

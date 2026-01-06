@@ -26,18 +26,18 @@ CONFIG = {
         "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "cost"],
+        "opt_metrics": ["yield"],  # "cost"
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},  # yield
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 0.25},  # cost
+            # {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 0.25},  # cost
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "kmeans",
+        "sampling_method": "lhs",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
         "kwargs": {
-            "acq_func": "UCB",
+            "acq_func": "EHVI",
             "surrogate_model": "GP",
         },
     },
@@ -113,7 +113,7 @@ def main():
                 optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                 desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                 refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                optimization_kwargs=CONFIG["optimization_settings"]["kwargs"],
+                **CONFIG["optimization_settings"]["kwargs"],
             )
 
         rxn_opt.save_results(save_dir=str(run_dir))
@@ -125,9 +125,11 @@ def main():
     df_all = pd.concat(dfs, ignore_index=True)
     df_all.to_csv(run_dir / "all_batches_final.csv", index=False)
 
-    plot_optimization_process(file_pattern=str(run_dir / "batch-*.csv"), save_path=run_dir / "optimization_process.png")
+    plot_optimization_process(root_dir=run_dir, file_pattern=str("batch-*.csv"), save_path=run_dir / "optimization_process.png")
     plot_hv_percentage(
-        file_pattern=str(run_dir / "batch-*.csv"),
+        root_dir=run_dir,
+        file_pattern=str("batch-*.csv"),
+        dataset_path=CONFIG["data_paths"]["dataset_file"],
         opt_direct_info=CONFIG["optimization_settings"]["opt_direct_info"],
         save_path=run_dir / "hv_percentage.png",
     )

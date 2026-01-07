@@ -21,8 +21,124 @@ class BaseAcquisitionFunction:
     def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler):
         self.model = model
         self.sampler = sampler
+        self.acquisition_function = None  # 子类应实例化此对象
+        self.console = console
 
-    def evaluate(self, x: torch.Tensor) -> torch.Tensor:
+    @property
+    def acq_func(self):
+        return self.acquisition_function
+
+    def _split_batch_eval_acqf(self, acq_func, X: Tensor, max_batch_size: int) -> Tensor:
+        """Helper to evaluate acquisition function in batches to avoid OOM."""
+        acq_values_list = []
+        with torch.no_grad():
+            for X_batches in X.split(max_batch_size):
+                acq_values = acq_func(X_batches)
+                acq_values_list.append(acq_values)
+        return torch.cat(acq_values_list, dim=0)
+
+    def optimize_discrete_greedy(
+        self,
+        acq_func,
+        q: int,
+        choices: Tensor,
+        max_batch_size: int = 128,
+        unique: bool = True,
+        progress: object = None,
+        task: object = None,
+        min_distance: float = 1e-6,
+        exclude_points: Tensor = None,
+    ) -> tuple[Tensor, Tensor]:
+        """
+        通用的离散空间贪婪序列优化逻辑。
+        适用于 qUCB, qEHVI, qNEHVI 等支持 set_X_pending 的采集函数。
+        """
+        acq_func.set_X_pending(None)
+
+        len_choices = len(choices)
+        if len_choices < q and unique:
+            self.console.print(
+                f"Requested {q=} candidates but only {len_choices} choices remain.",
+                style="yellow",
+            )
+            q = len_choices
+        # 2. 构建初始可用掩码 (Available Mask)
+        available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
+
+        # 排除指定的点 (exclude_points)
+        if unique and exclude_points is not None and len(exclude_points) > 0:
+            # 计算 choices 到 exclude_points 的距离矩阵
+            dists = torch.cdist(choices, exclude_points)
+            # 如果某点到任意 exclude_point 的距离小于阈值，则该点不可用
+            distinct_check = (dists > min_distance).all(dim=1)
+            available_mask = available_mask & distinct_check
+        candidate_list = []
+        acq_value_list = []
+        # 当前迭代的掩码
+        current_mask = available_mask.clone()
+        # 3. 贪婪循环
+        for q_i in range(q):
+            # 获取当前有效索引
+            valid_indices = torch.nonzero(current_mask, as_tuple=True)[0]
+            if len(valid_indices) == 0:
+                self.console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
+                break
+
+            if progress:
+                progress.log(f"Choosing candidate {q_i+1} of {q}", style="yellow")
+            # 准备当前批次的数据 (Num_Valid, 1, D) - q-batch 维度设为 1 用于当前评估
+            choices_batched = choices[valid_indices].unsqueeze(-2)
+            # 计算采集函数值
+            with torch.no_grad():
+                # 使用 cholesky_jitter 增加数值稳定性
+                with gpytorch.settings.cholesky_jitter(1e-3):
+                    acq_values = self._split_batch_eval_acqf(
+                        acq_func=acq_func,
+                        X=choices_batched,
+                        max_batch_size=max_batch_size,
+                    )
+            # 选择最佳点
+            best_idx_in_batch = torch.argmax(acq_values)
+            best_acq_val = acq_values[best_idx_in_batch]
+            # 映射回全局索引
+            best_global_idx = valid_indices[best_idx_in_batch]
+
+            # (1, 1, D)
+            selected_candidate = choices[best_global_idx].unsqueeze(0).unsqueeze(0)
+
+            candidate_list.append(selected_candidate)
+            acq_value_list.append(best_acq_val)
+
+            # 更新 Pending Points
+            # 形状变为 (1, current_q, D)
+            current_candidates = torch.cat(candidate_list, dim=-2)
+            torch.cuda.empty_cache()
+
+            # 关键步骤：告诉采集函数这些点已经被选了，寻找下一个点时要基于这些点的条件分布
+            acq_func.set_X_pending(current_candidates)
+            # 如果要求唯一，更新掩码排除掉刚刚选中的点
+            if unique:
+                # 计算剩余点到最新选中点的距离
+                dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
+                is_far_enough = dist_to_new > min_distance
+                current_mask = current_mask & is_far_enough
+            if progress:
+                progress.update(task, advance=1)
+
+            # 可选：打印调试信息
+            # print(f"Batch {q_i}: Best Acq Value = {best_acq_val.item():.6e}")
+        # 4. 清理与返回
+        acq_func.set_X_pending(None)  # 防止副作用
+
+        if not candidate_list:
+            return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
+
+        final_candidates = torch.cat(candidate_list, dim=-2).squeeze(0)  # (q, D)
+        final_values = torch.stack(acq_value_list)
+
+        return final_candidates, final_values
+
+    def optimize_acqf_discrete(self, *args, **kwargs):
         """Evaluate the acquisition function"""
         raise NotImplementedError
 
@@ -36,12 +152,10 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         sampler: SobolQMCNormalSampler,
         ref_point: torch.Tensor,
         partitioning,
-        # exploration_weight: float = 0.1, # 移除未使用的参数，避免误解
     ):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-
         self.acquisition_function = qLogExpectedHypervolumeImprovement(
             model=model,
             sampler=sampler,
@@ -49,101 +163,37 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             partitioning=partitioning,
         )
 
-    @property
-    def acq_func(self):
-        return self.acquisition_function
-
     def optimize_acqf_discrete(
         self,
         q: int,
         choices: Tensor,
         max_batch_size: int = 128,
         unique: bool = True,
-        maximum_metrics: bool = True,
+        maximum_metrics: bool = True,  # EHVI 可能会用到这个参数来决定方向，但在 discrete 逻辑里不影响循环结构
         progress: object = None,
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        acf_console = console
 
-        self.acquisition_function.set_X_pending(None)
-        len_choices = len(choices)
-        if len_choices < q and unique:
-            acf_console.print(
-                f"Requested {q=} candidates but only {len_choices} choices remain.",
-                style="yellow",
-            )
-            q = len_choices
-        available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
-
-        if unique and exclude_points is not None:
-            dists = torch.cdist(choices, exclude_points)
-            distinct_check = (dists > min_distance).all(dim=1)
-            available_mask = available_mask & distinct_check
-        candidate_list = []
-        acq_value_list = []
-
-        current_mask = available_mask.clone()
-        for q_i in range(q):
-            valid_indices = torch.nonzero(current_mask, as_tuple=True)[0]
-
-            if len(valid_indices) == 0:
-                acf_console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
-                break
-            if progress:
-                progress.log(f"Choosing candidate {q_i+1} of {q}", style="yellow")
-            choices_batched = choices[valid_indices].unsqueeze(-2)
-            with torch.no_grad():
-                with gpytorch.settings.cholesky_jitter(1e-3):
-                    acq_values = self._split_batch_eval_acqf(
-                        X=choices_batched,
-                        max_batch_size=max_batch_size,
-                        maximum_metrics=maximum_metrics,
-                    )
-
-            # 选择最佳点
-            best_idx_in_batch = torch.argmax(acq_values)
-            best_acq_val = acq_values[best_idx_in_batch]
-
-            best_global_idx = valid_indices[best_idx_in_batch]
-            selected_candidate = choices[best_global_idx].unsqueeze(0).unsqueeze(0)  # (1, 1, D)
-            candidate_list.append(selected_candidate)
-            acq_value_list.append(best_acq_val)
-            current_candidates = torch.cat(candidate_list, dim=-2)  # (1, current_q, D)
-
-            torch.cuda.empty_cache()
-            self.acquisition_function.set_X_pending(current_candidates)
-
-            if unique:
-                dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
-                is_far_enough = dist_to_new > min_distance
-                current_mask = current_mask & is_far_enough
-            if progress:
-                progress.update(task, advance=1)
-            print(f"Batch {q_i}: Best Acq Value = {best_acq_val.item():.6e}")
-        # [Fix 1 Cleanup] 函数结束前，强烈建议清空 pending，防止污染对象状态
-        self.acquisition_function.set_X_pending(None)
-        if not candidate_list:
-            return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
-        final_candidates = torch.cat(candidate_list, dim=-2).squeeze(0)  # (q, D)
-        final_values = torch.stack(acq_value_list)
-        return final_candidates, final_values
-
-    def _split_batch_eval_acqf(self, X: Tensor, max_batch_size: int, maximum_metrics: bool = True) -> Tensor:
-        acq_values_list = []
-        with torch.no_grad():
-            for X_batches in X.split(max_batch_size):
-                acq_values = self.acquisition_function(X_batches)
-                acq_values_list.append(acq_values)
-        acq_values = torch.cat(acq_values_list, dim=0)
-        return acq_values
+        # 直接调用基类的通用逻辑
+        # 注意：这里需要传入全局的 console 对象，假设你的环境中有一个名为 console 的变量
+        return self.optimize_discrete_greedy(
+            acq_func=self.acquisition_function,
+            q=q,
+            choices=choices,
+            max_batch_size=max_batch_size,
+            unique=unique,
+            progress=progress,
+            task=task,
+            min_distance=min_distance,
+            exclude_points=exclude_points,
+        )
 
 
 class UCBAcquisitionFunction(BaseAcquisitionFunction):
     """
     Upper Confidence Bound acquisition function.
-    对于多目标，通常会对合并后的标量化目标进行 UCB 计算。
     """
 
     def __init__(
@@ -151,25 +201,20 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
         beta: float = 2.0,
-        weights: Tensor = None,  # 用于标量化多目标的权重
+        weights: Tensor = None,
     ):
         super().__init__(model, sampler)
         self.beta = beta
-
-        # 如果提供了权重，则进行线性标量化
         objective = None
         if weights is not None:
             objective = GenericMCObjective(lambda Z, X: Z @ weights)
-        self.acqusition_function = qUpperConfidenceBound(
+
+        self.acquisition_function = qUpperConfidenceBound(
             model=model,
             beta=beta,
             sampler=sampler,
             objective=objective,
         )
-
-    @property
-    def acq_func(self):
-        return self.acqusition_function
 
     def optimize_acqf_discrete(
         self,
@@ -183,71 +228,18 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        acf_console = console
-        len_choices = len(choices)
-        if len_choices < q and unique:
-            acf_console.print(
-                f"Requested {q=} candidates from fully discrete search space, but only {len_choices} possible choices remain. ",
-                style="yellow",
-            )
-            q = len_choices
-        choices_batched = choices.unsqueeze(-2)
-
-        if q > 1:
-            candidate_list, acq_value_list = [], []
-            available_choices = choices.clone()
-
-            for q_i in range(q):
-                if len(available_choices) == 0:
-                    acf_console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
-                    break
-
-                progress.log(f"Chooseing candidate {q_i+1} of {q}", style="yellow")
-
-                if unique:
-                    keep_mask = torch.ones(len(available_choices), dtype=torch.bool, device=available_choices.device)
-
-                    if exclude_points is not None:
-                        for exclude_point in exclude_points:
-                            distances = torch.norm(available_choices - exclude_point, dim=-1)
-                            keep_mask = keep_mask & (distances > min_distance)
-
-                    for selected_point in candidate_list:
-                        distances = torch.norm(available_choices - selected_point.squeeze(), dim=-1)
-                        keep_mask = keep_mask & (distances > min_distance)
-
-                    available_choices = available_choices[keep_mask]
-
-                choices_batched = available_choices.unsqueeze(-2)
-                with torch.no_grad():
-                    acq_values = self._split_batch_eval_acqf(X=choices_batched, max_batch_size=max_batch_size)
-                best_idx = torch.argmax(acq_values)
-                selected_candidate = choices_batched[best_idx]
-
-                candidate_list.append(selected_candidate)
-                acq_value_list.append(acq_values[best_idx])
-
-                candidates = torch.cat(candidate_list, dim=-2)
-                torch.cuda.empty_cache()
-                self.acqusition_function.set_X_pending(candidates)
-                progress.update(task, advance=1)
-
-            self.acqusition_function.set_X_pending(self.acqusition_function.X_pending)
-            return candidates, torch.stack(acq_value_list)
-        else:
-            with torch.no_grad():
-                acq_values = self._split_batch_eval_acqf(X=choices_batched, max_batch_size=max_batch_size)
-            best_idx = torch.argmax(acq_values)
-            return choices_batched[best_idx], acq_values[best_idx]
-
-    def _split_batch_eval_acqf(self, X: Tensor, max_batch_size: int) -> Tensor:
-        acq_values_list = []
-        with torch.no_grad():
-            for X_batches in X.split(max_batch_size):
-                acq_values = self.acqusition_function(X_batches)
-                acq_values_list.append(acq_values)
-        acq_values = torch.cat(acq_values_list, dim=0)
-        return acq_values
+        # 直接调用基类的通用逻辑
+        return self.optimize_discrete_greedy(
+            acq_func=self.acquisition_function,
+            q=q,
+            choices=choices,
+            max_batch_size=max_batch_size,
+            unique=unique,
+            progress=progress,
+            task=task,
+            min_distance=min_distance,
+            exclude_points=exclude_points,
+        )
 
 
 # ---------------------------------------------------------------------------

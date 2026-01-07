@@ -37,7 +37,7 @@ CONFIG = {
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
         "kwargs": {
-            "acq_func": "EHVI",
+            "acq_func": "UCB",
             "surrogate_model": "GP",
         },
     },

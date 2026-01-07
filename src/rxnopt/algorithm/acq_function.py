@@ -121,7 +121,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
                 current_mask = current_mask & is_far_enough
             if progress:
                 progress.update(task, advance=1)
-            progress.log(f"Batch {q_i}: Best Acq Value = {best_acq_val.item():.6e}")
+            print(f"Batch {q_i}: Best Acq Value = {best_acq_val.item():.6e}")
         # [Fix 1 Cleanup] 函数结束前，强烈建议清空 pending，防止污染对象状态
         self.acquisition_function.set_X_pending(None)
         if not candidate_list:

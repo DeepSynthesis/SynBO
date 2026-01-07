@@ -12,8 +12,7 @@ from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.objective import GenericMCObjective
 
 # from botorch.utils.multi_objective.scalarization import get_chebyshev_objective
-
-from rich.console import Console
+from rxnopt.utils.logger import console
 
 
 class BaseAcquisitionFunction:
@@ -54,7 +53,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
     @property
     def acq_func(self):
         return self.acquisition_function
-    
+
     def optimize_acqf_discrete(
         self,
         q: int,
@@ -67,7 +66,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        acf_console = Console()
+        acf_console = console
         len_choices = len(choices)
         if len_choices < q and unique:
             acf_console.print(
@@ -127,12 +126,10 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             return candidates, torch.stack(acq_value_list)
         else:
             with torch.no_grad():
-                acq_values = self._split_batch_eval_acqf(
-                    X=choices_batched, max_batch_size=max_batch_size, maximum_metrics=maximum_metrics
-                )
+                acq_values = self._split_batch_eval_acqf(X=choices_batched, max_batch_size=max_batch_size, maximum_metrics=maximum_metrics)
             best_idx = torch.argmax(acq_values)
             return choices_batched[best_idx], acq_values[best_idx]
-    
+
     def _split_batch_eval_acqf(self, X: Tensor, max_batch_size: int, maximum_metrics: bool = True) -> Tensor:
         acq_values_list = []
         with torch.no_grad():
@@ -173,7 +170,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
     @property
     def acq_func(self):
         return self.acqusition_function
-    
+
     def optimize_acqf_discrete(
         self,
         q: int,
@@ -186,7 +183,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        acf_console = Console()
+        acf_console = console
         len_choices = len(choices)
         if len_choices < q and unique:
             acf_console.print(
@@ -242,7 +239,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
                 acq_values = self._split_batch_eval_acqf(X=choices_batched, max_batch_size=max_batch_size)
             best_idx = torch.argmax(acq_values)
             return choices_batched[best_idx], acq_values[best_idx]
-    
+
     def _split_batch_eval_acqf(self, X: Tensor, max_batch_size: int) -> Tensor:
         acq_values_list = []
         with torch.no_grad():

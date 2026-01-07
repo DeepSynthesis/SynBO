@@ -95,7 +95,6 @@ class DefaultBO:
             )
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
-            
             if self.acquisition_function_class == EHVIAcquisitionFunction:
                 partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
                 acq_func = self.acquisition_function_class(

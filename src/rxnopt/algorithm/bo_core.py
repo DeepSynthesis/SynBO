@@ -90,17 +90,13 @@ class DefaultBO:
             training_y_np = training_y_t.cpu().numpy()
             self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
 
-            # self.ref_point = torch.tensor(
-            #     [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
-            # )
+            # min_y, max_y = training_y_t.min(dim=0).values, training_y_t.max(dim=0).values
+            # range_y = max_y - min_y if max_y - min_y > 0 else 1.0
+            # self.ref_point = min_y - 0.1 * range_y
 
-            min_y = training_y_t.min(dim=0).values
-            max_y = training_y_t.max(dim=0).values
-            range_y = max_y - min_y
-            range_y[range_y == 0] = 1.0
-            # 参考点设为最小值再往下一点点，不要太远
-            # 0.1 * range 意味着在数据尺度的 10% 处截断
-            self.ref_point = min_y - 0.1 * range_y
+            self.ref_point = torch.tensor(
+                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
+            )  # 我的所有目标值都已经归一化了
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
             if self.acquisition_function_class == EHVIAcquisitionFunction:

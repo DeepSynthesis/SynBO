@@ -28,20 +28,19 @@ class BaseAcquisitionFunction:
 
 
 class EHVIAcquisitionFunction(BaseAcquisitionFunction):
-    """Enhanced Expected Hypervolume Improvement acquisition function with exploration bonus"""
+    """Enhanced Expected Hypervolume Improvement acquisition function"""
 
     def __init__(
         self,
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
         ref_point: torch.Tensor,
-        partitioning: NondominatedPartitioning,
-        exploration_weight: float = 0.1,  # New parameter for exploration
+        partitioning,
+        # exploration_weight: float = 0.1, # 移除未使用的参数，避免误解
     ):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        self.exploration_weight = exploration_weight
 
         self.acquisition_function = qLogExpectedHypervolumeImprovement(
             model=model,
@@ -67,68 +66,69 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         acf_console = console
+
+        self.acquisition_function.set_X_pending(None)
         len_choices = len(choices)
         if len_choices < q and unique:
             acf_console.print(
-                f"Requested {q=} candidates from fully discrete search space, but only {len_choices} possible choices remain. ",
+                f"Requested {q=} candidates but only {len_choices} choices remain.",
                 style="yellow",
             )
             q = len_choices
-        choices_batched = choices.unsqueeze(-2)
+        available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
 
-        if q > 1:
-            candidate_list, acq_value_list = [], []
-            available_choices = choices.clone()
-            available_indices = torch.arange(len(choices), device=choices.device)
+        if unique and exclude_points is not None:
+            dists = torch.cdist(choices, exclude_points)
+            distinct_check = (dists > min_distance).all(dim=1)
+            available_mask = available_mask & distinct_check
+        candidate_list = []
+        acq_value_list = []
 
-            for q_i in range(q):
-                if len(available_choices) == 0:
-                    acf_console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
-                    break
+        current_mask = available_mask.clone()
+        for q_i in range(q):
+            valid_indices = torch.nonzero(current_mask, as_tuple=True)[0]
 
-                progress.log(f"Chooseing candidate {q_i+1} of {q}", style="yellow")
-
-                if unique:
-                    keep_mask = torch.ones(len(available_choices), dtype=torch.bool, device=available_choices.device)
-
-                    if exclude_points is not None:
-                        for exclude_point in exclude_points:
-                            distances = torch.norm(available_choices - exclude_point, dim=-1)
-                            keep_mask = keep_mask & (distances > min_distance)
-
-                    for selected_point in candidate_list:
-                        distances = torch.norm(available_choices - selected_point.squeeze(), dim=-1)
-                        keep_mask = keep_mask & (distances > min_distance)
-
-                    available_choices = available_choices[keep_mask]
-                    available_indices = available_indices[keep_mask]
-
-                choices_batched = available_choices.unsqueeze(-2)
-                with torch.no_grad():
-                    with gpytorch.settings.cholesky_jitter(1e-3):
-                        acq_values = self._split_batch_eval_acqf(
-                            X=choices_batched,
-                            max_batch_size=max_batch_size,
-                            maximum_metrics=maximum_metrics,
-                        )
-                best_idx = torch.argmax(acq_values)
-                selected_candidate = choices_batched[best_idx]
-
-                candidate_list.append(selected_candidate)
-                acq_value_list.append(acq_values[best_idx])
-
-                candidates = torch.cat(candidate_list, dim=-2)
-                torch.cuda.empty_cache()
-                self.acquisition_function.set_X_pending(candidates)
-                progress.update(task, advance=1)
-
-            self.acquisition_function.set_X_pending(self.acquisition_function.X_pending)
-            return candidates, torch.stack(acq_value_list)
-        else:
+            if len(valid_indices) == 0:
+                acf_console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
+                break
+            if progress:
+                progress.log(f"Choosing candidate {q_i+1} of {q}", style="yellow")
+            choices_batched = choices[valid_indices].unsqueeze(-2)
             with torch.no_grad():
-                acq_values = self._split_batch_eval_acqf(X=choices_batched, max_batch_size=max_batch_size, maximum_metrics=maximum_metrics)
-            best_idx = torch.argmax(acq_values)
-            return choices_batched[best_idx], acq_values[best_idx]
+                with gpytorch.settings.cholesky_jitter(1e-3):
+                    acq_values = self._split_batch_eval_acqf(
+                        X=choices_batched,
+                        max_batch_size=max_batch_size,
+                        maximum_metrics=maximum_metrics,
+                    )
+
+            # 选择最佳点
+            best_idx_in_batch = torch.argmax(acq_values)
+            best_acq_val = acq_values[best_idx_in_batch]
+
+            best_global_idx = valid_indices[best_idx_in_batch]
+            selected_candidate = choices[best_global_idx].unsqueeze(0).unsqueeze(0)  # (1, 1, D)
+            candidate_list.append(selected_candidate)
+            acq_value_list.append(best_acq_val)
+            current_candidates = torch.cat(candidate_list, dim=-2)  # (1, current_q, D)
+
+            torch.cuda.empty_cache()
+            self.acquisition_function.set_X_pending(current_candidates)
+
+            if unique:
+                dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
+                is_far_enough = dist_to_new > min_distance
+                current_mask = current_mask & is_far_enough
+            if progress:
+                progress.update(task, advance=1)
+            progress.log(f"Batch {q_i}: Best Acq Value = {best_acq_val.item():.6e}")
+        # [Fix 1 Cleanup] 函数结束前，强烈建议清空 pending，防止污染对象状态
+        self.acquisition_function.set_X_pending(None)
+        if not candidate_list:
+            return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
+        final_candidates = torch.cat(candidate_list, dim=-2).squeeze(0)  # (q, D)
+        final_values = torch.stack(acq_value_list)
+        return final_candidates, final_values
 
     def _split_batch_eval_acqf(self, X: Tensor, max_batch_size: int, maximum_metrics: bool = True) -> Tensor:
         acq_values_list = []

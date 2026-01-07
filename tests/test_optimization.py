@@ -41,7 +41,7 @@ class TestReactionOptimizer(unittest.TestCase):
 
     def test_combinations(self):
         test_params = [
-            ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "ParEGO"}),
+            ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "NEI"}),
             # ("default_BO", "minmax", "auto_select", "csv", {"acq_func": "EHVI"}),
         ]
 

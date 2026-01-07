@@ -10,7 +10,13 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.sg_model import GPSurrogateModel
-from rxnopt.algorithm.acq_function import EHVIAcquisitionFunction, ParEGOAcquisitionFunction, UCBAcquisitionFunction, ParetoFrontCalculator
+from rxnopt.algorithm.acq_function import (
+    EHVIAcquisitionFunction,
+    NEIAcquisitionFunction,
+    ParEGOAcquisitionFunction,
+    UCBAcquisitionFunction,
+    ParetoFrontCalculator,
+)
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -45,6 +51,8 @@ class DefaultBO:
             self.acquisition_function_class = UCBAcquisitionFunction
         elif acq_func == "ParEGO":
             self.acquisition_function_class = ParEGOAcquisitionFunction
+        elif acq_func == "NEI":
+            self.acquisition_function_class = NEIAcquisitionFunction
         else:
             raise ValueError(f"Unknown acquisition function: {acq_func}")
 
@@ -121,6 +129,11 @@ class DefaultBO:
 
                 acq_func = self.acquisition_function_class(
                     model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
+                )
+            elif self.acquisition_function_class == NEIAcquisitionFunction:
+                weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights
                 )
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")

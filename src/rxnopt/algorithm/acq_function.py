@@ -115,7 +115,8 @@ class BaseAcquisitionFunction:
             torch.cuda.empty_cache()
 
             # 关键步骤：告诉采集函数这些点已经被选了，寻找下一个点时要基于这些点的条件分布
-            acq_func.set_X_pending(current_candidates)
+            # set_X_pending 需要 (current_q, D) 形状，所以需要 squeeze(0)
+            acq_func.set_X_pending(current_candidates.squeeze(0))
             # 如果要求唯一，更新掩码排除掉刚刚选中的点
             if unique:
                 # 计算剩余点到最新选中点的距离
@@ -268,7 +269,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         with torch.no_grad():
             posterior = model.posterior(X_baseline)
             Y_baseline = posterior.mean
-        
+
         # 3. 确保 weights 与 Y_baseline 在同一设备上
         weights = weights.to(Y_baseline.device)
 
@@ -334,8 +335,9 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
 # ---------------------------------------------------------------------------
 class NEIAcquisitionFunction(BaseAcquisitionFunction):
     """
-    Noisy Expected Improvement.
+    Noisy Expected Improvement (Log-space version).
     当观测值存在显著噪声，或者无法直接确定 'best_f' 时效果极佳。
+    使用 LogNoisyExpectedImprovement 以获得更好的数值稳定性。
     """
 
     def __init__(
@@ -343,20 +345,48 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
         X_baseline: Tensor,  # 必须提供已有的观察点
+        weights: Tensor = None,
+        prune_baseline: bool = True,  # 这是一个通常有用的选项，用于减少计算量
     ):
         super().__init__(model, sampler)
 
-        # 对于多目标 NEI，通常需要指定如何整合多个输出
-        # 这里默认采用求和或者你可以传入 objective
-        self.acq_func = qLogNoisyExpectedImprovement(
+        # 处理多目标/多输出的权重聚合
+        objective = None
+        if weights is not None:
+            objective = GenericMCObjective(lambda Z, X: Z @ weights)
+        # 初始化 BoTorch 的 qLogNoisyExpectedImprovement
+        self.acquisition_function = qLogNoisyExpectedImprovement(
             model=model,
             X_baseline=X_baseline,
             sampler=sampler,
-            # objective=... (可选)
+            objective=objective,
+            prune_baseline=prune_baseline,
         )
 
-    def __call__(self, X: torch.Tensor) -> torch.Tensor:
-        return self.acq_func(X)
+    def optimize_acqf_discrete(
+        self,
+        q: int,
+        choices: Tensor,
+        max_batch_size: int = 128,
+        unique: bool = True,
+        maximum_metrics: bool = True,
+        progress: object = None,
+        task: object = None,
+        min_distance: float = 1e-6,
+        exclude_points: Tensor = None,
+    ) -> tuple[Tensor, Tensor]:
+        # 直接调用基类的通用贪婪优化逻辑
+        return self.optimize_discrete_greedy(
+            acq_func=self.acquisition_function,
+            q=q,
+            choices=choices,
+            max_batch_size=max_batch_size,
+            unique=unique,
+            progress=progress,
+            task=task,
+            min_distance=min_distance,
+            exclude_points=exclude_points,
+        )
 
 
 class ParetoFrontCalculator:

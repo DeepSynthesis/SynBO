@@ -7,7 +7,7 @@ from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImp
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from botorch.acquisition.monte_carlo import qUpperConfidenceBound
+from botorch.acquisition.monte_carlo import qUpperConfidenceBound, qExpectedImprovement
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.objective import GenericMCObjective
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
@@ -261,8 +261,6 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         super().__init__(model, sampler)
 
         # 1. 随机生成权重
-        # 这里的 weights 应当在 device 上，这通常由 boTorch 内部处理，
-        # 但严谨起见，实际使用中可能需要 to(X_baseline)
         weights = torch.randn(num_objectives).abs()
         weights /= weights.sum()
 
@@ -270,9 +268,11 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         with torch.no_grad():
             posterior = model.posterior(X_baseline)
             Y_baseline = posterior.mean
+        
+        # 3. 确保 weights 与 Y_baseline 在同一设备上
+        weights = weights.to(Y_baseline.device)
 
         # 3. 构建切比雪夫标量化目标
-        # get_chebyshev_objective 会自动处理最大化/最小化
         objective = self._get_chebyshev_objective(weights=weights, Y=Y_baseline)
 
         # 4. 计算当前最佳标量化值
@@ -280,8 +280,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         best_f = scalarized_Y.max()
 
         # 5. 初始化采集函数
-        # 为了与 UCB 类保持一致，这里属性名统一使用 self.acquisition_function
-        self.acquisition_function = qLogExpectedHypervolumeImprovement(
+        self.acquisition_function = qExpectedImprovement(
             model=model,
             best_f=best_f,
             sampler=sampler,
@@ -313,6 +312,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
             exclude_points=exclude_points,
         )
 
+    @staticmethod
     def _get_chebyshev_objective(weights: Tensor, Y: Tensor) -> GenericMCObjective:
         """
         创建一个 GenericMCObjective，它对输出应用切比雪夫标量化。

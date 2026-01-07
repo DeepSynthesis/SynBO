@@ -10,8 +10,8 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.acquisition.monte_carlo import qUpperConfidenceBound
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.objective import GenericMCObjective
+from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 
-# from botorch.utils.multi_objective.scalarization import get_chebyshev_objective
 from rxnopt.utils.logger import console
 
 
@@ -245,46 +245,88 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
 # ---------------------------------------------------------------------------
 # 2. qParEGO (通过随机标量化解决多目标问题)
 # ---------------------------------------------------------------------------
-# class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
-#     """
-#     ParEGO: 使用随机切比雪夫标量化将多目标转化为单目标，
-#     然后应用 Expected Improvement (EI)。
-#     """
+class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
+    """
+    ParEGO: 使用随机切比雪夫标量化将多目标转化为单目标，
+    然后应用 Expected Improvement (EI)。
+    """
 
-#     def __init__(
-#         self,
-#         model: ModelListGP,
-#         sampler: SobolQMCNormalSampler,
-#         X_baseline: Tensor,  # 训练数据的输入特征
-#         num_objectives: int,
-#     ):
-#         super().__init__(model, sampler)
+    def __init__(
+        self,
+        model: ModelListGP,
+        sampler: SobolQMCNormalSampler,
+        X_baseline: Tensor,  # 训练数据的输入特征
+        num_objectives: int,
+    ):
+        super().__init__(model, sampler)
 
-#         # 1. 随机生成权重
-#         weights = torch.randn(num_objectives).abs()
-#         weights /= weights.sum()
+        # 1. 随机生成权重
+        # 这里的 weights 应当在 device 上，这通常由 boTorch 内部处理，
+        # 但严谨起见，实际使用中可能需要 to(X_baseline)
+        weights = torch.randn(num_objectives).abs()
+        weights /= weights.sum()
 
-#         # 2. 获取当前训练集的模型预测值用于标量化参考
-#         with torch.no_grad():
-#             posterior = model.posterior(X_baseline)
-#             Y_baseline = posterior.mean
+        # 2. 获取当前训练集的模型预测值用于标量化参考
+        with torch.no_grad():
+            posterior = model.posterior(X_baseline)
+            Y_baseline = posterior.mean
 
-#         # 3. 构建切比雪夫标量化目标
-#         # get_chebyshev_objective 会自动处理最大化/最小化
-#         objective = get_chebyshev_objective(weights=weights, Y=Y_baseline)
+        # 3. 构建切比雪夫标量化目标
+        # get_chebyshev_objective 会自动处理最大化/最小化
+        objective = self._get_chebyshev_objective(weights=weights, Y=Y_baseline)
 
-#         # 4. 计算当前最佳标量化值
-#         scalarized_Y = objective(Y_baseline)
-#         best_f = scalarized_Y.max()
-#         self.acq_func = qLogExpectedImprovement(
-#             model=model,
-#             best_f=best_f,
-#             sampler=sampler,
-#             objective=objective,
-#         )
+        # 4. 计算当前最佳标量化值
+        scalarized_Y = objective(Y_baseline)
+        best_f = scalarized_Y.max()
 
-#     def __call__(self, X: torch.Tensor) -> torch.Tensor:
-#         return self.acq_func(X)
+        # 5. 初始化采集函数
+        # 为了与 UCB 类保持一致，这里属性名统一使用 self.acquisition_function
+        self.acquisition_function = qLogExpectedHypervolumeImprovement(
+            model=model,
+            best_f=best_f,
+            sampler=sampler,
+            objective=objective,
+        )
+
+    def optimize_acqf_discrete(
+        self,
+        q: int,
+        choices: Tensor,
+        max_batch_size: int = 128,
+        unique: bool = True,
+        maximum_metrics: bool = True,
+        progress: object = None,
+        task: object = None,
+        min_distance: float = 1e-6,
+        exclude_points: Tensor = None,
+    ) -> tuple[Tensor, Tensor]:
+        # 直接调用基类的通用逻辑
+        return self.optimize_discrete_greedy(
+            acq_func=self.acquisition_function,
+            q=q,
+            choices=choices,
+            max_batch_size=max_batch_size,
+            unique=unique,
+            progress=progress,
+            task=task,
+            min_distance=min_distance,
+            exclude_points=exclude_points,
+        )
+
+    def _get_chebyshev_objective(weights: Tensor, Y: Tensor) -> GenericMCObjective:
+        """
+        创建一个 GenericMCObjective，它对输出应用切比雪夫标量化。
+
+        Args:
+            weights: 权重向量 (num_objectives,)
+            Y:以此为基准计算理想点(ideal point)和最差点(nadir point)的观测值 (n x num_objectives)
+        """
+        # get_chebyshev_scalarization 返回一个 python callable (function)
+        # 这个 callable 接受 tensor 并返回标量化后的 tensor
+        scalarization_fn = get_chebyshev_scalarization(weights=weights, Y=Y)
+
+        # 将其包装为 BoTorch 采集函数可用的 MCObjective 对象
+        return GenericMCObjective(scalarization_fn)
 
 
 # ---------------------------------------------------------------------------

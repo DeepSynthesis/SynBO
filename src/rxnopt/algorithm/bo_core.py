@@ -10,7 +10,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.sg_model import GPSurrogateModel
-from rxnopt.algorithm.acq_function import EHVIAcquisitionFunction, UCBAcquisitionFunction, ParetoFrontCalculator
+from rxnopt.algorithm.acq_function import EHVIAcquisitionFunction, ParEGOAcquisitionFunction, UCBAcquisitionFunction, ParetoFrontCalculator
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -43,6 +43,8 @@ class DefaultBO:
             self.acquisition_function_class = EHVIAcquisitionFunction
         elif acq_func == "UCB":
             self.acquisition_function_class = UCBAcquisitionFunction
+        elif acq_func == "ParEGO":
+            self.acquisition_function_class = ParEGOAcquisitionFunction
         else:
             raise ValueError(f"Unknown acquisition function: {acq_func}")
 
@@ -96,7 +98,7 @@ class DefaultBO:
 
             self.ref_point = torch.tensor(
                 [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
-            )  # 我的所有目标值都已经归一化了
+            )
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
             if self.acquisition_function_class == EHVIAcquisitionFunction:
@@ -114,6 +116,11 @@ class DefaultBO:
                     sampler=sampler,
                     beta=2.0,
                     weights=weights,
+                )
+            elif self.acquisition_function_class == ParEGOAcquisitionFunction:
+
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
                 )
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")

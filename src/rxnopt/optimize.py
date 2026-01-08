@@ -9,7 +9,9 @@ from rxnopt.algorithm.random_select import RandomSelect
 
 
 class Optimizer:
-    def __init__(self, method, name_data, random_seed: int = 42, device: torch.device = torch.device("cpu"), **optimization_kwargs):
+    def __init__(
+        self, method, name_data, random_seed: int = 42, device: torch.device = torch.device("cpu"), optimization_kwargs: dict = None
+    ):
         self.method = method
         self.name_data = name_data
         self.random_seed = random_seed

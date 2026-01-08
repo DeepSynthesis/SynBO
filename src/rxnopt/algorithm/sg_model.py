@@ -9,6 +9,9 @@ from gpytorch.priors import GammaPrior
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import BayesianRidge
+
 
 class BaseSurrogateModel:
     """Base class for surrogate models"""
@@ -107,3 +110,58 @@ class GPSurrogateModel(BaseSurrogateModel):
             mean = observed_pred.mean
             variance = observed_pred.variance
         return mean.cpu(), variance.cpu()  # Return results on CPU for consistency
+
+
+class RFSurrogateModel(BaseSurrogateModel):
+    """
+    Random Forest Surrogate Model.
+    Estimates uncertainty by calculating the variance across individual decision trees.
+    """
+
+    def __init__(self, num_dims: int, device: str = "cpu", n_estimators: int = 100):
+        super().__init__(num_dims)
+        # Random Forest usually runs on CPU via sklearn, but we keep the device param for API consistency
+        self.device = device
+        self.n_estimators = n_estimators
+        self.model = RandomForestRegressor(
+            n_estimators=self.n_estimators, min_samples_leaf=3, random_state=42  # Prevent overfitting to single points
+        )
+
+    def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
+        """Fit the Random Forest model using sklearn"""
+        # Convert to numpy and move to CPU
+        X_np = train_x.cpu().detach().numpy()
+        # Flatten y: (N, 1) -> (N,)
+        y_np = train_y.cpu().detach().numpy().ravel()
+
+        self.model.fit(X_np, y_np)
+
+    def predict(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Predict mean and variance.
+        Variance is estimated empirically from the predictions of individual trees.
+        """
+        X_np = x.cpu().detach().numpy()
+
+        # Get predictions from every individual tree in the forest
+        # Shape: (n_estimators, n_samples)
+        tree_predictions = np.stack([tree.predict(X_np) for tree in self.model.estimators_])
+
+        # Calculate mean and variance across trees
+        mean = np.mean(tree_predictions, axis=0)
+        variance = np.var(tree_predictions, axis=0)
+
+        # Add a small epsilon to variance to prevent numerical issues in acquisition functions
+        variance = np.maximum(variance, 1e-6)
+
+        # Convert back to torch tensors
+        mean_tensor = torch.from_numpy(mean).float()
+        # Ensure shape is (N, 1) to match GP output
+        if mean_tensor.dim() == 1:
+            mean_tensor = mean_tensor.unsqueeze(-1)
+
+        var_tensor = torch.from_numpy(variance).float()
+        if var_tensor.dim() == 1:
+            var_tensor = var_tensor.unsqueeze(-1)
+
+        return mean_tensor, var_tensor

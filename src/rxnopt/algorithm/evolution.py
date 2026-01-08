@@ -21,16 +21,22 @@ class DefaultEO:
         random_seed: int = 42,
         surrogate_model: str = "GP",
         device: torch.device = torch.device("cpu"),
-        method: str = "GA",
+        method: str = "Standard",  # Options: "Standard" (or "GA"), "Thompson"
         accuracy: str = "medium",
     ):
         """
         初始化进化优化算法 (Evolutionary Optimization).
         这里采用基于代理模型的筛选策略 (Surrogate-Assisted Evolutionary Strategy).
+
+        Args:
+            method:
+                - "Standard" (或 "GA"): 使用代理模型的均值进行确定性筛选 (Exploitation)。
+                - "Thompson": 使用 Thompson Sampling 从后验分布采样进行概率性筛选 (Exploration/Mutation)。
         """
         self.random_seed = random_seed
         self.console = console
         self.device = device
+        self.method = method  # Store the method
 
         self.accuracy = accuracy
 
@@ -56,7 +62,7 @@ class DefaultEO:
         training_y_dict: dict,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
-        # data duplication
+        # 1. Data deduplication
         existing_set = set(map(tuple, training_X))
         keep_mask = np.array([tuple(x) not in existing_set for x in candidate_X])
 
@@ -73,6 +79,7 @@ class DefaultEO:
 
         current_batch_size = min(batch_size, n_filtered)
 
+        # 2. Tensor conversion & weighting
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
@@ -86,6 +93,7 @@ class DefaultEO:
             console=self.console,
         ) as progress:
 
+            # 3. Train Surrogate Models
             num_models = training_y_t.shape[1]
             task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
 
@@ -102,7 +110,8 @@ class DefaultEO:
 
             self.global_model = ModelListGP(*models)
 
-            progress.log("Predicting mean values for all candidates...", style="blue")
+            # 4. Global Prediction
+            progress.log("Predicting mean and variance for all candidates...", style="blue")
 
             task_pred = progress.add_task(description="Predicting candidates", total=len(candidate_X_t))
             pred_means_list = []
@@ -120,21 +129,36 @@ class DefaultEO:
             all_pred_var = torch.cat(pred_vars_list, dim=0)
             all_pred_std = torch.sqrt(all_pred_var)
 
-            progress.log("Performing NSGA-II selection...", style="magenta")
+            # 5. Selection Strategy (Standard vs Thompson)
+            progress.log(f"Performing NSGA-II selection ({self.method})...", style="magenta")
 
-            fitness = all_pred_mean.clone()
+            if self.method == "Thompson":
+                # Thompson Sampling: Sample from Normal(mean, std)
+                # 相当于引入了有方向的随机变异，不确定性越大的点，波动的幅度越大
+                fitness = torch.normal(mean=all_pred_mean, std=all_pred_std)
+                rec_label = "Evolution (Thompson)"
+            else:
+                # Standard / GA: Use Mean directly (Greedy / Exploitation)
+                fitness = all_pred_mean.clone()
+                rec_label = "Evolution (Standard)"
+
+            # 6. Adjust for Min/Max objectives
+            # 注意：Thompson Sampling 是在原始 metric 空间采样的，采样后再取反处理最小化目标
             for i, setting in enumerate(opt_metric_settings):
                 if setting["opt_direct"] == "min":
                     fitness[:, i] = -fitness[:, i]
 
+            # 7. NSGA-II Ranking & Selection
             selected_indices = self._nsga2_selection(fitness, current_batch_size)
             selected_indices_cpu = selected_indices.cpu().numpy()
+
             best_samples = candidate_X[selected_indices_cpu]
 
+            # 获取选中样本的 Mean/Std 用于展示（注意：即使是 Thompson，返回给用户的预测值通常还是 Mean）
             best_pred_mean_t = all_pred_mean[selected_indices]
             best_pred_std_t = all_pred_std[selected_indices]
 
-        recommend_type = ["Evolution results"] * len(best_samples)
+        recommend_type = [rec_label] * len(best_samples)
 
         pred_mean_np = self._unweight_y(best_pred_mean_t, opt_metric_settings).cpu().numpy()
         pred_std_np = self._unweight_y(best_pred_std_t, opt_metric_settings).cpu().numpy()
@@ -170,6 +194,7 @@ class DefaultEO:
         while len(selected_indices) < n_select and len(current_indices) > 0:
             pareto_mask = is_non_dominated(current_fitness)
             front_indices = current_indices[pareto_mask]
+
             if len(selected_indices) + len(front_indices) <= n_select:
                 selected_indices.extend(front_indices.tolist())
                 remaining_mask = ~pareto_mask

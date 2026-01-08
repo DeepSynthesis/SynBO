@@ -332,7 +332,7 @@ class ReactionOptimizer:
             method=optimize_method,
             random_seed=self.random_seed,
             device=device,
-            **optimization_kwargs,
+            optimization_kwargs=optimization_kwargs,
         )
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(

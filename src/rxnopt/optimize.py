@@ -2,6 +2,7 @@ from typing import List
 import numpy as np
 import torch
 
+from rxnopt.algorithm.evolution import DefaultEO
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.bo_core import DefaultBO
 from rxnopt.algorithm.random_select import RandomSelect
@@ -18,6 +19,10 @@ class Optimizer:
             self.optimizer = DefaultBO(random_seed=random_seed, device=device, **optimization_kwargs)
         # elif self.method == "HEBO":
         #     self.optimizer = HEBOOptimizer(random_seed=random_seed, sedp=sedp, ffm=ffm)
+        elif self.method == "evolution":
+            self.optimizer = DefaultEO(random_seed=random_seed, device=device, **optimization_kwargs)
+        elif self.method == "particle_swarm":
+            self.optimizer = DefaultPS(random_seed=random_seed, device=device, **optimization_kwargs)
         elif self.method == "random_select":
             self.optimizer = RandomSelect(random_seed=random_seed)
 
@@ -40,7 +45,7 @@ class Optimizer:
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
 
-        if self.method in ["default_BO", "random_select"]:
+        if self.method in ["default_BO", "random_select", "evolution"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
                 training_y=training_y,

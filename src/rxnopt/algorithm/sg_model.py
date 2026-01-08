@@ -191,7 +191,7 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.Tanh(),
             nn.Linear(self.hidden_dim, 1),
-        ).to(self.device)
+        ).to(self.device).double()  # Convert to double precision
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         """Train multiple independent neural networks"""
@@ -250,7 +250,7 @@ class BayesianLinearSurrogateModel(BaseSurrogateModel):
     def __init__(self, num_dims: int, device: str = "cpu"):
         super().__init__(num_dims)
         self.device = device  # Kept for compatibility
-        self.model = BayesianRidge(n_iter=300, tol=1e-3, fit_intercept=True, compute_score=True)
+        self.model = BayesianRidge(max_iter=300, tol=1e-3, fit_intercept=True, compute_score=True)
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         X_np = train_x.cpu().detach().numpy()

@@ -103,7 +103,7 @@ class DefaultEO:
             num_models = training_y_t.shape[1]
             task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
 
-            models = []
+            self.models = []
             for i in range(num_models):
                 key = list(training_y_dict.keys())[i]
                 progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
@@ -111,10 +111,17 @@ class DefaultEO:
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
                 model_i.fit(training_X_t, train_y_i)
-                models.append(model_i.model)
+                self.models.append(model_i)
                 progress.update(task_train, advance=1)
 
-            self.global_model = ModelListGP(*models)
+            # For GP models, we can use ModelListGP for efficiency
+            # For other models, we'll predict individually
+            if self.surrogate_model_class == GPSurrogateModel:
+                self.global_model = ModelListGP(*[m.model for m in self.models])
+                self.use_global_model = True
+            else:
+                self.global_model = None
+                self.use_global_model = False
 
             # 4. Global Prediction
             progress.log("Predicting mean and variance for all candidates...", style="blue")
@@ -126,9 +133,24 @@ class DefaultEO:
             with torch.no_grad():
                 for i in range(0, len(candidate_X_t), self.pred_batch_size):
                     batch_X = candidate_X_t[i : i + self.pred_batch_size]
-                    posterior = self.global_model.posterior(batch_X)
-                    pred_means_list.append(posterior.mean)
-                    pred_vars_list.append(posterior.variance)
+                    
+                    if self.use_global_model:
+                        # Use ModelListGP for GP models
+                        posterior = self.global_model.posterior(batch_X)
+                        pred_means_list.append(posterior.mean)
+                        pred_vars_list.append(posterior.variance)
+                    else:
+                        # Predict individually for non-GP models
+                        batch_means = []
+                        batch_vars = []
+                        for model in self.models:
+                            mean_pred, var_pred = model.predict(batch_X)
+                            # Ensure dtype consistency
+                            batch_means.append(mean_pred.double())
+                            batch_vars.append(var_pred.double())
+                        pred_means_list.append(torch.cat(batch_means, dim=1))
+                        pred_vars_list.append(torch.cat(batch_vars, dim=1))
+                    
                     progress.update(task_pred, advance=len(batch_X))
 
             all_pred_mean = torch.cat(pred_means_list, dim=0)  # Shape: (N_cand, N_obj)

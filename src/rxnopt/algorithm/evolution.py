@@ -55,11 +55,44 @@ class DefaultEO:
         training_y_dict: dict,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
+        # ================= [新增/修改部分 Start] =================
+        # 0. 数据去重 (Deduplication)
+        # 目的：确保候选集 candidate_X 中不包含 training_X 已经测过的点
+        
+        # 将 training_X 的每一行转为 tuple 并存入 set，利用哈希实现 O(1) 查找
+        # 注意：这里使用的是精确匹配。如果数据是浮点数且存在微小误差，
+        # 可能需要使用 np.isclose 或 torch.cdist 设置阈值过滤，但在大多数组合优化场景下，
+        # 精确匹配（Set-based）是标准做法。
+        existing_set = set(map(tuple, training_X))
+
+        # 创建布尔掩码：如果 candidate_X 的某一行不在 existing_set 中，则保留
+        # 使用列表推导式转换 tuple 比 np.apply_along_axis 在此场景下通常更快
+        keep_mask = np.array([tuple(x) not in existing_set for x in candidate_X])
+
+        # 过滤 candidate_X
+        n_original = len(candidate_X)
+        candidate_X = candidate_X[keep_mask]
+        n_filtered = len(candidate_X)
+
+        if n_original != n_filtered:
+            self.console.log(f"Removed {n_original - n_filtered} duplicates from candidate set.", style="dim")
+
+        # 边界情况处理：如果过滤后候选集为空
+        if n_filtered == 0:
+            warnings.warn("All candidates appear in training data. Returning empty results.")
+            return np.array([]), [], np.array([]), np.array([])
+            
+        # 边界情况处理：如果过滤后样本数少于 batch_size，调整 batch_size
+        current_batch_size = min(batch_size, n_filtered)
+        # ================= [新增/修改部分 End] =================
+
         # 1. 数据预处理与张量转换
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
         training_y_t = torch.tensor(training_y).double()
         # 对训练目标值进行加权处理
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
+        
+        # 注意：这里的 candidate_X 已经是去重后的 numpy 数组
         candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
 
         with Progress(
@@ -88,12 +121,7 @@ class DefaultEO:
             self.global_model = ModelListGP(*models)
 
             # 3. 对所有候选点进行预测 (Model Inference)
-            # EO的核心：用模型预测候选集的均值，作为"适应度(Fitness)"
             progress.log("Predicting mean values for all candidates...", style="blue")
-
-            # 排除已有的训练点
-            # 注意：在浮点数比较中通常需要一定的容差，这里简化处理，假设candidate包含未测点
-            # 实际操作中，建议在传入 candidate_X 前就通过 Pandas 等工具去除已测点
 
             task_pred = progress.add_task(description="Predicting candidates", total=len(candidate_X_t))
             pred_means_list = []
@@ -113,9 +141,6 @@ class DefaultEO:
             all_pred_std = torch.sqrt(all_pred_var)
 
             # 4. NSGA-II 排序选择 (Sorting and Selection)
-            # 为了方便排序，我们需要根据 opt_metric_settings 将所有目标统一为"最大化"问题
-            # 已经在 _weight_y 中处理了权重，但 min/max 方向需要在排序时处理
-
             progress.log("Performing NSGA-II selection...", style="magenta")
 
             # 构建用于排序的 fitness tensor (统一转为 Maximize)
@@ -125,10 +150,13 @@ class DefaultEO:
                     fitness[:, i] = -fitness[:, i]
 
             # 执行非支配排序筛选
-            selected_indices = self._nsga2_selection(fitness, batch_size)
+            # 使用修正后的 current_batch_size 防止索引越界
+            selected_indices = self._nsga2_selection(fitness, current_batch_size)
 
             # 提取结果
             selected_indices_cpu = selected_indices.cpu().numpy()
+            
+            # 这里的 candidate_X 是已经去重后的，所以提取出的 best_samples 也是干净的
             best_samples = candidate_X[selected_indices_cpu]
 
             # 获取选中点的预测结果
@@ -136,25 +164,11 @@ class DefaultEO:
             best_pred_std_t = all_pred_std[selected_indices]
 
         # 5. 结果后处理
-        # 还原 min/max 的符号 (仅用于展示)
-        # 注意：这里返回的 pred_mean 应该是原始物理意义的值，所以如果之前取反了要变回来，
-        # 并且要除以权重
-
-        # EO 倾向于利用(Exploit)模型预测最好的点，这里统一标记为 pareto_best
-        recommend_type = ["pareto_best"] * batch_size
+        recommend_type = ["pareto_best"] * len(best_samples)
 
         # 反标准化/反权重处理
         pred_mean_np = self._unweight_y(best_pred_mean_t, opt_metric_settings).cpu().numpy()
         pred_std_np = self._unweight_y(best_pred_std_t, opt_metric_settings).cpu().numpy()
-
-        # 对于 min 目标，预测值在 unweight 之后已经是原始尺度了 (因为 _weight_y 没有处理符号)，
-        # 所以不需要像 optimize 内部那样取反。
-        # 但是，如果在 opt_metric_settings 中有特殊处理逻辑，需保持一致。
-        # 遵循 DefaultBO 的逻辑：DefaultBO 在最后输出前做了一个 check:
-        # if d["opt_direct"] == "min": pred_mean[:, i] = -pred_mean[:, i] (如果内部为了优化取反过)
-        # 在本代码中，_weight_y 没有取反，只在 NSGA2 排序前的 fitness 变量里取反了。
-        # 所以 all_pred_mean 还是正向的（仅加权）。
-        # 因此，直接返回 unweight 后的值即可，无需符号反转。
 
         return best_samples, recommend_type, pred_mean_np, pred_std_np
 
@@ -172,6 +186,10 @@ class DefaultEO:
             selected_indices: (n_select,) tensor, 选中样本在原数据中的索引.
         """
         n_points = fitness.shape[0]
+        # 如果样本数本身就少于需求数，直接返回所有索引
+        if n_points <= n_select:
+            return torch.arange(n_points, device=fitness.device, dtype=torch.long)
+            
         indices = torch.arange(n_points, device=fitness.device)
         selected_indices = []
 
@@ -182,7 +200,6 @@ class DefaultEO:
 
         while len(selected_indices) < n_select and len(current_indices) > 0:
             # botorch 的 is_non_dominated 默认假设最大化
-            # dedup=False 表示不合并重复点，保持索引对应
             pareto_mask = is_non_dominated(current_fitness)
 
             front_indices = current_indices[pareto_mask]

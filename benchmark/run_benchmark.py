@@ -26,9 +26,9 @@ CONFIG = {
         "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["cost"],  # "yield",
+        "opt_metrics": ["cost", "yield"],  # ,
         "opt_direct_info": [
-            # {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},  # yield
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},  # yield
             {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 0.5},  # cost
         ],
         "opt_type": "auto",

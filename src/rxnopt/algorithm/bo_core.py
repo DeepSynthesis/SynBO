@@ -9,7 +9,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import GPSurrogateModel
+from rxnopt.algorithm.sg_model import BNNEnsembleSurrogateModel, BayesianLinearSurrogateModel, GPSurrogateModel, RFSurrogateModel
 from rxnopt.algorithm.acq_function import (
     EHVIAcquisitionFunction,
     NEIAcquisitionFunction,
@@ -42,6 +42,12 @@ class DefaultBO:
 
         if surrogate_model == "GP":
             self.surrogate_model_class = GPSurrogateModel
+        elif surrogate_model == "RF":
+            self.surrogate_model_class = RFSurrogateModel
+        elif surrogate_model == "ensemble":
+            self.surrogate_model_class = BNNEnsembleSurrogateModel
+        elif surrogate_model == "linear":
+            self.surrogate_model_class = BayesianLinearSurrogateModel
         else:
             raise ValueError(f"Unknown surrogate model: {surrogate_model}")
 

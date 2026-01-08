@@ -9,6 +9,9 @@ from gpytorch.priors import GammaPrior
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
+import torch
+import torch.nn as nn
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import BayesianRidge
 
@@ -163,5 +166,110 @@ class RFSurrogateModel(BaseSurrogateModel):
         var_tensor = torch.from_numpy(variance).float()
         if var_tensor.dim() == 1:
             var_tensor = var_tensor.unsqueeze(-1)
+
+        return mean_tensor, var_tensor
+
+
+class BNNEnsembleSurrogateModel(BaseSurrogateModel):
+    """
+    Deep Ensemble Surrogate Model (Approximation of BNN).
+    Trains multiple MLPs and uses the ensemble statistics for mean and variance.
+    """
+
+    def __init__(self, num_dims: int, device: str, n_models: int = 5, hidden_dim: int = 64):
+        super().__init__(num_dims)
+        self.device = device
+        self.n_models = n_models
+        self.hidden_dim = hidden_dim
+        self.models = []  # List to store individual networks
+
+    def _create_mlp(self):
+        """Create a simple MLP suitable for low-data regimes"""
+        return nn.Sequential(
+            nn.Linear(self.num_dims, self.hidden_dim),
+            nn.Tanh(),  # Tanh or ReLU usually works
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.Tanh(),
+            nn.Linear(self.hidden_dim, 1),
+        ).to(self.device)
+
+    def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
+        """Train multiple independent neural networks"""
+        train_x = train_x.to(self.device)
+        train_y = train_y.to(self.device)
+
+        self.models = []  # Reset models
+
+        for i in range(self.n_models):
+            model = self._create_mlp()
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+            criterion = nn.MSELoss()
+
+            model.train()
+            # Simple training loop for each model
+            # In production, you might want batching, but full-batch is fine for BO (small data)
+            for epoch in range(200):
+                optimizer.zero_grad()
+                output = model(train_x)
+                loss = criterion(output, train_y)
+                loss.backward()
+                optimizer.step()
+
+            model.eval()
+            self.models.append(model)
+
+    def predict(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Predict using the ensemble statistics"""
+        x = x.to(self.device)
+
+        predictions = []
+        with torch.no_grad():
+            for model in self.models:
+                # Output shape (N, 1)
+                predictions.append(model(x))
+
+        # Stack shape: (n_models, N, 1)
+        predictions = torch.stack(predictions)
+
+        # Calculate Mean and Variance across the ensemble dimension (dim=0)
+        mean = torch.mean(predictions, dim=0)
+        variance = torch.var(predictions, dim=0)
+
+        # Add epsilon for numerical stability
+        variance = torch.maximum(variance, torch.tensor(1e-6, device=self.device))
+
+        return mean.cpu(), variance.cpu()
+
+
+class BayesianLinearSurrogateModel(BaseSurrogateModel):
+    """
+    Bayesian Linear Regression Surrogate Model.
+    Uses sklearn's BayesianRidge. Fast and robust, but limited expressiveness.
+    """
+
+    def __init__(self, num_dims: int, device: str = "cpu"):
+        super().__init__(num_dims)
+        self.device = device  # Kept for compatibility
+        self.model = BayesianRidge(n_iter=300, tol=1e-3, fit_intercept=True, compute_score=True)
+
+    def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
+        X_np = train_x.cpu().detach().numpy()
+        y_np = train_y.cpu().detach().numpy().ravel()
+
+        # Fit the Bayesian Ridge model
+        self.model.fit(X_np, y_np)
+
+    def predict(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        X_np = x.cpu().detach().numpy()
+
+        # Sklearn returns standard deviation if return_std=True
+        mean_np, std_np = self.model.predict(X_np, return_std=True)
+
+        # Convert std to variance
+        variance_np = std_np**2
+
+        # Convert to tensors and ensure shape (N, 1)
+        mean_tensor = torch.from_numpy(mean_np).float().unsqueeze(-1)
+        var_tensor = torch.from_numpy(variance_np).float().unsqueeze(-1)
 
         return mean_tensor, var_tensor

@@ -7,6 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 import shutil
 
+from plots import plot_final_distribution_boxplot, plot_hypervolume_coverage, plot_optimization_curves, plot_optimization_process_scatter
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
 
@@ -235,58 +236,43 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
 def run_plotting(experiment_dir):
     """
-    独立的绘图函数。
-    读取 run_simulation 生成的 all_batches_final_round_*.csv 文件进行绘图。
+    主绘图入口函数
     """
+    experiment_dir = Path(experiment_dir)
     print(f"\n{'='*20} Starting Plotting Phase {'='*20}")
     print(f"Source Directory: {experiment_dir}")
-
     result_files = sorted(list(experiment_dir.glob("all_batches_final_round_*.csv")))
-
     if not result_files:
         print("No result files found to plot.")
         return
-
-    # 合并所有轮次的数据
+    # 合并数据
     all_rounds_df = pd.concat([pd.read_csv(f) for f in result_files], ignore_index=True)
-    num_rounds = CONFIG["num_rounds"]
+    direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
+    range_tags = [i["opt_range"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
 
-    # 1. 绘制 Yield 优化过程 (Line Plot with CI)
-    plt.figure(figsize=(10, 6))
-
-    # 这里我们计算每个 batch_index 下的平均 yield 和标准差
-    sns.lineplot(data=all_rounds_df, x="batch_index", y="yield", hue="round_index", palette="tab10", marker="o", style="round_index")
-
-    plt.title(f"Optimization Trace (Yield) - {num_rounds} Rounds")
-    plt.xlabel("Batch Iteration")
-    plt.ylabel("Yield (%)")
-    plt.grid(True, linestyle="--", alpha=0.7)
-    plt.legend(title="Round")
-
-    plot_path = experiment_dir / "plot_optimization_trace.png"
-    plt.savefig(plot_path, dpi=300)
-    plt.close()
-    print(f"Plot saved: {plot_path}")
-
-    # 2. 绘制最佳 Yield 分布 (Box Plot)
-    # 计算每一轮最终找到的最佳 Yield
-    best_yields = []
-    for r_idx in all_rounds_df["round_index"].unique():
-        sub_df = all_rounds_df[all_rounds_df["round_index"] == r_idx]
-        best_yields.append({"round": r_idx, "best_yield": sub_df["yield"].max()})
-
-    if best_yields:
-        best_df = pd.DataFrame(best_yields)
-        plt.figure(figsize=(6, 5))
-        sns.boxplot(y=best_df["best_yield"], color="skyblue")
-        sns.stripplot(y=best_df["best_yield"], color="red", size=8, jitter=True)
-        plt.title("Distribution of Best Yield Found across Rounds")
-        plt.ylabel("Best Yield (%)")
-
-        box_path = experiment_dir / "plot_best_yield_distribution.png"
-        plt.savefig(box_path, dpi=300)
-        plt.close()
-        print(f"Plot saved: {box_path}")
+    # 确保列名在 dataframe 中
+    valid_targets = [col for col in CONFIG["optimization_settings"]["opt_metrics"] if col in all_rounds_df.columns]
+    if not valid_targets:
+        print(f"Error: None of the target columns {CONFIG['optimization_settings']['opt_metrics']} found in CSV.")
+        return
+    # 设置 Seaborn 风格
+    sns.set_theme(style="whitegrid")
+    # --- 1. 绘制优化曲线 (Grid Plot with Variance) ---
+    plot_optimization_curves(all_rounds_df, valid_targets, direction_tags, range_tags, experiment_dir)
+    # --- 2. 绘制超体积占比 (Single Plot) ---
+    # 注意：需要提供 CONFIG['data_paths']['dataset_file'] 并且安装 pymoo
+    if Path(CONFIG["data_paths"]["dataset_file"]).exists():
+        plot_hypervolume_coverage(
+            all_rounds_df, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
+        )
+    else:
+        print(f"Skipping HV plot: Full space file not found at {CONFIG['data_paths']['dataset_file']}")
+    # --- 3. 绘制最终最佳值分布 (Box Plot) ---
+    plot_final_distribution_boxplot(all_rounds_df, valid_targets, direction_tags, range_tags, experiment_dir)
+    plot_optimization_process_scatter(
+        all_rounds_df, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
+    )
+    print("All plotting tasks completed.")
 
 
 def main():

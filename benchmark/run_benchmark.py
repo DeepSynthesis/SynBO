@@ -35,11 +35,11 @@ CONFIG = {
         "desc_normalize": "minmax",
         "sampling_method": "lhs",
         "refine_desc": "filter_0.8",
-        "optimize_method": "evolution",
+        "optimize_method": "particle_swarm",
         "kwargs": {
             # "acq_func": "NEI",
             # "surrogate_model": "GP",
-            "method": "Thompson",
+            # pyt"method": "Thompson",
             # "surrogate_model": "RF",
         },
     },
@@ -92,7 +92,7 @@ def main():
             opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
             opt_type=CONFIG["optimization_settings"]["opt_type"],
             random_seed=CONFIG["seed"],
-            quiet=False,
+            quiet=True,
         )
 
         rxn_opt.load_rxn_space(condition_dict=condition_dict)

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from rxnopt.algorithm.evolution import DefaultEO
+from rxnopt.algorithm.particle_swarm import DefaultPS
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.bo_core import DefaultBO
 from rxnopt.algorithm.random_select import RandomSelect
@@ -47,7 +48,7 @@ class Optimizer:
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
 
-        if self.method in ["default_BO", "random_select", "evolution"]:
+        if self.method in ["default_BO", "random_select", "evolution", "particle_swarm"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
                 training_y=training_y,

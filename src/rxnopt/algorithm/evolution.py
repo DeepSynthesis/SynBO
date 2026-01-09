@@ -133,7 +133,7 @@ class DefaultEO:
             with torch.no_grad():
                 for i in range(0, len(candidate_X_t), self.pred_batch_size):
                     batch_X = candidate_X_t[i : i + self.pred_batch_size]
-                    
+
                     if self.use_global_model:
                         # Use ModelListGP for GP models
                         posterior = self.global_model.posterior(batch_X)
@@ -150,7 +150,7 @@ class DefaultEO:
                             batch_vars.append(var_pred.double())
                         pred_means_list.append(torch.cat(batch_means, dim=1))
                         pred_vars_list.append(torch.cat(batch_vars, dim=1))
-                    
+
                     progress.update(task_pred, advance=len(batch_X))
 
             all_pred_mean = torch.cat(pred_means_list, dim=0)  # Shape: (N_cand, N_obj)
@@ -173,7 +173,7 @@ class DefaultEO:
             # 6. Adjust for Min/Max objectives
             # 注意：Thompson Sampling 是在原始 metric 空间采样的，采样后再取反处理最小化目标
             for i, setting in enumerate(opt_metric_settings):
-                if setting["opt_direct"] == "min":
+                if setting["opt_direct"] == "max":
                     fitness[:, i] = -fitness[:, i]
 
             # 7. NSGA-II Ranking & Selection

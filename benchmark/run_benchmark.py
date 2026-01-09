@@ -39,7 +39,8 @@ CONFIG = {
         "kwargs": {
             # "acq_func": "NEI",
             # "surrogate_model": "GP",
-            "method": "Standard"
+            "method": "Standard",
+            "method": "RF",
         },
     },
 }

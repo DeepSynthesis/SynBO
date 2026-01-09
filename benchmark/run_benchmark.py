@@ -1,19 +1,27 @@
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
+import shutil
 
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
-from plots import plot_optimization_process, plot_hv_percentage
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent
 data_dir = global_dir / Path("../examples/")
+
+# 控制参数
+NUM_ROUNDS = 5  # k值：运行多少轮
+RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
+
 CONFIG = {
     "experiment_name": "B-H_Optimization",
-    "seed": 199,
+    "base_seed": 199,
+    "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
@@ -26,10 +34,10 @@ CONFIG = {
         "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "cost"],  # ,
+        "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},  # yield
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},  # cost
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
@@ -37,9 +45,6 @@ CONFIG = {
         "refine_desc": "filter_0.8",
         "optimize_method": "evolution",
         "kwargs": {
-            # "acq_func": "NEI",
-            # "surrogate_model": "GP",
-            # pyt"method": "Thompson",
             "surrogate_model": "linear",
         },
     },
@@ -50,16 +55,21 @@ CONFIG["reaction_space"]["index_col"] = [f"{r}_file_name" for r in CONFIG["react
 
 
 def fill_done_dir(batch_idx, output_dir, dataset_path):
-    """get yield and cost from dataset and fill into the saved batch file."""
-    file_path = output_dir / f"batch-{batch_idx}_{datetime.now().strftime('%Y%m%d')}.csv"
-    current_df = pd.read_csv(file_path)
+    """从数据集中获取 yield 和 cost 并填充到保存的 batch 文件中。"""
+    candidates = list(output_dir.glob(f"batch-{batch_idx}_*.csv"))
+    if not candidates:
+        raise FileNotFoundError(f"No file found for batch {batch_idx} in {output_dir}")
 
+    # 取最新的文件
+    file_path = max(candidates, key=lambda p: p.stat().st_mtime)
+
+    current_df = pd.read_csv(file_path)
     cols_to_drop = [c for c in ["yield", "cost"] if c in current_df.columns]
     current_df.drop(columns=cols_to_drop, inplace=True)
 
     hte_df = pd.read_csv(dataset_path)
-
     match_cols = ["base", "ligand", "solvent", "concentration", "temperature"]
+
     merged_df = pd.merge(
         current_df,
         hte_df[match_cols + ["yield", "cost"]],
@@ -67,74 +77,258 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
         how="left",
     )
     merged_df.to_csv(file_path, index=False)
+    return file_path
+
+
+def cleanup_temp_files(run_dir):
+    """删除所有的 batch-*.csv 文件"""
+    for temp_file in run_dir.glob("batch-*.csv"):
+        try:
+            temp_file.unlink()
+        except OSError as e:
+            print(f"Error deleting {temp_file}: {e}")
+
+
+def setup_experiment_dir(base_dir, num_rounds):
+    """根据 k 值设置文件夹名称"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # 逻辑：k=1 -> single_{date}, k>1 -> multiple_{date}
+    if num_rounds == 1:
+        prefix = "single"
+    else:
+        prefix = "multiple"
+
+    dir_name = f"{prefix}_{timestamp}"
+    experiment_dir = Path(base_dir) / dir_name
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+    return experiment_dir
+
+
+def find_existing_experiment(base_dir_str, current_config):
+    """
+    [New] 扫描 base_dir 下的所有文件夹，寻找是否存在相同的 config.json
+    并且检查数据文件是否完整。
+    """
+    base_dir = Path(base_dir_str)
+    if not base_dir.exists():
+        return None
+
+    # 1. 准备用于比较的 Config 字符串 (排序键以确保一致性)
+    # 我们只比较 JSON 序列化后的字符串，这样可以忽略内存地址等差异
+    current_cfg_str = json.dumps(current_config, sort_keys=True)
+
+    print(f"Scanning {base_dir} for existing experiments...")
+
+    # 2. 遍历 results 目录下的所有子文件夹
+    for run_dir in base_dir.iterdir():
+        if not run_dir.is_dir():
+            continue
+
+        config_path = run_dir / "config.json"
+        if not config_path.exists():
+            continue
+
+        # 3. 读取已有的 config 并比较
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                saved_config = json.load(f)
+
+            saved_cfg_str = json.dumps(saved_config, sort_keys=True)
+
+            if current_cfg_str == saved_cfg_str:
+                # 4. Config 匹配，接下来检查数据完整性
+                # 必须包含所有轮次的最终汇总文件
+                is_complete = True
+                num_rounds = current_config["num_rounds"]
+
+                for r_idx in range(num_rounds):
+                    expected_file = run_dir / f"all_batches_final_round_{r_idx}.csv"
+                    if not expected_file.exists():
+                        is_complete = False
+                        break
+
+                if is_complete:
+                    print(f"Found matching existing experiment: {run_dir.name}")
+                    return run_dir
+
+        except Exception as e:
+            print(f"Warning: Failed to read config in {run_dir}: {e}")
+            continue
+
+    return None
+
+
+def run_simulation(experiment_dir, desc_dict, condition_dict):
+    """执行主要的优化计算循环"""
+    base_seed = CONFIG["base_seed"]
+
+    # 保存配置
+    with open(experiment_dir / "config.json", "w", encoding="utf-8") as f:
+        json.dump(CONFIG, f, indent=4, ensure_ascii=False)
+
+    print(f"Experiment Directory: {experiment_dir}")
+
+    for round_idx in range(CONFIG["num_rounds"]):
+        current_seed = base_seed + round_idx
+        print(f"\n{'='*20} Starting Round {round_idx + 1}/{CONFIG['num_rounds']} (Seed: {current_seed}) {'='*20}")
+
+        batch_files_map = {}  # 存储 batch_id -> file_path，用于最后合并
+
+        for i in tqdm(range(CONFIG["iterations"]), desc=f"Round {round_idx+1} Calc"):
+            rxn_opt = ReactionOptimizer(
+                opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
+                opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
+                opt_type=CONFIG["optimization_settings"]["opt_type"],
+                random_seed=current_seed,
+                quiet=True,
+            )
+
+            rxn_opt.load_rxn_space(condition_dict=condition_dict)
+            rxn_opt.load_desc(desc_dict=desc_dict)
+
+            if i > 0:
+                prev_rxns = get_prev_rxn(file_root_dir=experiment_dir, file_pattern=str("batch-*.csv"))
+                rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxns)
+
+            if i == 0:
+                rxn_opt.initialize(
+                    batch_size=CONFIG["batch_size"],
+                    desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
+                    sampling_method=CONFIG["optimization_settings"]["sampling_method"],
+                    refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                )
+            else:
+                rxn_opt.optimize(
+                    batch_size=CONFIG["batch_size"],
+                    optimize_method=CONFIG["optimization_settings"]["optimize_method"],
+                    desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
+                    refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                    **CONFIG["optimization_settings"]["kwargs"],
+                )
+
+            rxn_opt.save_results(save_dir=str(experiment_dir))
+
+            # 填充真实数据并记录文件路径
+            saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
+            batch_files_map[i] = saved_path
+
+        # --- Round 结束：合并数据 ---
+        dfs = []
+        # 按顺序读取，并添加 batch_index 列，方便后续绘图（因为临时文件会被删除）
+        for b_idx in sorted(batch_files_map.keys()):
+            df = pd.read_csv(batch_files_map[b_idx])
+            df["batch_index"] = b_idx  # 关键：标记这是第几轮迭代的数据
+            df["round_index"] = round_idx  # 关键：标记这是第几次重复实验
+            dfs.append(df)
+
+        if dfs:
+            df_all = pd.concat(dfs, ignore_index=True)
+            final_filename = f"all_batches_final_round_{round_idx}.csv"
+            df_all.to_csv(experiment_dir / final_filename, index=False)
+            print(f"Saved summary: {final_filename}")
+
+        # --- 清理临时文件 ---
+        cleanup_temp_files(experiment_dir)
+        print(f"Cleaned temp files for round {round_idx}")
+
+
+def run_plotting(experiment_dir):
+    """
+    独立的绘图函数。
+    读取 run_simulation 生成的 all_batches_final_round_*.csv 文件进行绘图。
+    """
+    print(f"\n{'='*20} Starting Plotting Phase {'='*20}")
+    print(f"Source Directory: {experiment_dir}")
+
+    result_files = sorted(list(experiment_dir.glob("all_batches_final_round_*.csv")))
+
+    if not result_files:
+        print("No result files found to plot.")
+        return
+
+    # 合并所有轮次的数据
+    all_rounds_df = pd.concat([pd.read_csv(f) for f in result_files], ignore_index=True)
+    num_rounds = CONFIG["num_rounds"]
+
+    # 1. 绘制 Yield 优化过程 (Line Plot with CI)
+    plt.figure(figsize=(10, 6))
+
+    # 这里我们计算每个 batch_index 下的平均 yield 和标准差
+    sns.lineplot(data=all_rounds_df, x="batch_index", y="yield", hue="round_index", palette="tab10", marker="o", style="round_index")
+
+    plt.title(f"Optimization Trace (Yield) - {num_rounds} Rounds")
+    plt.xlabel("Batch Iteration")
+    plt.ylabel("Yield (%)")
+    plt.grid(True, linestyle="--", alpha=0.7)
+    plt.legend(title="Round")
+
+    plot_path = experiment_dir / "plot_optimization_trace.png"
+    plt.savefig(plot_path, dpi=300)
+    plt.close()
+    print(f"Plot saved: {plot_path}")
+
+    # 2. 绘制最佳 Yield 分布 (Box Plot)
+    # 计算每一轮最终找到的最佳 Yield
+    best_yields = []
+    for r_idx in all_rounds_df["round_index"].unique():
+        sub_df = all_rounds_df[all_rounds_df["round_index"] == r_idx]
+        best_yields.append({"round": r_idx, "best_yield": sub_df["yield"].max()})
+
+    if best_yields:
+        best_df = pd.DataFrame(best_yields)
+        plt.figure(figsize=(6, 5))
+        sns.boxplot(y=best_df["best_yield"], color="skyblue")
+        sns.stripplot(y=best_df["best_yield"], color="red", size=8, jitter=True)
+        plt.title("Distribution of Best Yield Found across Rounds")
+        plt.ylabel("Best Yield (%)")
+
+        box_path = experiment_dir / "plot_best_yield_distribution.png"
+        plt.savefig(box_path, dpi=300)
+        plt.close()
+        print(f"Plot saved: {box_path}")
 
 
 def main():
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = Path(CONFIG["data_paths"]["results_base_dir"]) / f"run_{timestamp}"
-    run_dir.mkdir(parents=True, exist_ok=True)
+    results_base = CONFIG["data_paths"]["results_base_dir"]
 
-    with open(run_dir / "config.json", "w", encoding="utf-8") as f:
-        json.dump(CONFIG, f, indent=4, ensure_ascii=False)
+    # 1. 检查是否存在相同的实验记录 [New Logic]
+    existing_dir = None
+    if not RECALC:
+        existing_dir = find_existing_experiment(results_base, CONFIG)
 
-    desc_dict, condition_dict = load_desc_dict(
-        reagent_types=CONFIG["reaction_space"]["reagent_types"],
-        desc_dir=CONFIG["data_paths"]["descriptor_dir"],
-        name_suffix=CONFIG["reaction_space"]["name_suffix"],
-        index_col=CONFIG["reaction_space"]["index_col"],
-        return_condition_dict=True,
-    )
-
-    for i in tqdm(range(CONFIG["iterations"]), desc="Overall Optimization Progress"):
-
-        rxn_opt = ReactionOptimizer(
-            opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
-            opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
-            opt_type=CONFIG["optimization_settings"]["opt_type"],
-            random_seed=CONFIG["seed"],
-            quiet=True,
-        )
-
-        rxn_opt.load_rxn_space(condition_dict=condition_dict)
-        rxn_opt.load_desc(desc_dict=desc_dict)
-
-        if i > 0:
-            prev_rxns = get_prev_rxn(file_root_dir=run_dir, file_pattern=str("batch-*.csv"))
-            rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxns)
-
-        if i == 0:
-            rxn_opt.initialize(
-                batch_size=CONFIG["batch_size"],
-                desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                sampling_method=CONFIG["optimization_settings"]["sampling_method"],
-                refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-            )
+    if existing_dir:
+        print(f"\n[CACHE HIT] Identical experiment found at: {existing_dir}")
+        print("Skipping simulation, proceeding directly to plotting...")
+        experiment_dir = existing_dir
+        should_run_sim = False
+    else:
+        if RECALC:
+            print("\n[RECALC] Recalc flag is True. Forcing new simulation.")
         else:
-            rxn_opt.optimize(
-                batch_size=CONFIG["batch_size"],
-                optimize_method=CONFIG["optimization_settings"]["optimize_method"],
-                desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                **CONFIG["optimization_settings"]["kwargs"],
-            )
+            print("\n[CACHE MISS] No identical experiment found. Starting new simulation.")
 
-        rxn_opt.save_results(save_dir=str(run_dir))
+        # 创建新的实验目录
+        experiment_dir = setup_experiment_dir(results_base, CONFIG["num_rounds"])
+        should_run_sim = True
 
-        fill_done_dir(i, run_dir, CONFIG["data_paths"]["dataset_file"])
+    # 2. 只有在需要计算时才加载描述符 (可以节省IO)
+    if should_run_sim:
+        desc_dict, condition_dict = load_desc_dict(
+            reagent_types=CONFIG["reaction_space"]["reagent_types"],
+            desc_dir=CONFIG["data_paths"]["descriptor_dir"],
+            name_suffix=CONFIG["reaction_space"]["name_suffix"],
+            index_col=CONFIG["reaction_space"]["index_col"],
+            return_condition_dict=True,
+        )
+        # 执行计算部分 (Calculation)
+        run_simulation(experiment_dir, desc_dict, condition_dict)
 
-    all_batch_files = sorted(list(run_dir.glob("batch-*.csv")))
-    dfs = [pd.read_csv(f) for f in all_batch_files]
-    df_all = pd.concat(dfs, ignore_index=True)
-    df_all.to_csv(run_dir / "all_batches_final.csv", index=False)
+    # 3. 执行绘图部分 (Plotting)
+    # 无论是复用旧数据还是新计算的数据，都运行绘图，以防旧数据的图被误删或需要更新绘图样式
+    run_plotting(experiment_dir)
 
-    plot_optimization_process(root_dir=run_dir, file_pattern=str("batch-*.csv"), save_path=run_dir / "optimization_process.png")
-    plot_hv_percentage(
-        root_dir=run_dir,
-        file_pattern=str("batch-*.csv"),
-        dataset_path=CONFIG["data_paths"]["dataset_file"],
-        opt_direct_info=CONFIG["optimization_settings"]["opt_direct_info"],
-        save_path=run_dir / "hv_percentage.png",
-    )
+    print(f"\nTask Complete. Results accessed at: {experiment_dir}")
 
 
 if __name__ == "__main__":

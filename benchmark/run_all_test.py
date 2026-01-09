@@ -9,49 +9,11 @@ BASE_CONFIG = copy.deepcopy(ORIGINAL_CONFIG)
 
 # 定义不同的优化方法和初始化策略组合
 TEST_VARIATIONS = {
-    # 不同的贝叶斯优化代理模型
-    "surrogate_models": [
-        "linear",
-        "gaussian_process", 
-        "random_forest",
-        "xgboost",
-    ],
-    
-    # 不同的优化方法
-    "optimize_methods": [
-        "evolution",
-        "random",
-        "bayesian",
-        "default_BO",
-    ],
-    
-    # 不同的获取函数 (仅用于default_BO)
-    "acf_functions": [
-        "EHVI",
-        "UCB",
-        "NEI",
-        "ParEGO",
-    ],
-    
-    # 不同的进化方法 (仅用于evolution)
-    "evolution_methods": [
-        "Thompson",
-        "Standard",
-    ],
-    
-    # 不同的初始化方法
-    "sampling_methods": [
-        "random",
-        "latin_hypercube",
-        "sobol",
-    ],
-    
-    # 不同的描述符标准化方法
-    "desc_normalize_methods": [
-        "minmax",
-        "standard", 
-        "robust",
-    ],
+    "surrogate_models": ["linear", "GP", "RF", "ensemble"],
+    "optimize_methods": ["evolution", "random", "bayesian", "default_BO"],
+    "acf_functions": ["EHVI", "UCB", "NEI", "ParEGO"],
+    "evolution_methods": ["Thompson", "Standard"],
+    "sampling_methods": ["random", "lhs", "kmeans"],
 }
 # ============================================================================
 
@@ -63,72 +25,52 @@ def generate_test_configs():
     # 生成所有可能的组合
     for optimize_method in TEST_VARIATIONS["optimize_methods"]:
         for sampling_method in TEST_VARIATIONS["sampling_methods"]:
-            for desc_normalize in TEST_VARIATIONS["desc_normalize_methods"]:
-                
-                # 根据optimize_method决定是否需要surrogate_model和acf_func
-                if optimize_method == "random":
-                    # random方法不需要kwargs
-                    config = copy.deepcopy(BASE_CONFIG)
-                    config["optimization_settings"]["optimize_method"] = optimize_method
-                    config["optimization_settings"]["sampling_method"] = sampling_method
-                    config["optimization_settings"]["desc_normalize"] = desc_normalize
-                    config["optimization_settings"]["kwargs"] = {}
-                    
-                    config["experiment_name"] = (
-                        f"B-H_Optimization_random_{sampling_method}_{desc_normalize}"
-                    )
-                    configs.append(config)
-                    
-                elif optimize_method == "default_BO":
-                    # default_BO需要surrogate_model和acf_func
-                    for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
-                        for acf_func in TEST_VARIATIONS["acf_functions"]:
-                            config = copy.deepcopy(BASE_CONFIG)
-                            config["optimization_settings"]["optimize_method"] = optimize_method
-                            config["optimization_settings"]["sampling_method"] = sampling_method
-                            config["optimization_settings"]["desc_normalize"] = desc_normalize
-                            config["optimization_settings"]["kwargs"] = {
-                                "surrogate_model": surrogate_model,
-                                "acf_func": acf_func,
-                            }
-                            
-                            config["experiment_name"] = (
-                                f"B-H_Optimization_{surrogate_model}_{optimize_method}_{acf_func}_{sampling_method}_{desc_normalize}"
-                            )
-                            configs.append(config)
-                            
-                elif optimize_method == "evolution":
-                    # evolution需要surrogate_model和method
-                    for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
-                        for evolution_method in TEST_VARIATIONS["evolution_methods"]:
-                            config = copy.deepcopy(BASE_CONFIG)
-                            config["optimization_settings"]["optimize_method"] = optimize_method
-                            config["optimization_settings"]["sampling_method"] = sampling_method
-                            config["optimization_settings"]["desc_normalize"] = desc_normalize
-                            config["optimization_settings"]["kwargs"] = {
-                                "surrogate_model": surrogate_model,
-                                "method": evolution_method,
-                            }
-                            
-                            config["experiment_name"] = (
-                                f"B-H_Optimization_{surrogate_model}_{optimize_method}_{evolution_method}_{sampling_method}_{desc_normalize}"
-                            )
-                            configs.append(config)
-                else:
-                    # bayesian需要surrogate_model
-                    for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+
+            # 根据optimize_method决定是否需要surrogate_model和acf_func
+            if optimize_method == "random":
+                # random方法不需要kwargs
+                config = copy.deepcopy(BASE_CONFIG)
+                config["optimization_settings"]["optimize_method"] = optimize_method
+                config["optimization_settings"]["sampling_method"] = sampling_method
+                config["optimization_settings"]["kwargs"] = {}
+
+                config["experiment_name"] = f"B-H_Optimization_random_{sampling_method}"
+                configs.append(config)
+
+            elif optimize_method == "default_BO":
+                # default_BO需要surrogate_model和acf_func
+                for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+                    for acf_func in TEST_VARIATIONS["acf_functions"]:
                         config = copy.deepcopy(BASE_CONFIG)
                         config["optimization_settings"]["optimize_method"] = optimize_method
                         config["optimization_settings"]["sampling_method"] = sampling_method
-                        config["optimization_settings"]["desc_normalize"] = desc_normalize
-                        config["optimization_settings"]["kwargs"] = {
-                            "surrogate_model": surrogate_model,
-                        }
-                        
+                        config["optimization_settings"]["kwargs"] = {"surrogate_model": surrogate_model, "acf_func": acf_func}
+
+                        config["experiment_name"] = f"B-H_Optimization_{surrogate_model}_{optimize_method}_{acf_func}_{sampling_method}"
+                        configs.append(config)
+
+            elif optimize_method == "evolution":
+                for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+                    for evolution_method in TEST_VARIATIONS["evolution_methods"]:
+                        config = copy.deepcopy(BASE_CONFIG)
+                        config["optimization_settings"]["optimize_method"] = optimize_method
+                        config["optimization_settings"]["sampling_method"] = sampling_method
+                        config["optimization_settings"]["kwargs"] = {"surrogate_model": surrogate_model, "method": evolution_method}
+
                         config["experiment_name"] = (
-                            f"B-H_Optimization_{surrogate_model}_{optimize_method}_{sampling_method}_{desc_normalize}"
+                            f"B-H_Optimization_{surrogate_model}_{optimize_method}_{evolution_method}_{sampling_method}"
                         )
                         configs.append(config)
+            else:
+                # bayesian需要surrogate_model
+                for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+                    config = copy.deepcopy(BASE_CONFIG)
+                    config["optimization_settings"]["optimize_method"] = optimize_method
+                    config["optimization_settings"]["sampling_method"] = sampling_method
+                    config["optimization_settings"]["kwargs"] = {"surrogate_model": surrogate_model}
+
+                    config["experiment_name"] = f"B-H_Optimization_{surrogate_model}_{optimize_method}_{sampling_method}"
+                    configs.append(config)
 
     return configs
 

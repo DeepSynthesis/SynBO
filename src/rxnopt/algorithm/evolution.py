@@ -7,7 +7,13 @@ from botorch.models import ModelListGP
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
 from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import BNNEnsembleSurrogateModel, BayesianLinearSurrogateModel, GPSurrogateModel, RFSurrogateModel
+from rxnopt.algorithm.sg_model import (
+    BNNEnsembleSurrogateModel,
+    BayesianLinearSurrogateModel,
+    GPSurrogateModel,
+    RFSurrogateModel,
+    SklearnModelWrapper,
+)
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -110,13 +116,18 @@ class DefaultEO:
 
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
-                model_i.fit(training_X_t, train_y_i)
-                models.append(model_i.model)
+
+                if isinstance(model_i, GPSurrogateModel):
+                    model_i.fit(training_X_t, train_y_i)
+                    models.append(model_i.model)
+                else:
+                    wrapper = SklearnModelWrapper(model_i)
+                    wrapper.fit_surrogate(training_X_t, train_y_i)
+                    models.append(wrapper)
+
                 progress.update(task_train, advance=1)
 
             self.global_model = ModelListGP(*models)
-
-            progress.log("Predicting mean and variance for all candidates...", style="blue")
 
             task_pred = progress.add_task(description="Predicting candidates", total=len(candidate_X_t))
             pred_means_list = []
@@ -135,11 +146,11 @@ class DefaultEO:
             all_pred_mean = torch.cat(pred_means_list, dim=0)  # Shape: (N_cand, N_obj)
             all_pred_var = torch.cat(pred_vars_list, dim=0)
             all_pred_std = torch.sqrt(all_pred_var)
-            
+
             for it, settings in enumerate(opt_metric_settings):
-                low, high = (0, 1) if settings['opt_direct'] == 'max' else (-1, 0)
+                low, high = (0, 1) if settings["opt_direct"] == "max" else (-1, 0)
                 all_pred_mean[:, it].clamp_(min=low, max=high)
-            
+
             # 5. Selection Strategy (Standard vs Thompson)
             progress.log(f"Performing NSGA-II selection ({self.method})...", style="magenta")
 

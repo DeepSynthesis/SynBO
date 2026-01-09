@@ -35,12 +35,12 @@ CONFIG = {
         "desc_normalize": "minmax",
         "sampling_method": "lhs",
         "refine_desc": "filter_0.8",
-        "optimize_method": "particle_swarm",
+        "optimize_method": "default_BO",
         "kwargs": {
             # "acq_func": "NEI",
             # "surrogate_model": "GP",
             # pyt"method": "Thompson",
-            # "surrogate_model": "RF",
+            "surrogate_model": "linear",
         },
     },
 }

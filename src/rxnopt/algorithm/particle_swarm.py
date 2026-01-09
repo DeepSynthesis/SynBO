@@ -5,7 +5,7 @@ from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, T
 
 from botorch.models import ModelListGP
 from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import GPSurrogateModel
+from rxnopt.algorithm.sg_model import GPSurrogateModel, SklearnModelWrapper
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -99,8 +99,15 @@ class DefaultPS:
 
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
-                model_i.fit(training_X_t, train_y_i)
-                models.append(model_i.model)
+
+                if isinstance(model_i, GPSurrogateModel):
+                    model_i.fit(training_X_t, train_y_i)
+                    models.append(model_i.model)
+                else:
+                    wrapper = SklearnModelWrapper(model_i)
+                    wrapper.fit_surrogate(training_X_t, train_y_i)
+                    models.append(wrapper)
+
                 progress.update(task_train, advance=1)
 
             self.global_model = ModelListGP(*models)

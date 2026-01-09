@@ -96,9 +96,9 @@ class DefaultBO:
 
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
-                model_i.fit(training_X_t, train_y_i)
                 
                 if isinstance(model_i, GPSurrogateModel):
+                    model_i.fit(training_X_t, train_y_i)
                     models.append(model_i.model)
                 else:
                     wrapper = SklearnModelWrapper(model_i)

@@ -9,7 +9,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 
 from rxnopt.utils.util_func import compute_hvi
 from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import BNNEnsembleSurrogateModel, BayesianLinearSurrogateModel, GPSurrogateModel, RFSurrogateModel
+from rxnopt.algorithm.sg_model import BNNEnsembleSurrogateModel, BayesianLinearSurrogateModel, GPSurrogateModel, RFSurrogateModel, SklearnModelWrapper
 from rxnopt.algorithm.acq_function import (
     EHVIAcquisitionFunction,
     NEIAcquisitionFunction,
@@ -97,7 +97,14 @@ class DefaultBO:
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
                 model_i.fit(training_X_t, train_y_i)
-                models.append(model_i.model)
+                
+                if isinstance(model_i, GPSurrogateModel):
+                    models.append(model_i.model)
+                else:
+                    wrapper = SklearnModelWrapper(model_i)
+                    wrapper.fit_surrogate(training_X_t, train_y_i)
+                    models.append(wrapper)
+                
                 progress.update(task_train, advance=1)
 
             self.global_model = ModelListGP(*models)
@@ -176,6 +183,21 @@ class DefaultBO:
         with torch.no_grad():
             posterior = self.global_model.posterior(self.acq_result)
             pred_mean = posterior.mean
+            
+        # Handle different shapes from posterior.mean
+        # The posterior.mean from ModelListGP with multiple outputs has shape (batch_size, q)
+        # where each model contributes one dimension
+        # We need to reshape to (batch_size, n_outputs) where batch_size = n_points
+        if pred_mean.dim() == 2:
+            # Already in correct shape (n_points, n_outputs)
+            pass
+        elif pred_mean.dim() == 3:
+            # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
+            pred_mean = pred_mean.squeeze(0)
+        
+        # Ensure pred_mean is 2D
+        if pred_mean.dim() != 2:
+            raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
 
         hvi_values = torch.tensor([compute_hvi(pred_mean[i], self.pareto_y, self.ref_point) for i in range(pred_mean.shape[0])])
         ehvi_values = self.acq_value.to(device="cpu")
@@ -195,9 +217,25 @@ class DefaultBO:
     def _get_predictions(self) -> Tuple[np.ndarray, np.ndarray]:
         with torch.no_grad():
             posterior = self.global_model.posterior(self.acq_result)
-            pred_mean = posterior.mean.cpu().numpy()
-            pred_var = posterior.variance.cpu().numpy()
-            pred_std = np.sqrt(pred_var)
+            pred_mean = posterior.mean
+            pred_var = posterior.variance
+            
+        # Handle different shapes from posterior
+        if pred_mean.dim() == 2:
+            # Already in correct shape (n_points, n_outputs)
+            pass
+        elif pred_mean.dim() == 3:
+            # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
+            pred_mean = pred_mean.squeeze(0)
+            pred_var = pred_var.squeeze(0)
+        
+        # Ensure correct shapes
+        if pred_mean.dim() != 2:
+            raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
+            
+        pred_mean = pred_mean.cpu().numpy()
+        pred_var = pred_var.cpu().numpy()
+        pred_std = np.sqrt(pred_var)
         return pred_mean, pred_std
 
     def _weight_y(self, training_y: torch.Tensor, opt_metric_settings: List[dict]) -> torch.Tensor:

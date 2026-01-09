@@ -185,13 +185,17 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
 
     def _create_mlp(self):
         """Create a simple MLP suitable for low-data regimes"""
-        return nn.Sequential(
-            nn.Linear(self.num_dims, self.hidden_dim),
-            nn.Tanh(),  # Tanh or ReLU usually works
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.Tanh(),
-            nn.Linear(self.hidden_dim, 1),
-        ).to(self.device).double()  # Convert to double precision
+        return (
+            nn.Sequential(
+                nn.Linear(self.num_dims, self.hidden_dim),
+                nn.Tanh(),  # Tanh or ReLU usually works
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.Tanh(),
+                nn.Linear(self.hidden_dim, 1),
+            )
+            .to(self.device)
+            .double()
+        )  # Convert to double precision
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         """Train multiple independent neural networks"""
@@ -273,3 +277,103 @@ class BayesianLinearSurrogateModel(BaseSurrogateModel):
         var_tensor = torch.from_numpy(variance_np).float().unsqueeze(-1)
 
         return mean_tensor, var_tensor
+
+
+class SklearnModelWrapper(gpytorch.models.ExactGP):
+    """
+    BoTorch-compatible wrapper for sklearn models to make them compatible with ModelListGP.
+    This allows RF and other sklearn models to be used in the BoTorch acquisition functions.
+    """
+
+    def __init__(self, surrogate_model: BaseSurrogateModel):
+        # Create dummy likelihood and mean module for BoTorch compatibility
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        super().__init__(None, None, likelihood)
+
+        self.surrogate_model = surrogate_model
+        self._is_fitted = False
+
+        # Dummy mean and covariance modules to satisfy gpytorch requirements
+        self.mean_module = gpytorch.means.ZeroMean()
+        self.covar_module = gpytorch.kernels.RBFKernel()
+
+    def forward(self, x):
+        # This method is required by gpytorch but won't be used for inference
+        # since we override posterior()
+        mean = self.mean_module(x)
+        covar = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean, covar)
+
+    def posterior(self, X, output_indices=None, observation_noise=False, posterior_transform=None):
+        """
+        Override the posterior method to use our sklearn model for predictions.
+        This is what acquisition functions will call.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model must be fitted before calling posterior")
+
+        # Handle different input shapes - ensure 2D for sklearn
+        original_shape = X.shape
+        if X.dim() == 3:
+            # Batched input: (batch_size, q, d) -> (batch_size * q, d)
+            batch_size, q, d = X.shape
+            X_2d = X.view(-1, d)
+        elif X.dim() == 2:
+            # Regular input: (n, d)
+            batch_size = 1
+            q, d = X.shape
+            X_2d = X
+        else:
+            raise ValueError(f"Unsupported input shape: {X.shape}")
+
+        # Get predictions from our surrogate model
+        with torch.no_grad():
+            mean, variance = self.surrogate_model.predict(X_2d)
+
+        # Ensure we're on the right device and correct dtype
+        if X.device != mean.device:
+            mean = mean.to(X.device)
+            variance = variance.to(X.device)
+        mean = mean.to(X.dtype)
+        variance = variance.to(X.dtype)
+
+        # Reshape predictions to match expected output format
+        if original_shape != X_2d.shape:
+            # For batched inputs, reshape back: (batch_size * q, 1) -> (batch_size, q, 1)
+            mean = mean.view(batch_size, q, -1)
+            variance = variance.view(batch_size, q, -1)
+        else:
+            # For non-batched inputs, ensure proper shape (n, 1) -> (1, n, 1)
+            mean = mean.unsqueeze(0)
+            variance = variance.unsqueeze(0)
+
+        # Create a posterior distribution compatible with BoTorch
+        from gpytorch.distributions import MultivariateNormal
+        from linear_operator.operators import DiagLinearOperator
+        
+        # Ensure variance is positive
+        variance = torch.clamp(variance, min=1e-6)
+        
+        # Create distributions for each batch element
+        # The shape should be (batch_size, q) for mean and (batch_size, q, q) for covar
+        mean_squeezed = mean.squeeze(-1)  # (batch_size, q)
+        var_squeezed = variance.squeeze(-1)  # (batch_size, q)
+        
+        # Create diagonal covariance for each batch
+        covar = DiagLinearOperator(var_squeezed)  # This handles batching automatically
+        
+        # Create the posterior distribution
+        mvn = MultivariateNormal(mean_squeezed, covar)
+
+        # Apply posterior transform if provided
+        if posterior_transform is not None:
+            mvn = posterior_transform(mvn)
+
+        # Wrap in BoTorch's GPyTorchPosterior
+        from botorch.posteriors.gpytorch import GPyTorchPosterior
+        return GPyTorchPosterior(mvn)
+
+    def fit_surrogate(self, train_x: torch.Tensor, train_y: torch.Tensor):
+        """Fit the underlying surrogate model"""
+        self.surrogate_model.fit(train_x, train_y)
+        self._is_fitted = True

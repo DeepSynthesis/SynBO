@@ -2,12 +2,13 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import matplotlib.ticker as ticker
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
 def plot_optimization_curves(df, target_columns, direction_tags, range_tags, experiment_dir):
@@ -73,8 +74,8 @@ def plot_optimization_curves(df, target_columns, direction_tags, range_tags, exp
                 y_min, y_max = y_range
                 # 如果 min 或 max 是 None，则保持 matplotlib 的自动缩放，否则设置限制
                 current_ylim = ax.get_ylim()
-                new_min = y_min if y_min is not None else current_ylim[0]
-                new_max = y_max if y_max is not None else current_ylim[1]
+                new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
+                new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
                 ax.set_ylim(new_min, new_max)
         ax.grid(True, linestyle="--", alpha=0.6)
 
@@ -254,175 +255,253 @@ def plot_hypervolume_coverage(df, target_columns, direction_tags, range_tags, fu
 
 def plot_final_distribution_boxplot(df, target_columns, direction_tags, range_tags, experiment_dir):
     """
-    绘制箱型图：所有 column_name_list 最后优化到的最佳值（最大或最小）的分布。
-    根据 direction_tags 决定取最大还是最小。
-    根据 range_tags 设定 Y 轴范围。
+    绘制美化版箱型图：所有 column_name_list 最后优化到的最佳值分布。
     """
+    # --- 0. 全局风格设置 ---
+    sns.set_theme(style="whitegrid", context="talk", font_scale=0.9)
+    # 自定义配色：主色调（箱子）和 点色调
+    box_color = "#4C72B0"  # 深一点的蓝色，显得专业
+    point_color = "#C44E52"  # 柔和的红色
+
     # 1. 提取每一轮(round)的最终最佳值
     final_best_records = []
-    # 建立映射方便后续查找
     dir_map = dict(zip(target_columns, direction_tags))
     range_map = dict(zip(target_columns, range_tags))
+
     for r_idx in df["round_index"].unique():
         sub_df = df[df["round_index"] == r_idx]
         record = {"round_index": r_idx}
-
         for col in target_columns:
             direction = dir_map[col]
             if direction == "max":
-                # 越大越好，取最大值
                 best_val = sub_df[col].max()
             elif direction == "min":
-                # 越小越好，取最小值
                 best_val = sub_df[col].min()
             else:
-                raise Exception(f"{direction}???")
-
+                raise Exception(f"Unknown direction: {direction}")
             record[col] = best_val
-
         final_best_records.append(record)
+
     best_df = pd.DataFrame(final_best_records)
-    # 2. 转换数据格式为 Long Format
+
+    # 2. 转换数据格式
     melted_df = best_df.melt(id_vars=["round_index"], value_vars=target_columns, var_name="Target", value_name="Best Value")
-    # 3. 绘图
-    # sharey=False 非常重要，因为不同目标的范围不同
-    g = sns.FacetGrid(melted_df, col="Target", sharey=False, height=5, aspect=0.8, col_wrap=min(len(target_columns), 4))
 
-    # 绘制箱型图和散点图
-    g.map_dataframe(sns.boxplot, y="Best Value", width=0.5, color="skyblue")
-    g.map_dataframe(sns.stripplot, y="Best Value", color="red", size=5, jitter=True, alpha=0.7)
-    # 4. 针对每个子图设置特定的 Y 轴范围和标题
-    # g.axes 是一个 numpy array，包含所有的子图对象
+    # 3. 绘图初始化
+    # height 和 aspect 稍微调整，让图看起来更舒展
+    g = sns.FacetGrid(melted_df, col="Target", sharey=False, height=5, aspect=0.7, col_wrap=min(len(target_columns), 4))
+
+    # --- 4. 绘图核心优化 ---
+
+    # A. 绘制箱型图
+    # boxprops: 设置箱子的透明度(alpha)和边缘线
+    # fliersize=0: 隐藏箱型图自带的离群点，因为我们要用 stripplot 画所有点
+    # width: 箱子宽度适中
+    g.map_dataframe(
+        sns.boxplot, y="Best Value", width=0.4, color=box_color, fliersize=0, linewidth=1.5, boxprops=dict(alpha=0.4, edgecolor=box_color)
+    )
+
+    # B. 绘制散点图 (数据点)
+    # 使用 stripplot 叠加真实数据点
+    # edgecolors="white", linewidth=1: 给点加上白色描边，防止背景深色时看不清
+    g.map_dataframe(sns.stripplot, y="Best Value", color=point_color, size=6, jitter=0.2, alpha=0.9, edgecolor="white", linewidth=1)
+
+    # 5. 针对每个子图的精细调整
     axes = g.axes.flatten()
-
-    # 获取 FacetGrid 每一列对应的 Target 名称顺序
-    # 注意：Seaborn 默认按字母顺序或出现的顺序排列，这里通常和 col_order 一致
-    # 为了保险，直接遍历 g.col_names (Seaborn 版本差异可能导致属性名不同，通常 g.col_names 是列名列表)
-    # 如果 g.col_names 不可用，使用 melted_df['Target'].unique() 但需确保顺序一致
-
     ordered_targets = list(g.col_names)
+
     for ax, target_name in zip(axes, ordered_targets):
-        # 获取该 Target 对应的范围和方向
         y_range = range_map.get(target_name)
         direction = dir_map.get(target_name)
 
+        # 计算当前数据的统计值，用于标注（可选）
+        current_data = melted_df[melted_df["Target"] == target_name]["Best Value"]
+        mean_val = current_data.mean()
+
+        # 绘制一条均值虚线（增强信息量）
+        ax.axhline(mean_val, color=box_color, linestyle="--", linewidth=1, alpha=0.6, label=f"Mean: {mean_val:.2f}")
+
         # 设置 Y 轴范围
         if y_range:
-            # y_range 是 tuple (min, max)
-            # 稍微留一点余地防止点压在边框上，或者直接严格限制
-            ax.set_ylim(y_range[0], y_range[1])
+            margin = (y_range[1] - y_range[0]) * 0.1
+            ax.set_ylim(y_range[0] - margin, y_range[1] + margin)
 
-        # 更新标题，加上方向提示
-        title_suffix = " (Maximize)" if direction == "max" else " (Minimize)"
-        ax.set_title(f"{target_name}{title_suffix}", fontsize=11)
+        # 标题美化
+        # 使用不同的颜色或箭头符号来指示方向
+        arrow = "▲" if direction == "max" else "▼"
+        color_title = "#2ca02c" if direction == "max" else "#d62728"  # 绿色代表最大化，红色代表最小化（仅作区分，可改）
+        # 这里为了保持商务风，统一用黑色，但在文字上区分
+        title_text = f"{target_name}\n({arrow} {direction.capitalize()})"
+        ax.set_title(title_text, fontsize=12, fontweight="bold", pad=15)
 
-        # 设置 Y 轴标签
-        ax.set_ylabel("Best Value Found")
-    # 加上全局标题
-    plt.subplots_adjust(top=0.85)
-    g.fig.suptitle("Distribution of Best Found Values across Rounds", fontsize=14)
+        # 坐标轴美化
+        ax.set_ylabel("")  # 移除默认的label，最后统一加或者保持简洁
+        ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))  # 限制Y轴刻度数量，避免拥挤
+        ax.grid(True, axis="y", linestyle=":", alpha=0.6)  # 虚线网格
+
+    # 6. 全局布局调整
+    # 增加左侧 Y 轴标签
+    # 技巧：在 Figure 对象上添加一个 text 作为全局 Y label
+    g.fig.text(0.01, 0.5, "Best Optimization Value", va="center", rotation="vertical", fontsize=12, color="gray")
+
+    plt.subplots_adjust(top=0.82, wspace=0.3, left=0.08)  # 留出顶部给大标题，增加子图间距
+
+    # 主标题
+    g.fig.suptitle("Distribution of Final Optimization Results", fontsize=16, fontweight="bold", y=0.92, color="#333333")
+
+    # 副标题/说明
+    g.fig.text(0.5, 0.88, f"Across {len(df['round_index'].unique())} Independent Rounds", ha="center", fontsize=11, color="gray")
+
     save_path = experiment_dir / "plot_3_best_value_distribution.png"
-    plt.savefig(save_path, dpi=300)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")  # bbox_inches='tight' 防止文字被截断
     plt.close()
-    print(f"Plot 3 saved: {save_path}")
+    print(f"Plot 3 saved (Beautified): {save_path}")
 
 
 def plot_optimization_process_scatter(df, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
-    绘制优化过程散点图：
-    1. 背景：利用 full_space_file 计算并绘制真实的帕累托前沿 (Light Blue)。
-    2. 前景：绘制实验过程中的点，颜色根据 Batch Index 渐变 (Blues)，越靠后越深。
-    支持 2D (2目标) 和 3D (3目标) 绘图。超过3目标将仅绘制前两维。
-    Args:
-        df: 实验结果 DataFrame。
-        target_columns: 目标列名列表。
-        direction_tags: 优化方向列表 ['min', 'max', ...]。
-        range_tags: 坐标轴范围列表 [(min, max), ...]。
-        full_space_file: 全空间数据文件路径。
-        experiment_dir: 保存路径。
+    绘制优化过程散点图 (只显示非支配解)：
+    1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，并按顺序连成一条浅蓝色线条。
+    2. 前景：仅绘制实验结果中找到的非支配解 (Empirical Pareto Front)，以散点显示，颜色根据 Batch Index 渐变。
     """
-    try:
-        from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-    except ImportError:
-        print("Error: 'pymoo' library is required for Pareto calculation. Run 'pip install pymoo'.")
-        return
+    
+    
+    
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
     n_targets = len(target_columns)
 
-    # 1. 读取全空间数据
+    # ==========================================
+    # 1. 处理全空间数据 (True Pareto Front - Background Line)
+    # ==========================================
     if str(full_space_file).endswith(".csv"):
         full_df = pd.read_csv(full_space_file)
     else:
         full_df = pd.read_excel(full_space_file)
     full_data_raw = full_df[target_columns].values
-    # 2. 计算全空间数据的帕累托前沿 (True Pareto Front)
-    # Pymoo 默认最小化，因此需要根据 direction_tags 对 max 目标取反
-    sorting_data = full_data_raw.copy()
+
+    # 准备排序数据 (Pymoo 默认最小化，对 max 目标取反)
+    full_sorting_data = full_data_raw.copy()
     for i, direction in enumerate(direction_tags):
         if direction == "max":
-            sorting_data[:, i] *= -1  # 变为最小化问题进行排序
+            full_sorting_data[:, i] *= -1
 
-    # 执行非支配排序
+    # 全空间非支配排序
     nds = NonDominatedSorting()
-    fronts = nds.do(sorting_data)
+    full_fronts = nds.do(full_sorting_data)
+    true_pf_indices = full_fronts[0]
+    true_pf_data = full_data_raw[true_pf_indices]  # 获取真实的 PF 数据
 
-    # 取出第一层前沿 (Rank 0) 的索引
-    pf_indices = fronts[0]
-    true_pf_data = full_data_raw[pf_indices]  # 注意：绘图要用原始数据，不是取反后的
-    # 3. 准备实验数据
-    exp_data = df[target_columns].values
-    batch_indices = df["batch_index"].values
-    # 4. 开始绘图
-    # 根据目标数量选择绘图模式
+    # --- 关键修改：为了画线，必须按照第一个维度排序 ---
+    # argsort 返回排序后的索引，保证连线是顺滑的，不会乱窜
+    sorted_indices = np.argsort(true_pf_data[:, 0])
+    true_pf_data_sorted = true_pf_data[sorted_indices]
+
+    # ==========================================
+    # 2. 处理实验数据 (Empirical Pareto Front - Foreground Scatter)
+    # ==========================================
+    exp_data_raw = df[target_columns].values
+    batch_indices_raw = df["batch_index"].values
+
+    # 准备实验数据的排序 (同样处理 max/min)
+    exp_sorting_data = exp_data_raw.copy()
+    for i, direction in enumerate(direction_tags):
+        if direction == "max":
+            exp_sorting_data[:, i] *= -1
+
+    # 实验数据非支配排序
+    exp_fronts = nds.do(exp_sorting_data)
+    empirical_pf_indices = exp_fronts[0]  # 获取实验数据中的 Rank 0 (非支配解)
+
+    # 筛选出要绘制的前景数据
+    empirical_pf_data = exp_data_raw[empirical_pf_indices]
+    empirical_pf_batches = batch_indices_raw[empirical_pf_indices]
+
+    # ==========================================
+    # 3. 开始绘图
+    # ==========================================
     if n_targets == 2:
-        _plot_2d_scatter(true_pf_data, exp_data, batch_indices, target_columns, range_tags, direction_tags, experiment_dir)
+        # 注意这里传入的是排序后的 true_pf_data_sorted
+        _plot_2d_scatter(
+            true_pf_data_sorted, empirical_pf_data, empirical_pf_batches, target_columns, range_tags, direction_tags, experiment_dir
+        )
     elif n_targets == 3:
-        _plot_3d_scatter(true_pf_data, exp_data, batch_indices, target_columns, range_tags, direction_tags, experiment_dir)
+        pass
     else:
         print(f"Warning: {n_targets} objectives detected. Plotting only the first 2 dimensions for visualization.")
-        _plot_2d_scatter(true_pf_data, exp_data, batch_indices, target_columns[:2], range_tags[:2], direction_tags[:2], experiment_dir)
+        _plot_2d_scatter(
+            true_pf_data_sorted,
+            empirical_pf_data,
+            empirical_pf_batches,
+            target_columns[:2],
+            range_tags[:2],
+            direction_tags[:2],
+            experiment_dir,
+        )
 
 
-def _plot_2d_scatter(pf_data, exp_data, batch_indices, targets, ranges, directions, save_dir):
-    """内部辅助函数：绘制 2D 图"""
-    plt.figure(figsize=(8, 8))
+def _plot_2d_scatter(true_pf_sorted, emp_pf_data, emp_batches, targets, ranges, directions, save_dir):
+    """
+    内部辅助函数：绘制 2D 图
+    Args:
+        true_pf_sorted: 已按X轴排序的全空间真实帕累托前沿点 (用于画线)
+        emp_pf_data:    实验中找到的非支配点 (用于画散点)
+        emp_batches:    这些非支配点对应的 batch index
+    """
+    plt.figure(figsize=(10, 8))
 
-    # Layer 1: True Pareto Front (背景)
-    plt.scatter(
-        pf_data[:, 0], pf_data[:, 1], c="skyblue", alpha=0.4, s=30, label="True Pareto Front", zorder=0  # 浅蓝色  # 半透明  # 放在最底层
+    # Layer 1: True Pareto Front (背景 - 线条)
+    # 使用 plot 而不是 scatter，并设置 zorder 较低
+    plt.plot(
+        true_pf_sorted[:, 0],
+        true_pf_sorted[:, 1],
+        c="skyblue",  # 浅蓝色线条
+        linestyle="-",  # 实线
+        linewidth=2,  # 线宽
+        alpha=0.6,  # 半透明
+        label="True Pareto Front",
+        zorder=0,  # 放在最底层
     )
-    # Layer 2: Optimization Process (前景)
-    # 使用 Blues colormap，c 指定为 batch_indices 实现渐变
+
+    # Layer 2: Empirical Pareto Front (前景 - 散点)
     sc = plt.scatter(
-        exp_data[:, 0],
-        exp_data[:, 1],
-        c=batch_indices,
-        cmap="Blues",
-        edgecolors="k",  # 加黑色边框以区分浅色背景
-        linewidth=0.5,
-        s=50,
-        alpha=0.9,
-        label="Observed Samples",
-        zorder=10,  # 放在上层
+        emp_pf_data[:, 0],
+        emp_pf_data[:, 1],
+        c=emp_batches,
+        cmap="Blues",  # 颜色映射
+        edgecolors="k",  # 黑色描边
+        linewidth=0.8,
+        s=80,  # 大小
+        alpha=1.0,  # 不透明
+        label="Found Non-Dominated Solutions",
+        zorder=10,  # 放在最顶层
     )
+
     # 添加 Colorbar
-    cbar = plt.colorbar(sc)
-    cbar.set_label("Batch Iteration")
-    # 设置坐标轴范围 (如果提供了 range_tags)
+    if len(emp_batches) > 0:
+        cbar = plt.colorbar(sc)
+        cbar.set_label("Found at Batch Index")
+
+    # 设置坐标轴范围
     if ranges:
-        plt.xlim(ranges[0])
-        plt.ylim(ranges[1])
+        x_min, x_max = ranges[0]
+        y_min, y_max = ranges[1]
+        x_padding = (x_max - x_min) * 0.05
+        y_padding = (y_max - y_min) * 0.05
+        plt.xlim(x_min - x_padding, x_max + x_padding)
+        plt.ylim(y_min - y_padding, y_max + y_padding)
+
     # 标签与标题
     plt.xlabel(f"{targets[0]} ({directions[0]})")
     plt.ylabel(f"{targets[1]} ({directions[1]})")
-    plt.title("Optimization Process & Pareto Front Coverage")
+    plt.title("Optimization Process: Found Solutions vs True PF Line")
 
-    # Legend (只显示 True PF，因为 Scatter 已经有 Colorbar)
+    # Legend
     plt.legend(loc="best")
     plt.grid(True, linestyle="--", alpha=0.5)
-    save_path = save_dir / "plot_4_optimization_process_2d.png"
+
+    save_path = save_dir / "plot_4_pareto_line_comparison.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 4 saved: {save_path}")

@@ -16,7 +16,7 @@ global_dir = Path(__file__).parent
 data_dir = global_dir / Path("../examples/")
 
 # 控制参数
-NUM_ROUNDS = 5  # k值：运行多少轮
+NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
@@ -42,7 +42,7 @@ CONFIG = {
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "lhs",
+        "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "evolution",
         "kwargs": {

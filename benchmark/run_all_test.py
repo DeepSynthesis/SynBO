@@ -1,0 +1,184 @@
+import copy
+
+# Import all necessary functions from run_benchmark.py
+from run_benchmark import main as run_benchmark_main, CONFIG as ORIGINAL_CONFIG
+
+# =================================================CONFIG=================================================
+# Use the original CONFIG as base template
+BASE_CONFIG = copy.deepcopy(ORIGINAL_CONFIG)
+
+# 定义不同的优化方法和初始化策略组合
+TEST_VARIATIONS = {
+    # 不同的贝叶斯优化代理模型
+    "surrogate_models": [
+        "linear",
+        "gaussian_process", 
+        "random_forest",
+        "xgboost",
+    ],
+    
+    # 不同的优化方法
+    "optimize_methods": [
+        "evolution",
+        "random",
+        "bayesian",
+        "default_BO",
+    ],
+    
+    # 不同的获取函数 (仅用于default_BO)
+    "acf_functions": [
+        "EHVI",
+        "UCB",
+        "NEI",
+        "ParEGO",
+    ],
+    
+    # 不同的进化方法 (仅用于evolution)
+    "evolution_methods": [
+        "Thompson",
+        "Standard",
+    ],
+    
+    # 不同的初始化方法
+    "sampling_methods": [
+        "random",
+        "latin_hypercube",
+        "sobol",
+    ],
+    
+    # 不同的描述符标准化方法
+    "desc_normalize_methods": [
+        "minmax",
+        "standard", 
+        "robust",
+    ],
+}
+# ============================================================================
+
+
+def generate_test_configs():
+    """生成所有测试配置的组合"""
+    configs = []
+
+    # 生成所有可能的组合
+    for optimize_method in TEST_VARIATIONS["optimize_methods"]:
+        for sampling_method in TEST_VARIATIONS["sampling_methods"]:
+            for desc_normalize in TEST_VARIATIONS["desc_normalize_methods"]:
+                
+                # 根据optimize_method决定是否需要surrogate_model和acf_func
+                if optimize_method == "random":
+                    # random方法不需要kwargs
+                    config = copy.deepcopy(BASE_CONFIG)
+                    config["optimization_settings"]["optimize_method"] = optimize_method
+                    config["optimization_settings"]["sampling_method"] = sampling_method
+                    config["optimization_settings"]["desc_normalize"] = desc_normalize
+                    config["optimization_settings"]["kwargs"] = {}
+                    
+                    config["experiment_name"] = (
+                        f"B-H_Optimization_random_{sampling_method}_{desc_normalize}"
+                    )
+                    configs.append(config)
+                    
+                elif optimize_method == "default_BO":
+                    # default_BO需要surrogate_model和acf_func
+                    for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+                        for acf_func in TEST_VARIATIONS["acf_functions"]:
+                            config = copy.deepcopy(BASE_CONFIG)
+                            config["optimization_settings"]["optimize_method"] = optimize_method
+                            config["optimization_settings"]["sampling_method"] = sampling_method
+                            config["optimization_settings"]["desc_normalize"] = desc_normalize
+                            config["optimization_settings"]["kwargs"] = {
+                                "surrogate_model": surrogate_model,
+                                "acf_func": acf_func,
+                            }
+                            
+                            config["experiment_name"] = (
+                                f"B-H_Optimization_{surrogate_model}_{optimize_method}_{acf_func}_{sampling_method}_{desc_normalize}"
+                            )
+                            configs.append(config)
+                            
+                elif optimize_method == "evolution":
+                    # evolution需要surrogate_model和method
+                    for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+                        for evolution_method in TEST_VARIATIONS["evolution_methods"]:
+                            config = copy.deepcopy(BASE_CONFIG)
+                            config["optimization_settings"]["optimize_method"] = optimize_method
+                            config["optimization_settings"]["sampling_method"] = sampling_method
+                            config["optimization_settings"]["desc_normalize"] = desc_normalize
+                            config["optimization_settings"]["kwargs"] = {
+                                "surrogate_model": surrogate_model,
+                                "method": evolution_method,
+                            }
+                            
+                            config["experiment_name"] = (
+                                f"B-H_Optimization_{surrogate_model}_{optimize_method}_{evolution_method}_{sampling_method}_{desc_normalize}"
+                            )
+                            configs.append(config)
+                else:
+                    # bayesian需要surrogate_model
+                    for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
+                        config = copy.deepcopy(BASE_CONFIG)
+                        config["optimization_settings"]["optimize_method"] = optimize_method
+                        config["optimization_settings"]["sampling_method"] = sampling_method
+                        config["optimization_settings"]["desc_normalize"] = desc_normalize
+                        config["optimization_settings"]["kwargs"] = {
+                            "surrogate_model": surrogate_model,
+                        }
+                        
+                        config["experiment_name"] = (
+                            f"B-H_Optimization_{surrogate_model}_{optimize_method}_{sampling_method}_{desc_normalize}"
+                        )
+                        configs.append(config)
+
+    return configs
+
+
+def run_single_experiment(config, experiment_idx, total_experiments):
+    """运行单个实验配置"""
+    print(f"\n{'='*50}")
+    print(f"Running Experiment {experiment_idx + 1}/{total_experiments}")
+    print(f"Config: {config['experiment_name']}")
+    print(f"{'='*50}")
+
+    # 临时替换全局CONFIG
+    import run_benchmark
+
+    original_config = run_benchmark.CONFIG
+    run_benchmark.CONFIG = config
+
+    try:
+        # 直接调用原始的main函数
+        run_benchmark_main()
+        return config["data_paths"]["results_base_dir"]
+    finally:
+        # 恢复原始CONFIG
+        run_benchmark.CONFIG = original_config
+
+
+def main():
+    """主函数：运行所有测试配置"""
+    print("Starting comprehensive optimization method testing...")
+
+    # 生成所有测试配置
+    test_configs = generate_test_configs()
+    print(f"Generated {len(test_configs)} test configurations.")
+
+    # 运行所有实验
+    for i, config in enumerate(test_configs):
+        try:
+            print(f"\n{'='*50}")
+            print(f"Running Experiment {i + 1}/{len(test_configs)}")
+            print(f"Config: {config['experiment_name']}")
+            print(f"{'='*50}")
+
+            run_single_experiment(config, i, len(test_configs))
+
+        except Exception as e:
+            print(f"Error running experiment {i+1}: {e}")
+            continue
+
+    print(f"\nAll experiments completed.")
+
+
+if __name__ == "__main__":
+    main()

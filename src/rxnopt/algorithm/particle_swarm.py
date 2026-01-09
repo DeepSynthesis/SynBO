@@ -40,6 +40,9 @@ class DefaultPS:
 
         if surrogate_model == "GP":
             self.surrogate_model_class = GPSurrogateModel
+        elif surrogate_model == "RF":
+            from rxnopt.algorithm.sg_model import RFSurrogateModel
+            self.surrogate_model_class = RFSurrogateModel
         else:
             raise ValueError(f"Unknown surrogate model: {surrogate_model}")
 

@@ -296,6 +296,9 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         # Dummy mean and covariance modules to satisfy gpytorch requirements
         self.mean_module = gpytorch.means.ZeroMean()
         self.covar_module = gpytorch.kernels.RBFKernel()
+        
+        # Add batch_shape attribute for ModelListGP compatibility
+        self._batch_shape = torch.Size([])
 
     def forward(self, x):
         # This method is required by gpytorch but won't be used for inference
@@ -303,6 +306,11 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         mean = self.mean_module(x)
         covar = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean, covar)
+    
+    @property
+    def batch_shape(self):
+        """Return batch_shape for ModelListGP compatibility"""
+        return self._batch_shape
 
     def posterior(self, X, output_indices=None, observation_noise=False, posterior_transform=None):
         """
@@ -313,15 +321,15 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
             raise RuntimeError("Model must be fitted before calling posterior")
 
         # Handle different input shapes - ensure 2D for sklearn
-        original_shape = X.shape
         if X.dim() == 3:
             # Batched input: (batch_size, q, d) -> (batch_size * q, d)
             batch_size, q, d = X.shape
             X_2d = X.view(-1, d)
         elif X.dim() == 2:
             # Regular input: (n, d)
-            batch_size = 1
-            q, d = X.shape
+            batch_size = None
+            q = X.shape[0]
+            d = X.shape[1]
             X_2d = X
         else:
             raise ValueError(f"Unsupported input shape: {X.shape}")
@@ -337,16 +345,6 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         mean = mean.to(X.dtype)
         variance = variance.to(X.dtype)
 
-        # Reshape predictions to match expected output format
-        if original_shape != X_2d.shape:
-            # For batched inputs, reshape back: (batch_size * q, 1) -> (batch_size, q, 1)
-            mean = mean.view(batch_size, q, -1)
-            variance = variance.view(batch_size, q, -1)
-        else:
-            # For non-batched inputs, ensure proper shape (n, 1) -> (1, n, 1)
-            mean = mean.unsqueeze(0)
-            variance = variance.unsqueeze(0)
-
         # Create a posterior distribution compatible with BoTorch
         from gpytorch.distributions import MultivariateNormal
         from linear_operator.operators import DiagLinearOperator
@@ -354,13 +352,21 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         # Ensure variance is positive
         variance = torch.clamp(variance, min=1e-6)
         
-        # Create distributions for each batch element
-        # The shape should be (batch_size, q) for mean and (batch_size, q, q) for covar
-        mean_squeezed = mean.squeeze(-1)  # (batch_size, q)
-        var_squeezed = variance.squeeze(-1)  # (batch_size, q)
+        # Reshape to match GP output format
+        if batch_size is not None:
+            # For 3D input (batch_size, q, d), output should be (batch_size, q, 1)
+            mean = mean.view(batch_size, q, 1)
+            variance = variance.view(batch_size, q, 1)
+            # Squeeze last dimension for MVN: (batch_size, q)
+            mean_squeezed = mean.squeeze(-1)
+            var_squeezed = variance.squeeze(-1)
+        else:
+            # For 2D input (n, d), output should be (n,)
+            mean_squeezed = mean.squeeze(-1)
+            var_squeezed = variance.squeeze(-1)
         
-        # Create diagonal covariance for each batch
-        covar = DiagLinearOperator(var_squeezed)  # This handles batching automatically
+        # Create diagonal covariance
+        covar = DiagLinearOperator(var_squeezed)
         
         # Create the posterior distribution
         mvn = MultivariateNormal(mean_squeezed, covar)

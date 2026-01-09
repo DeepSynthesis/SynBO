@@ -35,7 +35,7 @@ CONFIG = {
         "desc_normalize": "minmax",
         "sampling_method": "lhs",
         "refine_desc": "filter_0.8",
-        "optimize_method": "default_BO",
+        "optimize_method": "evolution",
         "kwargs": {
             # "acq_func": "NEI",
             # "surrogate_model": "GP",

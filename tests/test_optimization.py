@@ -42,6 +42,8 @@ class TestReactionOptimizer(unittest.TestCase):
     def test_combinations(self):
         test_params = [
             ("default_BO", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
+            ("evolution", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
+            ("particle_swarm", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
             # ("evolution", "minmax", "auto_select", "csv", {"method": "Thompson", "surrogate_model": "RF"}),
             # ("evolution", "minmax", "auto_select", "csv", {"method": "Thompson", "surrogate_model": "ensemble"}),
             # ("evolution", "minmax", "auto_select", "csv", {"method": "Standard", "surrogate_model": "GP"}),

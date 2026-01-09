@@ -364,8 +364,7 @@ def plot_optimization_process_scatter(df, target_columns, direction_tags, range_
     1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，并按顺序连成一条浅蓝色线条。
     2. 前景：仅绘制实验结果中找到的非支配解 (Empirical Pareto Front)，以散点显示，颜色根据 Batch Index 渐变。
     """
-    
-    
+    df = df[df['round_index'] == 0]
     
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)

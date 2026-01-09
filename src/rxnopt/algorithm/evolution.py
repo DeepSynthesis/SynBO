@@ -103,7 +103,7 @@ class DefaultEO:
             num_models = training_y_t.shape[1]
             task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
 
-            self.models = []
+            models = []
             for i in range(num_models):
                 key = list(training_y_dict.keys())[i]
                 progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
@@ -111,19 +111,11 @@ class DefaultEO:
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
                 model_i.fit(training_X_t, train_y_i)
-                self.models.append(model_i)
+                models.append(model_i.model)
                 progress.update(task_train, advance=1)
 
-            # For GP models, we can use ModelListGP for efficiency
-            # For other models, we'll predict individually
-            if self.surrogate_model_class == GPSurrogateModel:
-                self.global_model = ModelListGP(*[m.model for m in self.models])
-                self.use_global_model = True
-            else:
-                self.global_model = None
-                self.use_global_model = False
+            self.global_model = ModelListGP(*models)
 
-            # 4. Global Prediction
             progress.log("Predicting mean and variance for all candidates...", style="blue")
 
             task_pred = progress.add_task(description="Predicting candidates", total=len(candidate_X_t))
@@ -134,29 +126,20 @@ class DefaultEO:
                 for i in range(0, len(candidate_X_t), self.pred_batch_size):
                     batch_X = candidate_X_t[i : i + self.pred_batch_size]
 
-                    if self.use_global_model:
-                        # Use ModelListGP for GP models
-                        posterior = self.global_model.posterior(batch_X)
-                        pred_means_list.append(posterior.mean)
-                        pred_vars_list.append(posterior.variance)
-                    else:
-                        # Predict individually for non-GP models
-                        batch_means = []
-                        batch_vars = []
-                        for model in self.models:
-                            mean_pred, var_pred = model.predict(batch_X)
-                            # Ensure dtype consistency
-                            batch_means.append(mean_pred.double())
-                            batch_vars.append(var_pred.double())
-                        pred_means_list.append(torch.cat(batch_means, dim=1))
-                        pred_vars_list.append(torch.cat(batch_vars, dim=1))
+                    posterior = self.global_model.posterior(batch_X)
+                    pred_means_list.append(posterior.mean)
+                    pred_vars_list.append(posterior.variance)
 
                     progress.update(task_pred, advance=len(batch_X))
 
             all_pred_mean = torch.cat(pred_means_list, dim=0)  # Shape: (N_cand, N_obj)
             all_pred_var = torch.cat(pred_vars_list, dim=0)
             all_pred_std = torch.sqrt(all_pred_var)
-
+            
+            for it, settings in enumerate(opt_metric_settings):
+                low, high = (0, 1) if settings['opt_direct'] == 'max' else (-1, 0)
+                all_pred_mean[:, it].clamp_(min=low, max=high)
+            
             # 5. Selection Strategy (Standard vs Thompson)
             progress.log(f"Performing NSGA-II selection ({self.method})...", style="magenta")
 
@@ -170,13 +153,6 @@ class DefaultEO:
                 fitness = all_pred_mean.clone()
                 rec_label = "Evolution (Standard)"
 
-            # 6. Adjust for Min/Max objectives
-            # 注意：Thompson Sampling 是在原始 metric 空间采样的，采样后再取反处理最小化目标
-            for i, setting in enumerate(opt_metric_settings):
-                if setting["opt_direct"] == "max":
-                    fitness[:, i] = -fitness[:, i]
-
-            # 7. NSGA-II Ranking & Selection
             selected_indices = self._nsga2_selection(fitness, current_batch_size)
             selected_indices_cpu = selected_indices.cpu().numpy()
 
@@ -195,17 +171,9 @@ class DefaultEO:
 
     def _nsga2_selection(self, fitness: torch.Tensor, n_select: int) -> torch.Tensor:
         """
-        实现简化的 NSGA-II 选择逻辑：
-        1. 非支配排序分层 (Non-dominated Sorting)
-        2. 拥挤距离计算 (Crowding Distance)
-
-        Args:
-            fitness: (N, M) tensor, 假设所有目标都是求最大化 (Maximize).
-            n_select: 需要选择的样本数量.
-
-        Returns:
-            selected_indices: (n_select,) tensor, 选中样本在原数据中的索引.
+        实现简化的 NSGA-II 选择逻辑，并打印每一层帕累托前沿的信息。
         """
+        print(111)
         n_points = fitness.shape[0]
         # 如果样本数本身就少于需求数，直接返回所有索引
         if n_points <= n_select:
@@ -219,9 +187,26 @@ class DefaultEO:
         current_indices = indices
         current_fitness = fitness
 
+        # 用于记录当前是第几层 Front
+        front_rank = 0
+
         while len(selected_indices) < n_select and len(current_indices) > 0:
             pareto_mask = is_non_dominated(current_fitness)
             front_indices = current_indices[pareto_mask]
+
+            # =========== 添加的打印逻辑 START ===========
+            # 获取当前 Front 对应的具体 Fitness 值
+            this_front_values = fitness[front_indices]
+
+            print(f"\n[NSGA-II Selection] Pareto Front Rank: {front_rank}")
+            print(f"  > Number of points: {len(front_indices)}")
+            print(f"  > Indices in original population: {front_indices.tolist()}")
+            # 打印具体的 Fitness 值 (建议保留一定的小数精度以便查看)
+            # 这里直接打印 Tensor，PyTorch 会自动格式化
+            print(f"  > Fitness Values:\n{this_front_values}")
+
+            front_rank += 1
+            # =========== 添加的打印逻辑 END =============
 
             if len(selected_indices) + len(front_indices) <= n_select:
                 selected_indices.extend(front_indices.tolist())
@@ -234,6 +219,9 @@ class DefaultEO:
                 crowding_dists = self._calc_crowding_distance(front_fitness)
 
                 sorted_vals, sorted_idxs = torch.sort(crowding_dists, descending=True)
+
+                # 这一步是为了打印最后被截断层中实际被选中的点（可选，如果需要知道最后谁被选中了）
+                # print(f"  > (Crowding Distance Applied) Keeping top {n_needed} from this front.")
 
                 best_in_front_indices = front_indices[sorted_idxs[:n_needed]]
                 selected_indices.extend(best_in_front_indices.tolist())

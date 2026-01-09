@@ -29,7 +29,7 @@ CONFIG = {
         "opt_metrics": ["cost", "yield"],  # ,
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},  # yield
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 0.5},  # cost
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},  # cost
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
@@ -92,7 +92,7 @@ def main():
             opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
             opt_type=CONFIG["optimization_settings"]["opt_type"],
             random_seed=CONFIG["seed"],
-            quiet=True,
+            quiet=False,
         )
 
         rxn_opt.load_rxn_space(condition_dict=condition_dict)

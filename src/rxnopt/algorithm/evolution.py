@@ -184,7 +184,6 @@ class DefaultEO:
         """
         实现简化的 NSGA-II 选择逻辑，并打印每一层帕累托前沿的信息。
         """
-        print(111)
         n_points = fitness.shape[0]
         # 如果样本数本身就少于需求数，直接返回所有索引
         if n_points <= n_select:
@@ -205,17 +204,6 @@ class DefaultEO:
             pareto_mask = is_non_dominated(current_fitness)
             front_indices = current_indices[pareto_mask]
 
-            # =========== 添加的打印逻辑 START ===========
-            # 获取当前 Front 对应的具体 Fitness 值
-            this_front_values = fitness[front_indices]
-
-            print(f"\n[NSGA-II Selection] Pareto Front Rank: {front_rank}")
-            print(f"  > Number of points: {len(front_indices)}")
-            print(f"  > Indices in original population: {front_indices.tolist()}")
-            # 打印具体的 Fitness 值 (建议保留一定的小数精度以便查看)
-            # 这里直接打印 Tensor，PyTorch 会自动格式化
-            print(f"  > Fitness Values:\n{this_front_values}")
-
             front_rank += 1
             # =========== 添加的打印逻辑 END =============
 
@@ -230,9 +218,6 @@ class DefaultEO:
                 crowding_dists = self._calc_crowding_distance(front_fitness)
 
                 sorted_vals, sorted_idxs = torch.sort(crowding_dists, descending=True)
-
-                # 这一步是为了打印最后被截断层中实际被选中的点（可选，如果需要知道最后谁被选中了）
-                # print(f"  > (Crowding Distance Applied) Keeping top {n_needed} from this front.")
 
                 best_in_front_indices = front_indices[sorted_idxs[:n_needed]]
                 selected_indices.extend(best_in_front_indices.tolist())

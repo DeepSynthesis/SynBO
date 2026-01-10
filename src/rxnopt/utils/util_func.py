@@ -98,7 +98,6 @@ def sanitize_filename(filename: str) -> str:
     safe_name = re.sub(illegal_chars, "_", filename)
     if len(safe_name) > 200:
         safe_name = safe_name[:200] + "_truncated"
-    print(safe_name)
     return safe_name
 
 
@@ -130,5 +129,4 @@ def plot_SMILES(SMILES: str, save_dir: str) -> dict:
         drawer.WriteDrawingText(str(file_path))
         return {"success": True}
     except Exception as e:
-        print(f"Error drawing SMILES: {e}")  # 打印错误方便调试
         return {"success": False}

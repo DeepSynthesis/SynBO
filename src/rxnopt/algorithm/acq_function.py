@@ -126,8 +126,6 @@ class BaseAcquisitionFunction:
             if progress:
                 progress.update(task, advance=1)
 
-            # 可选：打印调试信息
-            # print(f"Batch {q_i}: Best Acq Value = {best_acq_val.item():.6e}")
         # 4. 清理与返回
         acq_func.set_X_pending(None)  # 防止副作用
 

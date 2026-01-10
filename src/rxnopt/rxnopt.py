@@ -415,7 +415,6 @@ class ReactionOptimizer:
             # For initialization phase, add empty columns
             for metric in self.opt_metrics:
                 pred_data[f"pred {metric}"] = ["-"] * len(self.selected_conditions)
-        print(pred_data)
         output_df = pd.DataFrame(
             {
                 "batch": [self.batch_id] * len(self.selected_conditions),

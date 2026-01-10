@@ -407,28 +407,14 @@ class ReactionOptimizer:
         pred_data = {}
         if hasattr(self, "pred_mean") and self.pred_mean is not None:
             for i, metric in enumerate(self.opt_metrics):
-                pred_data[f"{metric}_pred"] = self.pred_mean[:, i]
-                pred_data[f"{metric}_sigma"] = self.pred_std[:, i]
-            # Round to 4 significant digits
+                # 拼接 "均值±标准差" 格式的字符串，可根据需求调整小数位数（例如:.2f 保留两位小数）
+                pred_data[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
 
-            def _round_sig(v, sig=4):
-                try:
-                    fv = float(v)
-                except Exception:
-                    return v
-                if math.isnan(fv):
-                    return fv
-                # format to sig significant digits, then convert back to float
-                return float(f"{fv:.{sig}g}")
-
-            for d in pred_data:
-                pred_data[d] = [_round_sig(v, sig=4) for v in pred_data[d]]
         else:
             # For initialization phase, add empty columns
             for metric in self.opt_metrics:
-                pred_data[f"{metric}_pred"] = ["-"] * len(self.selected_conditions)
-                pred_data[f"{metric}_sigma"] = ["-"] * len(self.selected_conditions)
-
+                pred_data[f"pred {metric}"] = ["-"] * len(self.selected_conditions)
+        print(pred_data)
         output_df = pd.DataFrame(
             {
                 "batch": [self.batch_id] * len(self.selected_conditions),

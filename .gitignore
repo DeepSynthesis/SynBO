@@ -228,3 +228,5 @@ benchmark/results/
 .pytest_cache/
 .venv/
 tests/test_results/
+tests/testfile/*
+!tests/testfile/start_file.csv

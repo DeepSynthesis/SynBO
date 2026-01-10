@@ -88,3 +88,6 @@ def get_opt_type(opt: str) -> str:
         return "Optimization"
     elif opt == "init":
         return "Initialization"
+
+
+def plot_SMILES(SMILES: str, save_): ...

@@ -55,7 +55,7 @@ class ExcelWriter:
         ws.title = f"optimization in batch {batch_id}"
         return ws
 
-    def _auto_adjust_columns(self, ws, number_col):
+    def _auto_adjust_columns(self, ws):
         MAX_WIDTH_UNITS = 70
         FONT_FACTOR = 1.3
 

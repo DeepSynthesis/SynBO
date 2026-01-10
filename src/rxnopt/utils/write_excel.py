@@ -4,6 +4,10 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, Alignment
 from openpyxl.drawing.image import Image
 from pathlib import Path
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
+from openpyxl.utils.units import pixels_to_EMU
+from openpyxl.utils import column_index_from_string
 
 from rxnopt.utils.logger import console
 
@@ -110,8 +114,10 @@ class ExcelWriter:
                 cell.alignment = alignment
 
     def _process_figure(self, ws, figure_type, output_df, figure_path, column_idx_letter):
+
         for i in output_df.index:
             excel_row_idx = i + 2
+            cell_address = f"{column_idx_letter}{excel_row_idx}"
 
             img_filename = output_df.loc[i, figure_type]
             if pd.isna(img_filename):
@@ -123,35 +129,46 @@ class ExcelWriter:
                 console.log(f"{img_path} does not exist, skipping...", style="yellow")
                 continue
 
-            ws[f"{column_idx_letter}{excel_row_idx}"].value = None
+            cell = ws[cell_address]
+            cell.value = None
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
             try:
                 img = Image(str(img_path))
+                new_width = int(img.width / 5)
+                new_height = int(img.height / 5)
 
-                # 调整图片显示尺寸
-                img.width = int(img.width / 5)
-                img.height = int(img.height / 5)
+                img.width = new_width
+                img.height = new_height
 
-                ws.add_image(img, f"{column_idx_letter}{excel_row_idx}")
+                target_row_height_pt = 50
+                ws.row_dimensions[excel_row_idx].height = target_row_height_pt
 
-                current_height = ws.row_dimensions[excel_row_idx].height
-                if current_height is None:
-                    current_height = 18.75
+                padding_width_px = 10
+                img_col_width_units = (new_width + padding_width_px) / 7
 
-                ws.row_dimensions[excel_row_idx].height = max(img.height * 0.8, current_height)
-
-                # 图片列宽处理：
-                # 如果图片宽度所需的列宽 超过了 500px限制，这里是否要为了图片打破限制？
-                # 如果想保持500px限制，就不动 width；如果想让图片完整显示，可以取消下面的 min 限制。
-                # 下面逻辑是：让列宽适应图片，但也限制最大值（为了保持表格整齐）
-                img_col_width = img.width * 0.14  # 粗略换算 px to column width unit
                 current_col_width = ws.column_dimensions[column_idx_letter].width
+                final_col_width = min(max(img_col_width_units, current_col_width), 70)
+                ws.column_dimensions[column_idx_letter].width = final_col_width
 
-                # 取 图片所需宽度 和 500px限制(约70) 中的较小值，同时不能比文字宽度小
-                limit_width = 70
-                new_width = min(max(img_col_width, current_col_width), limit_width)
+                col_width_px = final_col_width * 7
+                row_height_px = target_row_height_pt * 1.3333
 
-                ws.column_dimensions[column_idx_letter].width = new_width
+                left_offset_px = max(0, (col_width_px - new_width) / 2)
+                top_offset_px = max(0, (row_height_px - new_height) / 2)
+
+                col_idx = column_index_from_string(column_idx_letter) - 1
+                row_idx = excel_row_idx - 1  # 0-based row index
+
+                marker = AnchorMarker(col=col_idx, colOff=pixels_to_EMU(left_offset_px), row=row_idx, rowOff=pixels_to_EMU(top_offset_px))
+                size = XDRPositiveSize2D(pixels_to_EMU(new_width), pixels_to_EMU(new_height))
+
+                img.anchor = OneCellAnchor(_from=marker, ext=size)
+                ws.add_image(img)
 
             except Exception as e:
-                console.log(f"Failed to add image for {figure_type} at row {excel_row_idx}: {str(e)}", style="red")
+                console.log(f"Error adding image {img_filename}: {e}", style="red")
+                try:
+                    ws.add_image(Image(str(img_path)), cell_address)
+                except:
+                    pass

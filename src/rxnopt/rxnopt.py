@@ -379,6 +379,7 @@ class ReactionOptimizer:
         figure_output: List[str] = None,
         figure_path: Optional[Union[str, Path]] = None,
         suffix: Optional[str] = None,
+        transpose: Optional[bool] = False,
     ) -> None:
         """Save recommendations to file.
 
@@ -436,6 +437,7 @@ class ReactionOptimizer:
                 figure_output=figure_output,
                 figure_path=figure_path,
                 save_path=save_path,
+                transpose=transpose,
             )
         elif filetype == "json":
             output_df.to_json(save_path.with_suffix(".json"), index=False, orient="records")

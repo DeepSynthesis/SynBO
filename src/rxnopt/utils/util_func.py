@@ -9,9 +9,12 @@ from functools import wraps
 
 import pandas as pd
 import torch
-from rich.console import Console
+from pathlib import Path
+from rdkit import Chem
+from rdkit.Chem.Draw import rdMolDraw2D
+import re
 
-console = Console()
+from rxnopt.utils.logger import console
 
 
 def track_called(func):
@@ -90,4 +93,40 @@ def get_opt_type(opt: str) -> str:
         return "Initialization"
 
 
-def plot_SMILES(SMILES: str, save_): ...
+def sanitize_filename(filename: str) -> str:
+    illegal_chars = r'[<>:"/\\|?*]'
+    safe_name = re.sub(illegal_chars, "_", filename)
+    if len(safe_name) > 200:
+        safe_name = safe_name[:200] + "_truncated"
+    return safe_name
+
+
+def plot_SMILES(SMILES: str, save_dir: str) -> dict:
+    mol = Chem.MolFromSmiles(SMILES)
+    if mol is None:
+        return {"success": False}
+    save_path_obj = Path(save_dir)
+    if not save_path_obj.exists():
+        save_path_obj.mkdir(parents=True, exist_ok=True)
+    width, height = 400, 400
+    drawer = rdMolDraw2D.MolDraw2DCairo(width, height)
+    opts = drawer.drawOptions()
+
+    # --- 样式设置 ---
+    opts.bondLineWidth = 3.0  # 键的粗细 (加粗)
+    opts.minFontSize = 16  # 最小字体大小
+    opts.fixedFontSize = 20  # 尝试固定字体大小（如果空间允许）
+    opts.atomLabelFontFace = "Arial"  # 字体类型
+
+    try:
+        drawer.DrawMolecule(mol)
+        drawer.FinishDrawing()
+
+        safe_name = sanitize_filename(SMILES)
+        file_path = save_path_obj / f"{safe_name}.png"
+
+        drawer.WriteDrawingText(str(file_path))
+        return {"success": True}
+
+    except Exception as e:
+        return {"success": False}

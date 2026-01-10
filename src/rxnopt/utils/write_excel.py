@@ -7,7 +7,7 @@ from pathlib import Path
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.utils.units import pixels_to_EMU
-from openpyxl.utils import column_index_from_string
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 from rxnopt.utils.logger import console
 
@@ -17,19 +17,27 @@ class ExcelWriter:
         self.condition_types = condition_types
         self.opt_metrics = opt_metrics
 
-    def write_to_excel(self, output_df, batch_id, figure_output=[], figure_path=None, save_path=None, filetype="xlsx"):
+    def write_to_excel(
+        self,
+        output_df,
+        batch_id,
+        figure_output=[],
+        figure_path=None,
+        save_path=None,
+        filetype="xlsx",
+        transpose=False,
+    ):
         if filetype == "xlsx":
             wb = Workbook()
             ws = self._create_worksheet(wb, batch_id)
 
-            # 1. 填充数据并应用基础样式
-            self._add_data_to_worksheet(ws, output_df)
+            # 1. 填充数据并应用基础样式 (传入 transpose 参数)
+            self._add_data_to_worksheet(ws, output_df, transpose)
 
-            # 2. 自动调整列宽
-            fixed_length_col = [
-                chr(ord("A") + output_df.columns.get_loc(i)) for i in ["batch", "index", *self.opt_metrics] if i in output_df.columns
-            ]
-            self._auto_adjust_columns(ws, fixed_length_col)
+            # 2. 自动调整尺寸 (转置时调整行高，非转置时调整列宽)
+            # 注意：转置后，原来的列名变成了第一列的内容
+            fixed_cols = ["batch", "index", *self.opt_metrics]
+            self._auto_adjust_dimensions(ws, output_df, fixed_cols, transpose)
 
             # 3. 处理图片插入
             if figure_output != [] and figure_path:
@@ -38,13 +46,28 @@ class ExcelWriter:
                     if figure_type not in output_df.columns:
                         continue
 
-                    column_idx_letter = chr(ord("A") + output_df.columns.get_loc(figure_type))
+                    # 找到该 figure_type 在原始 DataFrame 中的位置
+                    col_idx_in_df = output_df.columns.get_loc(figure_type)
+
                     if figure_type in self.condition_types:
-                        self._process_figure(ws, figure_type, output_df, figure_path, column_idx_letter)
+                        self._process_figure(
+                            ws,
+                            figure_type,
+                            output_df,
+                            figure_path,
+                            col_idx_in_df,
+                            transpose,
+                        )
                     else:
-                        console.log(f"Figure output '{figure_type}' not in condition types, skipping...", style="yellow")
+                        console.log(
+                            f"Figure output '{figure_type}' not in condition types, skipping...",
+                            style="yellow",
+                        )
             else:
-                console.log("No figure output and path provided, exporting with names...", style="green")
+                console.log(
+                    "No figure output and path provided, exporting with names...",
+                    style="green",
+                )
 
             wb.save(save_path.with_suffix(".xlsx"))
         else:
@@ -55,137 +78,305 @@ class ExcelWriter:
         ws.title = f"optimization in batch {batch_id}"
         return ws
 
-    def _auto_adjust_columns(self, ws):
-        MAX_WIDTH_UNITS = 70
+    def _auto_adjust_dimensions(self, ws, df, fixed_cols, transpose):
+        """
+        自动调整行高或列宽。
+        transpose=False: 调整列宽以适应内容。
+        transpose=True:  调整行高以适应内容 (因为原来的列现在是行)。
+        """
+        MAX_SIZE = 70
         FONT_FACTOR = 1.3
 
-        for col in ws.columns:
-            column_letter = col[0].column_letter
-            max_length = 0
+        if not transpose:
+            # --- 常规模式：调整列宽 ---
+            for col_idx, col_cells in enumerate(ws.columns, 1):
+                column_letter = get_column_letter(col_idx)
+                max_length = 0
+                for cell in col_cells:
+                    try:
+                        if cell.value:
+                            cell_len = len(str(cell.value))
+                            if cell_len > max_length:
+                                max_length = cell_len
+                    except:
+                        pass
 
-            for cell in col:
+                adjusted_width = (max_length + 2) * FONT_FACTOR
+                final_width = min(adjusted_width, MAX_SIZE)
+                ws.column_dimensions[column_letter].width = final_width
+        else:
+            # --- 转置模式：调整行高 ---
+            # Excel 行高单位是 Points，列宽单位是字符数。这里简单做一个映射
+            # 通常 1个字符宽 约等于 14-15 points 高 (对于这个字号)
+            HEIGHT_FACTOR = 15
+
+            # 转置后，每一行对应原来的一列
+            # ws.rows 返回的是生成器，转成 list 方便索引
+            for row_idx, row_cells in enumerate(ws.rows, 1):
+                max_length = 0
+                for cell in row_cells:
+                    try:
+                        if cell.value:
+                            # 粗略估计：如果是多行文本或长文本，行高需要增加
+                            # 这里简单用字符长度来估算需要的“宽度转高度”
+                            # 注意：Excel行高调整通常不如列宽调整敏感
+                            cell_len = len(str(cell.value))
+                            if cell_len > max_length:
+                                max_length = cell_len
+                    except:
+                        pass
+
+                # 这是一个简单的启发式计算，防止行过高
+                # 这里的逻辑是：如果该行是原来 df 的列头（现在的第一列），或者是短文本，就用默认高
+                # 如果是原来的固定列（如 metrics），可能需要高一点
+
+                # 默认高度
+                target_height = 25
+
+                # 稍微根据内容长度增加一点，但不像列宽那么激进，因为行主要是横向阅读
+                if max_length > 20:
+                    target_height = 30
+
+                ws.row_dimensions[row_idx].height = target_height
+
+            # 额外处理：第一列（原来的 Header）宽度需要够宽
+            max_header_len = 0
+            for cell in ws["A"]:
                 try:
                     if cell.value:
-                        cell_len = len(str(cell.value))
-                        if cell_len > max_length:
-                            max_length = cell_len
+                        l = len(str(cell.value))
+                        if l > max_header_len:
+                            max_header_len = l
                 except:
                     pass
+            ws.column_dimensions["A"].width = (max_header_len + 2) * FONT_FACTOR
 
-            adjusted_width = (max_length + 2) * FONT_FACTOR
-            final_width = min(adjusted_width, MAX_WIDTH_UNITS)
-            ws.column_dimensions[column_letter].width = final_width
+    def _add_data_to_worksheet(self, ws, output_df, transpose):
+        # 基础样式配置
+        # HEADER 对应 df.columns
+        # DATA 对应 df 的内容
 
-    def _add_data_to_worksheet(self, ws, output_df):
+        # 如果不转置：Header 高度 35，Data 行高 25
+        # 如果转置：  Header 列宽 (自动)，Data 列宽 (放图片的要宽，普通的自动)
+
         HEADER_HEIGHT = 35
         ROW_HEIGHT = 25
+
         header_font = Font(name="Arial", size=16, bold=True)
         data_font = Font(name="Arial", size=14, bold=False)
         alignment = Alignment(horizontal="center", vertical="center")
 
-        rows = list(dataframe_to_rows(output_df, index=False, header=True))
+        # 获取原始数据矩阵（包含表头）
+        # rows_data = [columns, row1, row2, ...]
+        original_rows = list(dataframe_to_rows(output_df, index=False, header=True))
 
-        for i, row in enumerate(rows):
-            row_idx = i + 1
-            if i == 0:
-                ws.row_dimensions[row_idx].height = HEADER_HEIGHT
-                current_font = header_font
-            else:
+        if not transpose:
+            # --- 常规写入 ---
+            for i, row in enumerate(original_rows):
+                row_idx = i + 1
+                if i == 0:
+                    ws.row_dimensions[row_idx].height = HEADER_HEIGHT
+                    current_font = header_font
+                else:
+                    ws.row_dimensions[row_idx].height = ROW_HEIGHT
+                    current_font = data_font
+
+                for j, value in enumerate(row):
+                    cell = ws.cell(row=row_idx, column=j + 1, value=value)
+                    cell.font = current_font
+                    cell.alignment = alignment
+        else:
+            # --- 转置写入 ---
+            # original_rows 是 list of lists
+            # 转置矩阵：zip(*original_rows)
+            transposed_rows = list(zip(*original_rows))
+
+            # 转置后：
+            # 第1列 (Column A) 是原来的 Headers
+            # 第1行 (Row 1) 是原来的 Headers 的第一个元素(通常是空或者index名，这里作为 Batch 1 的表头部分) + Batch 1 的数据
+
+            # 在转置模式下，我们希望：
+            # Column A (原来的 Header 行) 字体加粗
+            # Row 1 (原来的 Column 1) 也可以加粗，或者保持普通，视需求而定。
+            # 这里逻辑：原来的 Header (现在的 Col A) 用 header_font
+
+            for i, row in enumerate(transposed_rows):
+                row_idx = i + 1
+
+                # 每一行的高度默认设置一下，后面 _auto_adjust 会微调，
+                # 但如果有图片，_process_figure 会覆盖
                 ws.row_dimensions[row_idx].height = ROW_HEIGHT
-                current_font = data_font
 
-            for j, value in enumerate(row):
-                cell = ws.cell(row=row_idx, column=j + 1, value=value)
-                cell.font = current_font
-                cell.alignment = alignment
+                for j, value in enumerate(row):
+                    col_idx = j + 1
+                    cell = ws.cell(row=row_idx, column=col_idx, value=value)
 
-    def _process_figure(self, ws, figure_type, output_df, figure_path, column_idx_letter):
-        # 预设参数
-        TARGET_ROW_HEIGHT_PT = 80  # 设定放图片的行高 (单位: Point)
-        TARGET_COL_WIDTH_UNITS = 30  # 设定放图片的列宽初始值 (单位: Char width)
-        PADDING = 2  # 图片距离单元格边框的留白 (像素)
+                    # 样式逻辑：
+                    # 如果是第一列 (j==0)，对应原来的表头 -> Header Style
+                    if j == 0:
+                        cell.font = header_font
+                        # 转置后，第一列往往需要宽一点，这里先不设，由auto_adjust处理
+                    else:
+                        cell.font = data_font
 
-        # 1. 先设置该列的列宽，确保有足够的空间
-        # 注意：如果该列原本的文字很长导致列宽很大，保留较大的那个
-        current_width = ws.column_dimensions[column_idx_letter].width
-        if current_width < TARGET_COL_WIDTH_UNITS:
-            ws.column_dimensions[column_idx_letter].width = TARGET_COL_WIDTH_UNITS
+                    cell.alignment = alignment
 
-        # 重新获取最终列宽 (Excel单位) 并转换为像素
-        # Excel列宽单位到像素的大致转换: (width * 7) 是一个近似值，更精确通常是 width * 7.5 或 8 取决于字体
-        # 这里使用 openpyxl 内部逻辑的逆运算估算像素：Approx 7px per unit for standard font
-        # 为了保险起见，我们手动定义一个转换系数。通常 Arial 10pt 下 1 unit ≈ 7-8 pixels.
-        # 你的字体较大 (14pt)，但列宽单位是基于默认字体的字符数的。
-        PIXEL_PER_COL_UNIT = 7.5
-        final_col_width_units = ws.column_dimensions[column_idx_letter].width
-        cell_w_px = int(final_col_width_units * PIXEL_PER_COL_UNIT)
+    def _process_figure(self, ws, figure_type, output_df, figure_path, col_idx_in_df, transpose):
+        """
+        :param col_idx_in_df: 图片数据在原始 dataframe 中的列索引 (int, 0-based)
+        """
+        PADDING = 2  # 图片留白 (像素)
 
-        # 行高单位 (Points) 到像素 (Pixels) 的转换: 1 Point = 1.333 Pixels (96 DPI)
-        cell_h_px = int(TARGET_ROW_HEIGHT_PT * 1.3333)
+        # 尺寸定义
+        # IMG_SIDE_LENGTH_PX: 图片期望显示的像素大小（正方形或长方形区域限制）
+        # 我们假设图片区域大概是 100x100 像素左右的空间
+        IMG_DISPLAY_SIZE = 100
 
-        for i in output_df.index:
-            excel_row_idx = i + 2
-            cell_address = f"{column_idx_letter}{excel_row_idx}"
+        # 将像素转换为 Excel 单位的大致系数
+        PX_TO_COL_WIDTH = 1 / 7.5  # 1 unit width ≈ 7.5 px
+        PX_TO_ROW_HEIGHT = 0.75  # 1 point height ≈ 1.33 px -> 1 px ≈ 0.75 pt
 
-            img_filename = output_df.loc[i, figure_type]
-            if pd.isna(img_filename):
-                continue
+        if not transpose:
+            # ================= 非转置模式 (图片在列中) =================
 
-            img_path = Path(figure_path) / Path(f"{figure_type}/{img_filename}.png")
+            # 1. 确定位置
+            # Excel列号 = df列索引 + 1 (因为Excel从1开始)
+            excel_col_idx = col_idx_in_df + 1
+            column_letter = get_column_letter(excel_col_idx)
 
+            # 2. 设置单元格尺寸
+            # 列宽设置 (基于字符数)
+            target_col_width = IMG_DISPLAY_SIZE * PX_TO_COL_WIDTH
+            current_width = ws.column_dimensions[column_letter].width
+            if current_width < target_col_width:
+                ws.column_dimensions[column_letter].width = target_col_width
+
+            # 计算最终像素宽高
+            cell_w_px = int(ws.column_dimensions[column_letter].width / PX_TO_COL_WIDTH)
+            # 行高在下面循环中单独设置 (单位 Point)
+            target_row_height_pt = IMG_DISPLAY_SIZE * PX_TO_ROW_HEIGHT
+            cell_h_px = int(target_row_height_pt / PX_TO_ROW_HEIGHT)  # 回算验证
+
+            # 3. 遍历插入
+            for i in output_df.index:
+                excel_row_idx = i + 2  # Header占1行，index从0开始 -> +2
+                cell_address = f"{column_letter}{excel_row_idx}"
+
+                # 设置行高
+                ws.row_dimensions[excel_row_idx].height = target_row_height_pt
+
+                # 获取文件名
+                img_filename = output_df.loc[i, figure_type]
+
+                self._insert_one_image(
+                    ws,
+                    figure_path,
+                    figure_type,
+                    img_filename,
+                    cell_address,
+                    excel_col_idx - 1,  # 0-based col for Anchor
+                    excel_row_idx - 1,  # 0-based row for Anchor
+                    cell_w_px,
+                    cell_h_px,
+                    PADDING,
+                )
+
+        else:
+            # ================= 转置模式 (图片在行中) =================
+
+            # 1. 确定位置
+            # 原来的 df 列变成了 Excel 的行
+            # Excel行号 = df列索引 + 1
+            excel_row_idx = col_idx_in_df + 1
+
+            # 2. 设置单元格尺寸
+            # 行高设置 (单位 Point) - 这一行专门放图片，所以要高
+            target_row_height_pt = IMG_DISPLAY_SIZE * PX_TO_ROW_HEIGHT
+            ws.row_dimensions[excel_row_idx].height = target_row_height_pt
+
+            cell_h_px = int(target_row_height_pt / PX_TO_ROW_HEIGHT)
+
+            # 列宽设置：每一列对应原来的每一行数据
+            # 需要把数据区域的列宽都撑大以放下图片
+            target_col_width = IMG_DISPLAY_SIZE * PX_TO_COL_WIDTH
+            cell_w_px = int(target_col_width / PX_TO_COL_WIDTH)  # 估算像素
+
+            # 3. 遍历插入
+            for i in output_df.index:
+                # 原来的第 i 行数据，现在在第 i+2 列 (第1列是Header)
+                excel_col_idx = i + 2
+                column_letter = get_column_letter(excel_col_idx)
+
+                # 设置列宽 (只有当这一列有图片时才需要撑大，但为了对齐通常统一设置)
+                # 注意：如果同一列有多个图片类型的行，取最大值逻辑包含在内
+                current_w = ws.column_dimensions[column_letter].width
+                if current_w < target_col_width:
+                    ws.column_dimensions[column_letter].width = target_col_width
+
+                cell_address = f"{column_letter}{excel_row_idx}"
+
+                # 获取文件名
+                img_filename = output_df.loc[i, figure_type]
+
+                self._insert_one_image(
+                    ws,
+                    figure_path,
+                    figure_type,
+                    img_filename,
+                    cell_address,
+                    excel_col_idx - 1,
+                    excel_row_idx - 1,
+                    cell_w_px,
+                    cell_h_px,
+                    PADDING,
+                )
+
+    def _insert_one_image(
+        self, ws, figure_path, figure_type, img_filename, cell_address, col_idx_0, row_idx_0, cell_w_px, cell_h_px, padding
+    ):
+        if pd.isna(img_filename):
+            return
+
+        img_path = Path(figure_path) / Path(f"{figure_type}/{img_filename}.png")
+
+        if not img_path.exists():
+            # 简单的 fallback 逻辑
             if not img_path.exists():
-                # 尝试 jpg 扩展名或者不带扩展名的情况
-                if not img_path.exists():
-                    console.log(f"{img_path} does not exist, skipping...", style="yellow")
-                    continue
+                console.log(f"{img_path} does not exist, skipping...", style="yellow")
+                return
 
-            # 清空单元格文字内容
-            cell = ws[cell_address]
-            cell.value = None
+        # 清空单元格文字
+        cell = ws[cell_address]
+        cell.value = None
 
-            # 设置该行行高
-            ws.row_dimensions[excel_row_idx].height = TARGET_ROW_HEIGHT_PT
+        try:
+            img = Image(str(img_path))
+            orig_w, orig_h = img.width, img.height
 
-            try:
-                img = Image(str(img_path))
-                orig_w, orig_h = img.width, img.height
+            # --- 计算缩放 ---
+            available_w = cell_w_px - (2 * padding)
+            available_h = cell_h_px - (2 * padding)
 
-                # --- 计算缩放比例 ---
-                # 目标是：图片放入 (cell_w_px, cell_h_px) 的框内，且保留 PADDING
-                available_w = cell_w_px - (2 * PADDING)
-                available_h = cell_h_px - (2 * PADDING)
+            scale_w = available_w / orig_w
+            scale_h = available_h / orig_h
+            scale = min(scale_w, scale_h)
 
-                # 计算宽和高的缩放比
-                scale_w = available_w / orig_w
-                scale_h = available_h / orig_h
+            new_w = int(orig_w * scale)
+            new_h = int(orig_h * scale)
 
-                # 取较小的缩放比，保证图片完整显示且顶满一边 (Contain 模式)
-                scale = min(scale_w, scale_h)
+            img.width = new_w
+            img.height = new_h
 
-                new_w = int(orig_w * scale)
-                new_h = int(orig_h * scale)
+            # --- 居中计算 ---
+            offset_x_px = max(0, (cell_w_px - new_w) // 2)
+            offset_y_px = max(0, (cell_h_px - new_h) // 2)
 
-                img.width = new_w
-                img.height = new_h
+            # --- 设置 Anchor ---
+            marker = AnchorMarker(col=col_idx_0, colOff=pixels_to_EMU(offset_x_px), row=row_idx_0, rowOff=pixels_to_EMU(offset_y_px))
+            size = XDRPositiveSize2D(pixels_to_EMU(new_w), pixels_to_EMU(new_h))
 
-                # --- 计算居中偏移量 ---
-                # OneCellAnchor 的偏移量是相对于单元格左上角的
-                col_idx = column_index_from_string(column_idx_letter) - 1
-                row_idx = excel_row_idx - 1
+            img.anchor = OneCellAnchor(_from=marker, ext=size)
+            ws.add_image(img)
 
-                offset_x_px = (cell_w_px - new_w) // 2
-                offset_y_px = (cell_h_px - new_h) // 2
-
-                # 确保偏移量不为负
-                offset_x_px = max(0, offset_x_px)
-                offset_y_px = max(0, offset_y_px)
-
-                # --- 设置锚点 ---
-                marker = AnchorMarker(col=col_idx, colOff=pixels_to_EMU(offset_x_px), row=row_idx, rowOff=pixels_to_EMU(offset_y_px))
-                size = XDRPositiveSize2D(pixels_to_EMU(new_w), pixels_to_EMU(new_h))
-
-                img.anchor = OneCellAnchor(_from=marker, ext=size)
-                ws.add_image(img)
-
-            except Exception as e:
-                console.log(f"Error adding image {img_filename}: {e}", style="red")
+        except Exception as e:
+            console.log(f"Error adding image {img_filename} at {cell_address}: {e}", style="red")

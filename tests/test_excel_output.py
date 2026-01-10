@@ -161,7 +161,7 @@ class TestReactionOptimizer(unittest.TestCase):
 
             start_file_path = self.save_dir / "start_file.csv"
             rxn_opt.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
-            rxn_opt.optimize(batch_size=3, desc_normalize=norm, refine_desc=refine, optimize_method=method)
+            rxn_opt.optimize(batch_size=5, desc_normalize=norm, refine_desc=refine, optimize_method=method)
 
             # 保存结果时包含图片输出
             rxn_opt.save_results(

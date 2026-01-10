@@ -98,6 +98,7 @@ def sanitize_filename(filename: str) -> str:
     safe_name = re.sub(illegal_chars, "_", filename)
     if len(safe_name) > 200:
         safe_name = safe_name[:200] + "_truncated"
+    print(safe_name)
     return safe_name
 
 
@@ -124,7 +125,7 @@ def plot_SMILES(SMILES: str, save_dir: str) -> dict:
         # 确保这里调用了正确的文件名清洗函数
         # safe_name = sanitize_filename(SMILES)
         # 临时替代方案，防止 sanitize_filename 未定义导致测试失败：
-        safe_name = "".join([c if c.isalnum() else "_" for c in SMILES])
+        safe_name = sanitize_filename(SMILES)
         file_path = save_path_obj / f"{safe_name}.png"
         drawer.WriteDrawingText(str(file_path))
         return {"success": True}

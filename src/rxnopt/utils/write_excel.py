@@ -323,7 +323,8 @@ class ExcelWriter:
         # img_filename 此时是 SMILES 字符串
         safe_name = sanitize_filename(str(img_filename))
         img_path = save_dir / f"{safe_name}.png"
-
+        print(img_path)
+        print(img_path.exists())
         image_ready = False
         # 3. 检查逻辑：存在 -> 生成 -> 放弃
         if img_path.exists():

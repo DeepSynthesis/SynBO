@@ -10,6 +10,7 @@ from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.utils import column_index_from_string, get_column_letter
 
 from rxnopt.utils.logger import console
+from rxnopt.utils.util_func import plot_SMILES, sanitize_filename
 
 
 class ExcelWriter:
@@ -17,36 +18,24 @@ class ExcelWriter:
         self.condition_types = condition_types
         self.opt_metrics = opt_metrics
 
-    def write_to_excel(
-        self,
-        output_df,
-        batch_id,
-        figure_output=[],
-        figure_path=None,
-        save_path=None,
-        filetype="xlsx",
-        transpose=False,
-    ):
+    def write_to_excel(self, output_df, batch_id, figure_output=[], figure_path=None, save_path=None, filetype="xlsx", transpose=False):
         if filetype == "xlsx":
             wb = Workbook()
             ws = self._create_worksheet(wb, batch_id)
 
-            # 1. 填充数据并应用基础样式 (传入 transpose 参数)
             self._add_data_to_worksheet(ws, output_df, transpose)
 
             # 2. 自动调整尺寸 (转置时调整行高，非转置时调整列宽)
             # 注意：转置后，原来的列名变成了第一列的内容
             fixed_cols = ["batch", "index", *self.opt_metrics]
-            self._auto_adjust_dimensions(ws, output_df, fixed_cols, transpose)
+            self._auto_adjust_dimensions(ws, transpose)
 
-            # 3. 处理图片插入
             if figure_output != [] and figure_path:
                 console.log("exporting with specific figures...", style="green")
                 for figure_type in figure_output:
                     if figure_type not in output_df.columns:
                         continue
 
-                    # 找到该 figure_type 在原始 DataFrame 中的位置
                     col_idx_in_df = output_df.columns.get_loc(figure_type)
 
                     if figure_type in self.condition_types:
@@ -78,12 +67,7 @@ class ExcelWriter:
         ws.title = f"optimization in batch {batch_id}"
         return ws
 
-    def _auto_adjust_dimensions(self, ws, df, fixed_cols, transpose):
-        """
-        自动调整行高或列宽。
-        transpose=False: 调整列宽以适应内容。
-        transpose=True:  调整行高以适应内容 (因为原来的列现在是行)。
-        """
+    def _auto_adjust_dimensions(self, ws, transpose):
         MAX_SIZE = 70
         FONT_FACTOR = 1.3
 
@@ -105,10 +89,6 @@ class ExcelWriter:
                 final_width = min(adjusted_width, MAX_SIZE)
                 ws.column_dimensions[column_letter].width = final_width
         else:
-            # --- 转置模式：调整行高 ---
-            # Excel 行高单位是 Points，列宽单位是字符数。这里简单做一个映射
-            # 通常 1个字符宽 约等于 14-15 points 高 (对于这个字号)
-            HEIGHT_FACTOR = 15
 
             # 转置后，每一行对应原来的一列
             # ws.rows 返回的是生成器，转成 list 方便索引
@@ -117,9 +97,6 @@ class ExcelWriter:
                 for cell in row_cells:
                     try:
                         if cell.value:
-                            # 粗略估计：如果是多行文本或长文本，行高需要增加
-                            # 这里简单用字符长度来估算需要的“宽度转高度”
-                            # 注意：Excel行高调整通常不如列宽调整敏感
                             cell_len = len(str(cell.value))
                             if cell_len > max_length:
                                 max_length = cell_len
@@ -334,49 +311,69 @@ class ExcelWriter:
     def _insert_one_image(
         self, ws, figure_path, figure_type, img_filename, cell_address, col_idx_0, row_idx_0, cell_w_px, cell_h_px, padding
     ):
+        """
+        :param img_filename: 这里实际上是 DataFrame 里的值 (即 SMILES 字符串)
+        """
         if pd.isna(img_filename):
             return
+        # 1. 确定保存目录
+        save_dir = Path(figure_path) / figure_type
 
-        img_path = Path(figure_path) / Path(f"{figure_type}/{img_filename}.png")
+        # 2. 获取安全的文件名 (模拟 plot_SMILES 内部的文件名逻辑)
+        # img_filename 此时是 SMILES 字符串
+        safe_name = sanitize_filename(str(img_filename))
+        img_path = save_dir / f"{safe_name}.png"
 
-        if not img_path.exists():
-            # 简单的 fallback 逻辑
-            if not img_path.exists():
-                console.log(f"{img_path} does not exist, skipping...", style="yellow")
-                return
+        image_ready = False
+        # 3. 检查逻辑：存在 -> 生成 -> 放弃
+        if img_path.exists():
+            # A. 图片已存在，直接使用
+            image_ready = True
+        else:
+            # B. 图片不存在，尝试使用 SMILES 绘图
+            # console.log(f"Generating image for {safe_name}...", style="blue") # 可选日志
+            res = plot_SMILES(str(img_filename), str(save_dir))
 
-        # 清空单元格文字
+            if res.get("success", False):
+                # 再次确认文件确实生成了
+                if img_path.exists():
+                    image_ready = True
+            else:
+                # C. 绘图失败 (可能是无效的 SMILES，或者该列根本不是分子)
+                # console.log(f"Failed to generate image for {img_filename}, keeping text.", style="yellow")
+                image_ready = False
+        # 4. 如果最终没有可用的图片，直接返回，保留单元格内的文本 (SMILES)
+        if not image_ready:
+            return
+        # ================= 以下为图片插入逻辑 (仅当 image_ready=True 时执行) =================
+
+        # 只有确定要插入图片时，才清空单元格文字
         cell = ws[cell_address]
-        cell.value = None
-
+        cell.value = ""
         try:
             img = Image(str(img_path))
             orig_w, orig_h = img.width, img.height
-
             # --- 计算缩放 ---
             available_w = cell_w_px - (2 * padding)
             available_h = cell_h_px - (2 * padding)
-
+            # 防止除以零
+            if orig_w == 0 or orig_h == 0:
+                return
             scale_w = available_w / orig_w
             scale_h = available_h / orig_h
             scale = min(scale_w, scale_h)
-
             new_w = int(orig_w * scale)
             new_h = int(orig_h * scale)
-
             img.width = new_w
             img.height = new_h
-
             # --- 居中计算 ---
             offset_x_px = max(0, (cell_w_px - new_w) // 2)
             offset_y_px = max(0, (cell_h_px - new_h) // 2)
-
             # --- 设置 Anchor ---
             marker = AnchorMarker(col=col_idx_0, colOff=pixels_to_EMU(offset_x_px), row=row_idx_0, rowOff=pixels_to_EMU(offset_y_px))
             size = XDRPositiveSize2D(pixels_to_EMU(new_w), pixels_to_EMU(new_h))
-
             img.anchor = OneCellAnchor(_from=marker, ext=size)
             ws.add_image(img)
-
         except Exception as e:
-            console.log(f"Error adding image {img_filename} at {cell_address}: {e}", style="red")
+            # 如果插入过程出错（例如图片文件损坏），把文字写回去以便查阅
+            cell.value = img_filename

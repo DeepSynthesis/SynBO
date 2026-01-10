@@ -135,7 +135,7 @@ class TestReactionOptimizer(unittest.TestCase):
         except Exception as e:
             self.fail(f"Failed to rename file with images: {e}")
 
-    def test_excel_output_with_images(self):
+    def test_excel_output_with_images_transpose(self):
         """测试Excel输出融合图片输出的结果"""
         method = "random_select"
         norm = "minmax"

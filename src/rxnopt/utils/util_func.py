@@ -111,22 +111,23 @@ def plot_SMILES(SMILES: str, save_dir: str) -> dict:
     width, height = 400, 400
     drawer = rdMolDraw2D.MolDraw2DCairo(width, height)
     opts = drawer.drawOptions()
-
     # --- 样式设置 ---
-    opts.bondLineWidth = 3.0  # 键的粗细 (加粗)
+    opts.bondLineWidth = 3.0  # 键的粗细
     opts.minFontSize = 16  # 最小字体大小
-    opts.fixedFontSize = 20  # 尝试固定字体大小（如果空间允许）
-    opts.atomLabelFontFace = "Arial"  # 字体类型
+    opts.fixedFontSize = 20  # 固定字体大小
+    # opts.atomLabelFontFace = "Arial"  <-- 删除这一行，RDKit不支持此属性
 
+    # RDKit 默认就是类似 Arial 的无衬线字体
     try:
         drawer.DrawMolecule(mol)
         drawer.FinishDrawing()
-
-        safe_name = sanitize_filename(SMILES)
+        # 确保这里调用了正确的文件名清洗函数
+        # safe_name = sanitize_filename(SMILES)
+        # 临时替代方案，防止 sanitize_filename 未定义导致测试失败：
+        safe_name = "".join([c if c.isalnum() else "_" for c in SMILES])
         file_path = save_path_obj / f"{safe_name}.png"
-
         drawer.WriteDrawingText(str(file_path))
         return {"success": True}
-
     except Exception as e:
+        print(f"Error drawing SMILES: {e}")  # 打印错误方便调试
         return {"success": False}

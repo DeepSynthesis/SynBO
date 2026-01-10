@@ -11,11 +11,14 @@ class TestReactionOptimizer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
-        # 优化目标设置
         cls.opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
 
-        # [修改点 1]：将保存路径指向 testfile 目录，使其与输入文件同目录，方便查看
-        cls.save_dir = str(Path(__file__).parent / "testfile")
+        # 设定保存目录为当前脚本下的 testfile 目录
+        cls.save_dir = Path(__file__).parent / "testfile"
+
+        # 确保目录存在
+        if not cls.save_dir.exists():
+            cls.save_dir.mkdir(parents=True)
 
         # 预加载数据
         cls.desc_dict, cls.condition_dict = load_desc_dict(
@@ -26,53 +29,51 @@ class TestReactionOptimizer(unittest.TestCase):
             return_condition_dict=True,
         )
 
-    def tearDown(self):
-        # [修改点 2]：注释掉删除文件的逻辑，以便保留 Excel 文件检查格式
-        pass
-        # if Path(self.save_dir).exists():
-        #     for f in Path(self.save_dir).glob("*"):
-        #         if f.is_file():
-        #             f.unlink()
-
-    def _run_optimization_workflow(self, opt_method, normalize, refine, filetype):
-        print(f"\nRunning optimization with: {opt_method}, Output: {filetype}")
-
-        rxn_opt = ReactionOptimizer(
-            opt_metrics=["yield", "cost"],
-            opt_metric_settings=self.opt_direct_info,
-            opt_type="auto",
-            quiet=False,  # [可选] 打开输出以便观察进度
-        )
+    def _run_optimization_workflow(self, opt_method, normalize, refine, filetype, **opt_kwargs):
+        rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
         rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
         rxn_opt.load_desc(desc_dict=self.desc_dict)
 
-        # 读取初始数据
-        start_file_path = Path(__file__).parent / "testfile/start_file.csv"
+        start_file_path = self.save_dir / "start_file.csv"
         rxn_opt.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
+        rxn_opt.optimize(batch_size=3, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
+        rxn_opt.save_results(save_dir=str(self.save_dir), filetype=filetype)
 
-        # 执行优化
-        rxn_opt.optimize(batch_size=3, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method)
-
-        # 保存结果
-        # 注意：save_results 通常会自动拼接文件名，这里指定目录
-        saved_files = rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)
-        print(f"File saved to: {self.save_dir}")
-
-    def test_single_excel_output(self):
-        # [修改点 3]：创建一个单一的、针对 Excel 输出的测试用例
-        # 使用 default_BO (贝叶斯优化) 作为典型方法，指定输出为 xlsx
-
+    def test_generate_and_rename_excel(self):
+        # 参数设置
         method = "random_select"
         norm = "minmax"
         refine = "none"
         ftype = "xlsx"
-        # opt_kwargs = {"surrogate_model": "RF", "acq_func": "EHVI"}
+        target_name = "output_excel.xlsx"  # 最终想要的文件名
+        opt_kwargs = {"surrogate_model": "RF", "acq_func": "EHVI"}
+
+        files_before = set(self.save_dir.glob("*.xlsx"))
+
+        print(f"\n[Status] Starting optimization to generate {ftype}...")
 
         try:
-            self._run_optimization_workflow(method, norm, refine, ftype)
-            print("✅ Test execution finished successfully. Please check the 'testfile' folder.")
+            self._run_optimization_workflow(method, norm, refine, ftype, **opt_kwargs)
         except Exception as e:
-            self.fail(f"❌ Test failed with error: {str(e)}")
+            self.fail(f"Optimization failed: {e}")
+
+        files_after = set(self.save_dir.glob("*.xlsx"))
+        new_files = files_after - files_before
+
+        if not new_files:
+            self.fail("No new .xlsx file was detected after optimization!")
+
+        generated_file = list(new_files)[0]
+        target_path = self.save_dir / target_name
+
+        print(f"[Status] Detected new file: {generated_file.name}")
+
+        try:
+            generated_file.replace(target_path)
+            print(f"✅ Success! File renamed to: {target_path}")
+            print(f"   You can now open '{target_name}' to check the format.")
+        except Exception as e:
+            self.fail(f"Failed to rename file: {e}")
 
 
 if __name__ == "__main__":

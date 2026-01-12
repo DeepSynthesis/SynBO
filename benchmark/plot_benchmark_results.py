@@ -363,31 +363,31 @@ def generate_all_comparisons(results_dict, target_columns, direction_tags, range
     """
     # 定义可能的参数组合
     comparison_configs = [
-        # # 比较优化方法
-        # {
-        #     "fixed_params": {"sampling_method": "lhs"},
-        #     "vary_param": "optimize_method"
-        # },
+        # 比较优化方法
+        {
+            "fixed_params": {"sampling_method": "lhs"},
+            "vary_param": "optimize_method"
+        },
         # 比较代理模型（对于default_BO）
         {
             "fixed_params": {"optimize_method": "default_BO", "sampling_method": "kmeans", "acq_function": "EHVI"},
             "vary_param": "surrogate_model",
         },
-        # # 比较获取函数（对于default_BO）
-        # {
-        #     "fixed_params": {"optimize_method": "default_BO", "sampling_method": "lhs", "surrogate_model": "GP"},
-        #     "vary_param": "acq_function"
-        # },
-        # # 比较采样方法
-        # {
-        #     "fixed_params": {"optimize_method": "default_BO", "surrogate_model": "GP", "acq_function": "EHVI"},
-        #     "vary_param": "sampling_method"
-        # },
-        # # 比较进化方法（对于evolution）
-        # {
-        #     "fixed_params": {"optimize_method": "evolution", "sampling_method": "lhs", "surrogate_model": "GP"},
-        #     "vary_param": "evolution_method"
-        # }
+        # 比较获取函数（对于default_BO）
+        {
+            "fixed_params": {"optimize_method": "default_BO", "sampling_method": "lhs", "surrogate_model": "GP"},
+            "vary_param": "acq_function"
+        },
+        # 比较采样方法
+        {
+            "fixed_params": {"optimize_method": "default_BO", "surrogate_model": "GP", "acq_function": "EHVI"},
+            "vary_param": "sampling_method"
+        },
+        # 比较进化方法（对于evolution）
+        {
+            "fixed_params": {"optimize_method": "evolution", "sampling_method": "lhs", "surrogate_model": "GP"},
+            "vary_param": "evolution_method"
+        }
     ]
 
     for config in comparison_configs:

@@ -16,7 +16,7 @@ global_dir = Path(__file__).parent
 data_dir = global_dir / Path("../examples/")
 
 # 控制参数
-NUM_ROUNDS = 10  # k值：运行多少轮
+NUM_ROUNDS = 1  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
@@ -37,17 +37,15 @@ CONFIG = {
     "optimization_settings": {
         "opt_metrics": ["yield", "ee"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 6], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
         "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "kwargs": {
-            "surrogate_model": "EHVI",
-        },
+        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
 }
 
@@ -65,16 +63,16 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
     file_path = max(candidates, key=lambda p: p.stat().st_mtime)
 
     current_df = pd.read_csv(file_path)
-    cols_to_drop = [c for c in ["yield", "cost"] if c in current_df.columns]
+    opt_metrics = CONFIG["optimization_settings"]["opt_metrics"]
+    cols_to_drop = [c for c in opt_metrics if c in current_df.columns]
     current_df.drop(columns=cols_to_drop, inplace=True)
 
     hte_df = pd.read_csv(dataset_path)
-    match_cols = ["base", "ligand", "solvent", "concentration", "temperature"]
 
     merged_df = pd.merge(
         current_df,
-        hte_df[match_cols + ["yield", "cost"]],
-        on=match_cols,
+        hte_df[CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]],
+        on=CONFIG["reaction_space"]["reagent_types"],
         how="left",
     )
     merged_df.to_csv(file_path, index=False)
@@ -306,6 +304,7 @@ def main():
             name_suffix=CONFIG["reaction_space"]["name_suffix"],
             index_col=CONFIG["reaction_space"]["index_col"],
             return_condition_dict=True,
+            fillna=True,
         )
         # 执行计算部分 (Calculation)
         run_simulation(experiment_dir, desc_dict, condition_dict)

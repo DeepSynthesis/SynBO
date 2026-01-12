@@ -16,7 +16,7 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES", fillna: bool = 
         raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{idx_col}' exists in the file.")
 
     if fillna:
-        df.fillna(0.0)
+        df.fillna(0.0, inplace=True)
     else:
         assert not df.isna().any().any(), f"Descriptor file `{desc_file}` contains NaN values. Please check the data."
 
@@ -44,6 +44,7 @@ def load_desc_dict(
     name_suffix: list | str = None,  # TODO: do not set as None, must be _desc
     index_col: str = "SMILES",
     return_condition_dict: bool = False,
+    fillna: bool = False,
 ) -> dict:
     index_col = _convert_tag(index_col, len(reagent_types))
     name_suffix = _convert_tag(name_suffix, len(reagent_types))
@@ -57,7 +58,7 @@ def load_desc_dict(
             desc_file = desc_dir / f"{r_type}_desc.csv"
         assert desc_file.exists(), f"Descriptor file `{desc_file}` for {r_type} does not exist in {desc_dir}."
 
-        desc_dict[r_type] = load_desc_from_file(desc_file, idx_col=idx_col)
+        desc_dict[r_type] = load_desc_from_file(desc_file, idx_col=idx_col, fillna=fillna)
 
     if return_condition_dict:
         condition_dict = {str(k): v.index.astype("str").tolist() for k, v in desc_dict.items()}

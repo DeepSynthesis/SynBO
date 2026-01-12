@@ -20,14 +20,14 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization",
+    "experiment_name": "Asymmetric_Alkylation_Optimization",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
-        "dataset_file": str(data_dir / "B-H_HTE/B-H_HTE.csv"),
-        "descriptor_dir": str(data_dir / "B-H_HTE/descriptors"),
+        "dataset_file": str(data_dir / "asym_alkylation/asym_alkylation.csv"),
+        "descriptor_dir": str(data_dir / "asym_alkylation/descriptors"),
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {

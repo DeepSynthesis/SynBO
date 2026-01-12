@@ -31,8 +31,8 @@ CONFIG = {
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
-        "name_suffix": ["_dft", "_dft", "_dft", None, None],
+        "reagent_types": ["reactant2", "catalyst1", "catalyst2"],
+        "name_suffix": ["_RDKit", "_RDKit", "_RDKit"],
     },
     "optimization_settings": {
         "opt_metrics": ["yield", "ee"],
@@ -42,11 +42,11 @@ CONFIG = {
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "random",
+        "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
-        "optimize_method": "evolution",
+        "optimize_method": "default_BO",
         "kwargs": {
-            "surrogate_model": "linear",
+            "surrogate_model": "EHVI",
         },
     },
 }

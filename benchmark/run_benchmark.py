@@ -51,7 +51,7 @@ CONFIG = {
     },
 }
 
-CONFIG["reaction_space"]["index_col"] = [f"{r}_file_name" for r in CONFIG["reaction_space"]["reagent_types"]]
+CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
 # ===========================================================================================================
 
 

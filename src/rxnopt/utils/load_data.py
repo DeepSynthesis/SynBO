@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame:
+def load_desc_from_file(desc_file: str, idx_col: str = "SMILES", fillna: bool = False) -> pd.DataFrame:
     desc_file = Path(desc_file)
     assert desc_file.exists(), f"Descriptor file {desc_file} does not exist!"
     try:
@@ -15,7 +15,10 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES") -> pd.DataFrame
     except Exception as e:
         raise Exception(f"Error loading descriptor file {desc_file}: {e}. \nMaybe check if the index_col '{idx_col}' exists in the file.")
 
-    assert not df.isna().any().any(), f"Descriptor file `{desc_file}` contains NaN values. Please check the data."
+    if fillna:
+        df.fillna(0.0)
+    else:
+        assert not df.isna().any().any(), f"Descriptor file `{desc_file}` contains NaN values. Please check the data."
 
     if df.index.duplicated().any():
         duplicated_items = df.index[df.index.duplicated()].unique().tolist()

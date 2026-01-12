@@ -125,10 +125,12 @@ class SPOCDescriptor:
             save_path.parent.mkdir(parents=True)
         try:
             if save_path.suffix.lower() == ".csv":
+                desc_df.index.name = "index"
                 desc_df.to_csv(save_path, index=True)
                 self.console.print(f"✅ Results saved to CSV: {save_path}, data shape is {desc_df.shape}", style="bold green")
 
             elif save_path.suffix.lower() in [".xlsx"]:
+                desc_df.index.name = "index"
                 desc_df.to_excel(save_path, index=True)
                 self.console.print(f"✅ Results saved to Excel: {save_path}, data shape is {desc_df.shape}", style="bold green")
 

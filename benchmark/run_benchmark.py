@@ -35,10 +35,10 @@ CONFIG = {
         "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "cost"],
+        "opt_metrics": ["yield", "ee"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 6], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 1], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",

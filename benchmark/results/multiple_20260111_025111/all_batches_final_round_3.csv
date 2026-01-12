@@ -1,0 +1,51 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost,batch_index,round_index
+0,1,explore,KOAc,CgMe-PPh,BuOAc,0.153,105,-,-,38.53,0.061175441,0,3
+0,2,explore,CsOPiv,PPh2Me,BuOAc,0.153,105,-,-,0.0,0.116919229,0,3
+0,3,explore,CsOAc,CgMe-PPh,DMAc,0.153,105,-,-,100.0,0.098901909,0,3
+0,4,explore,CsOPiv,BrettPhos,p-Xylene,0.057,120,-,-,26.52,0.246325146,0,3
+0,5,explore,KOAc,PPhtBu2,DMAc,0.1,105,-,-,0.0,0.04320091,0,3
+1,1,random_select,KOAc,BrettPhos,p-Xylene,0.057,90,0.00±0.00,0.00±0.00,12.39,0.159899863,1,3
+1,2,random_select,KOAc,tBPh-CPhos,BuOAc,0.1,105,0.00±0.00,0.00±0.00,0.0,0.280628815,1,3
+1,3,random_select,CsOPiv,GorlosPhos HBF4,BuOAc,0.153,90,0.00±0.00,0.00±0.00,9.39,0.128027064,1,3
+1,4,random_select,KOAc,PPh2Me,p-Xylene,0.057,105,0.00±0.00,0.00±0.00,0.0,0.041445396,1,3
+1,5,random_select,CsOPiv,GorlosPhos HBF4,BuCN,0.153,90,0.00±0.00,0.00±0.00,18.19,0.132245083,1,3
+2,1,random_select,CsOPiv,PPh3,DMAc,0.1,90,0.00±0.00,0.00±0.00,33.59,0.112762312,2,3
+2,2,random_select,CsOAc,tBPh-CPhos,BuOAc,0.1,90,0.00±0.00,0.00±0.00,0.0,0.326129261,2,3
+2,3,random_select,KOPiv,PPh3,p-Xylene,0.1,90,0.00±0.00,0.00±0.00,0.32,0.027525144,2,3
+2,4,random_select,KOPiv,CgMe-PPh,DMAc,0.1,105,0.00±0.00,0.00±0.00,89.76,0.056928134,2,3
+2,5,random_select,CsOPiv,X-Phos,p-Xylene,0.153,120,0.00±0.00,0.00±0.00,68.31,0.118034737,2,3
+3,1,random_select,CsOPiv,PPhtBu2,p-Xylene,0.057,90,0.00±0.00,0.00±0.00,0.0,0.143669553,3,3
+3,2,random_select,KOPiv,P(fur)3,DMAc,0.1,105,0.00±0.00,0.00±0.00,73.59,0.037709917,3,3
+3,3,random_select,KOPiv,CgMe-PPh,BuOAc,0.057,90,0.00±0.00,0.00±0.00,17.63,0.087043051,3,3
+3,4,random_select,CsOPiv,PPh3,BuCN,0.057,90,0.00±0.00,0.00±0.00,5.19,0.153385522,3,3
+3,5,random_select,KOPiv,PPh2Me,p-Xylene,0.1,90,0.00±0.00,0.00±0.00,0.0,0.028582675,3,3
+4,1,random_select,CsOAc,X-Phos,BuOAc,0.057,120,0.00±0.00,0.00±0.00,7.02,0.110303569,4,3
+4,2,random_select,CsOPiv,PPhMe2,DMAc,0.153,90,0.00±0.00,0.00±0.00,0.0,0.110329516,4,3
+4,3,random_select,KOAc,tBPh-CPhos,p-Xylene,0.057,90,0.00±0.00,0.00±0.00,6.98,0.283032601,4,3
+4,4,random_select,CsOAc,PCy3 HBF4,BuOAc,0.057,90,0.00±0.00,0.00±0.00,0.0,0.107934644,4,3
+4,5,random_select,CsOPiv,JackiePhos,BuOAc,0.153,90,0.00±0.00,0.00±0.00,2.77,0.445595779,4,3
+5,1,random_select,CsOPiv,BrettPhos,BuOAc,0.153,90,0.00±0.00,0.00±0.00,21.5,0.235449405,5,3
+5,2,random_select,CsOPiv,CgMe-PPh,DMAc,0.1,120,0.00±0.00,0.00±0.00,83.85,0.144379109,5,3
+5,3,random_select,KOAc,PPhMe2,DMAc,0.153,90,0.00±0.00,0.00±0.00,0.0,0.023955804,5,3
+5,4,random_select,KOAc,tBPh-CPhos,DMAc,0.1,120,0.00±0.00,0.00±0.00,82.09,0.269148843,5,3
+5,5,random_select,CsOPiv,GorlosPhos HBF4,DMAc,0.153,90,0.00±0.00,0.00±0.00,23.23,0.120195674,5,3
+6,1,random_select,CsOAc,GorlosPhos HBF4,BuCN,0.153,120,0.00±0.00,0.00±0.00,36.46,0.091512098,6,3
+6,2,random_select,CsOAc,PCy3 HBF4,BuOAc,0.1,105,0.00±0.00,0.00±0.00,0.0,0.089376749,6,3
+6,3,random_select,CsOPiv,P(fur)3,p-Xylene,0.057,90,0.00±0.00,0.00±0.00,7.59,0.139088417,6,3
+6,4,random_select,KOAc,PCy3 HBF4,DMAc,0.1,105,0.00±0.00,0.00±0.00,7.26,0.032180612,6,3
+6,5,random_select,CsOAc,PPh3,DMAc,0.1,105,0.00±0.00,0.00±0.00,62.82,0.07197331,6,3
+7,1,random_select,KOAc,JackiePhos,DMAc,0.057,105,0.00±0.00,0.00±0.00,87.62,0.366391656,7,3
+7,2,random_select,KOAc,P(fur)3,BuCN,0.153,90,0.00±0.00,0.00±0.00,5.7,0.045962058,7,3
+7,3,random_select,KOPiv,GorlosPhos HBF4,p-Xylene,0.153,90,0.00±0.00,0.00±0.00,2.49,0.034242861,7,3
+7,4,random_select,KOPiv,tBPh-CPhos,BuCN,0.057,120,0.00±0.00,0.00±0.00,6.2,0.308545693,7,3
+7,5,random_select,CsOPiv,PPhMe2,BuCN,0.057,105,0.00±0.00,0.00±0.00,0.0,0.155660199,7,3
+8,1,random_select,KOPiv,CgMe-PPh,BuCN,0.153,90,0.00±0.00,0.00±0.00,52.23,0.064396627,8,3
+8,2,random_select,CsOAc,PPhMe2,BuCN,0.1,120,0.00±0.00,0.00±0.00,0.0,0.091929038,8,3
+8,3,random_select,KOPiv,tBPh-CPhos,BuOAc,0.153,90,0.00±0.00,0.00±0.00,11.24,0.271076167,8,3
+8,4,random_select,KOAc,P(fur)3,DMAc,0.057,90,0.00±0.00,0.00±0.00,14.53,0.048761592,8,3
+8,5,random_select,CsOAc,GorlosPhos HBF4,BuCN,0.1,105,0.00±0.00,0.00±0.00,33.34,0.10198422,8,3
+9,1,random_select,CsOPiv,P(fur)3,BuOAc,0.153,105,0.00±0.00,0.00±0.00,27.05,0.128312981,9,3
+9,2,random_select,CsOPiv,PCy3 HBF4,DMAc,0.1,90,0.00±0.00,0.00±0.00,3.69,0.118544033,9,3
+9,3,random_select,CsOPiv,BrettPhos,BuOAc,0.1,105,0.00±0.00,0.00±0.00,27.48,0.244004608,9,3
+9,4,random_select,KOPiv,CgMe-PPh,DMAc,0.1,90,0.00±0.00,0.00±0.00,55.7,0.056829946,9,3
+9,5,random_select,KOPiv,PPhMe2,p-Xylene,0.1,90,0.00±0.00,0.00±0.00,0.0,0.029838504,9,3

@@ -1,0 +1,51 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost,batch_index,round_index
+0,1,explore,CsOPiv,BrettPhos,p-Xylene,0.153,120,-,-,26.29,0.229151964,0,7
+0,2,explore,KOAc,GorlosPhos HBF4,p-Xylene,0.1,90,-,-,0.7,0.040734549,0,7
+0,3,explore,KOAc,PPhtBu2,BuCN,0.057,105,-,-,0.0,0.083881103,0,7
+0,4,explore,CsOAc,CgMe-PPh,DMAc,0.153,90,-,-,43.84,0.098740012,0,7
+0,5,explore,CsOPiv,BrettPhos,DMAc,0.153,90,-,-,0.0,0.227482935,0,7
+1,1,pso_exploit,CsOAc,PCy3 HBF4,BuOAc,0.153,105,14.24±7.96,0.14±0.03,0.0,0.080855181,1,7
+1,2,pso_exploit,CsOAc,X-Phos,BuCN,0.1,105,14.24±7.96,0.14±0.03,83.83,0.09845553,1,7
+1,3,pso_exploit,CsOAc,X-Phos,BuCN,0.153,90,14.24±7.96,0.14±0.03,0.0,0.087315789,1,7
+1,4,pso_exploit,CsOPiv,X-Phos,p-Xylene,0.057,105,14.24±7.96,0.14±0.03,39.81,0.135103062,1,7
+1,5,pso_exploit,CsOPiv,P(fur)3,BuOAc,0.1,120,14.24±7.96,0.14±0.03,15.21,0.136767955,1,7
+2,1,pso_exploit,CsOPiv,P(fur)3,p-Xylene,0.057,120,23.27±18.05,0.15±0.04,5.15,0.139079512,2,7
+2,2,pso_exploit,CsOAc,BrettPhos,BuCN,0.057,105,18.26±17.39,0.11±0.04,45.11,0.232286715,2,7
+2,3,pso_exploit,CsOAc,BrettPhos,BuCN,0.057,120,18.26±17.39,0.11±0.04,54.26,0.23235697,2,7
+2,4,pso_exploit,CsOAc,BrettPhos,BuCN,0.057,90,16.50±17.10,0.11±0.04,36.72,0.232222295,2,7
+2,5,pso_exploit,CsOAc,BrettPhos,BuCN,0.1,105,18.26±17.39,0.11±0.04,64.48,0.209577546,2,7
+3,1,pso_exploit,CsOAc,BrettPhos,DMAc,0.057,120,45.78±11.20,0.22±0.02,1.68,0.201392634,3,7
+3,2,pso_exploit,CsOAc,BrettPhos,BuCN,0.1,120,48.77±9.69,0.22±0.02,69.13,0.20961325,3,7
+3,3,pso_exploit,CsOAc,BrettPhos,BuCN,0.1,90,42.24±15.31,0.22±0.02,48.21,0.209452622,3,7
+3,4,pso_exploit,CsOAc,BrettPhos,BuCN,0.153,105,42.58±15.96,0.22±0.02,73.08,0.1991475,3,7
+3,5,pso_exploit,CsOAc,BrettPhos,BuCN,0.153,120,42.58±15.96,0.22±0.02,69.03,0.199116404,3,7
+4,1,pso_exploit,KOPiv,CgMe-PPh,BuCN,0.153,105,51.72±20.61,0.11±0.04,69.2,0.064526925,4,7
+4,2,pso_exploit,CsOAc,BrettPhos,BuCN,0.153,90,48.22±16.22,0.22±0.01,28.02,0.198801521,4,7
+4,3,pso_exploit,CsOAc,BrettPhos,BuOAc,0.057,105,28.29±22.56,0.22±0.01,27.71,0.22169053,4,7
+4,4,pso_exploit,CsOAc,BrettPhos,BuOAc,0.057,120,27.93±21.81,0.22±0.01,30.02,0.221703523,4,7
+4,5,pso_exploit,CsOAc,BrettPhos,BuOAc,0.057,90,22.69±17.02,0.22±0.01,22.92,0.221663589,4,7
+5,1,pso_exploit,KOPiv,PPh2Me,DMAc,0.153,120,21.33±19.81,0.11±0.04,2.64,0.021613286,5,7
+5,2,pso_exploit,CsOAc,BrettPhos,BuOAc,0.1,105,27.80±17.19,0.21±0.01,26.64,0.203126617,5,7
+5,3,pso_exploit,CsOAc,BrettPhos,BuOAc,0.1,120,26.21±16.86,0.21±0.01,35.91,0.203178757,5,7
+5,4,pso_exploit,CsOAc,BrettPhos,BuOAc,0.1,90,24.84±13.31,0.21±0.01,29.21,0.203141073,5,7
+5,5,pso_exploit,CsOAc,BrettPhos,BuOAc,0.153,105,26.89±16.69,0.21±0.01,20.35,0.19456967,5,7
+6,1,pso_exploit,KOPiv,BrettPhos,BuCN,0.057,120,59.24±9.95,0.22±0.01,50.55,0.185733738,6,7
+6,2,pso_exploit,CsOAc,BrettPhos,BuOAc,0.153,120,25.63±7.03,0.21±0.01,20.6,0.194571076,6,7
+6,3,pso_exploit,CsOAc,BrettPhos,BuOAc,0.153,90,25.95±6.27,0.21±0.01,17.16,0.194551728,6,7
+6,4,pso_exploit,CsOAc,BrettPhos,DMAc,0.057,105,26.29±17.49,0.22±0.01,1.85,0.201393124,6,7
+6,5,pso_exploit,CsOAc,BrettPhos,DMAc,0.057,90,22.59±11.58,0.22±0.01,1.96,0.201393441,6,7
+7,1,pso_exploit,CsOAc,PCy3 HBF4,BuCN,0.1,120,54.27±23.20,0.10±0.05,3.8,0.095511604,7,7
+7,2,pso_exploit,CsOPiv,BrettPhos,BuCN,0.1,120,60.29±14.95,0.21±0.01,46.53,0.250312989,7,7
+7,3,pso_exploit,CsOAc,BrettPhos,DMAc,0.1,105,13.38±12.21,0.21±0.01,4.74,0.191273824,7,7
+7,4,pso_exploit,CsOAc,BrettPhos,DMAc,0.1,120,13.35±11.93,0.21±0.01,4.08,0.191271921,7,7
+7,5,pso_exploit,CsOAc,BrettPhos,DMAc,0.1,90,12.15±11.07,0.21±0.01,4.23,0.191272353,7,7
+8,1,pso_exploit,KOPiv,BrettPhos,BuCN,0.153,105,60.75±9.12,0.21±0.01,58.95,0.152444261,8,7
+8,2,pso_exploit,CsOAc,BrettPhos,DMAc,0.153,105,8.33±9.27,0.20±0.01,7.34,0.186630829,8,7
+8,3,pso_exploit,CsOAc,BrettPhos,DMAc,0.153,120,8.74±8.95,0.20±0.01,7.43,0.186631088,8,7
+8,4,pso_exploit,CsOAc,BrettPhos,DMAc,0.153,90,8.81±8.11,0.20±0.01,6.26,0.186627715,8,7
+8,5,pso_exploit,CsOAc,BrettPhos,p-Xylene,0.057,105,21.36±17.04,0.21±0.01,36.14,0.205486991,8,7
+9,1,pso_exploit,CsOAc,GorlosPhos HBF4,BuCN,0.1,105,45.48±24.10,0.10±0.05,33.34,0.10198422,9,7
+9,2,pso_exploit,KOPiv,BrettPhos,BuCN,0.1,105,59.64±8.84,0.21±0.01,56.05,0.162918073,9,7
+9,3,pso_exploit,CsOAc,BrettPhos,p-Xylene,0.057,120,28.16±11.81,0.21±0.01,38.44,0.205495385,9,7
+9,4,pso_exploit,CsOAc,BrettPhos,p-Xylene,0.057,90,26.96±11.99,0.21±0.01,25.62,0.205448596,9,7
+9,5,pso_exploit,CsOAc,BrettPhos,p-Xylene,0.1,105,28.77±14.65,0.20±0.01,40.03,0.193732767,9,7

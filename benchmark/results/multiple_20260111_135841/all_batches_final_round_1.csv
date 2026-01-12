@@ -1,0 +1,51 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost,batch_index,round_index
+0,1,explore,KOPiv,GorlosPhos HBF4,p-Xylene,0.153,105,-,-,4.92,0.03425173,0,1
+0,2,explore,KOAc,PCy3 HBF4,BuOAc,0.1,105,-,-,0.0,0.043876303,0,1
+0,3,explore,CsOAc,GorlosPhos HBF4,BuOAc,0.1,120,-,-,29.75,0.095789882,0,1
+0,4,explore,CsOAc,CgMe-PPh,p-Xylene,0.057,90,-,-,28.4,0.117462704,0,1
+0,5,explore,CsOPiv,P(fur)3,BuOAc,0.153,105,-,-,27.05,0.128312981,0,1
+1,1,explore,CsOAc,BrettPhos,BuCN,0.057,105,17.24±6.04,0.08±0.02,45.11,0.232286715,1,1
+1,2,explore,CsOAc,BrettPhos,BuCN,0.057,120,17.24±6.04,0.08±0.02,54.26,0.23235697,1,1
+1,3,explore,CsOAc,BrettPhos,BuCN,0.057,90,17.24±6.04,0.08±0.02,36.72,0.232222295,1,1
+1,4,explore,CsOAc,BrettPhos,BuCN,0.1,105,17.24±6.04,0.08±0.02,64.48,0.209577546,1,1
+1,5,explore,CsOAc,BrettPhos,BuCN,0.1,120,17.24±6.04,0.08±0.02,69.13,0.20961325,1,1
+2,1,explore,CsOAc,X-Phos,BuOAc,0.1,120,33.65±15.23,0.13±0.05,2.79,0.091721882,2,1
+2,2,explore,CsOAc,X-Phos,BuOAc,0.153,120,33.65±15.23,0.13±0.05,6.23,0.083219662,2,1
+2,3,explore,CsOAc,X-Phos,p-Xylene,0.1,120,33.65±15.23,0.13±0.05,67.17,0.082561232,2,1
+2,4,explore,KOPiv,X-Phos,p-Xylene,0.1,120,33.65±15.23,0.13±0.05,44.74,0.035884622,2,1
+2,5,explore,CsOAc,X-Phos,p-Xylene,0.153,120,33.65±15.23,0.13±0.05,70.8,0.077170559,2,1
+3,1,explore,KOPiv,PPhMe2,p-Xylene,0.1,120,43.53±19.65,0.10±0.07,0.0,0.029838504,3,1
+3,2,explore,KOAc,PPhMe2,p-Xylene,0.1,120,43.53±19.65,0.10±0.07,0.0,0.030932803,3,1
+3,3,explore,KOPiv,PPhtBu2,p-Xylene,0.1,120,44.17±19.57,0.09±0.06,0.0,0.04443312,3,1
+3,4,explore,KOPiv,PPhMe2,p-Xylene,0.153,120,42.79±19.82,0.10±0.07,0.0,0.024434582,3,1
+3,5,explore,KOPiv,PPhtBu2,BuCN,0.1,120,43.90±19.66,0.10±0.07,0.0,0.059928908,3,1
+4,1,explore,KOPiv,X-Phos,p-Xylene,0.153,120,38.61±24.57,0.05±0.02,62.15,0.030544243,4,1
+4,2,explore,KOAc,X-Phos,p-Xylene,0.1,120,38.75±24.48,0.05±0.02,67.04,0.037060311,4,1
+4,3,explore,KOAc,X-Phos,p-Xylene,0.153,120,38.61±24.57,0.05±0.02,61.67,0.031636791,4,1
+4,4,explore,KOPiv,X-Phos,p-Xylene,0.1,105,37.21±23.82,0.05±0.02,35.07,0.035849329,4,1
+4,5,explore,KOPiv,X-Phos,p-Xylene,0.1,90,37.21±23.82,0.05±0.02,26.33,0.03581743,4,1
+5,1,explore,KOAc,JackiePhos,p-Xylene,0.153,120,39.56±25.72,0.08±0.08,7.88,0.3529627829999999,5,1
+5,2,explore,KOAc,PPh2Me,p-Xylene,0.153,120,35.48±27.99,0.07±0.07,0.0,0.024273053,5,1
+5,3,explore,KOAc,JackiePhos,p-Xylene,0.1,120,38.65±25.38,0.09±0.08,7.03,0.358363602,5,1
+5,4,explore,KOAc,JackiePhos,p-Xylene,0.057,120,38.45±25.23,0.09±0.08,5.4,0.370126074,5,1
+5,5,explore,KOAc,PPh2Me,p-Xylene,0.1,120,34.65±27.56,0.08±0.07,0.0,0.029676975,5,1
+6,1,explore,KOAc,CgMe-PPh,p-Xylene,0.1,120,37.88±25.82,0.07±0.09,46.75,0.06026081,6,1
+6,2,explore,KOAc,CgMe-PPh,p-Xylene,0.057,120,37.68±25.70,0.07±0.09,31.14,0.071972258,6,1
+6,3,explore,KOAc,CgMe-PPh,p-Xylene,0.153,120,37.52±25.63,0.07±0.09,60.29,0.054906306,6,1
+6,4,explore,KOAc,P(fur)3,p-Xylene,0.153,120,39.09±25.54,0.06±0.06,11.99,0.035558421,6,1
+6,5,explore,KOAc,P(fur)3,p-Xylene,0.1,120,39.06±25.64,0.06±0.06,9.72,0.040954058,6,1
+7,1,explore,KOAc,GorlosPhos HBF4,p-Xylene,0.153,120,33.77±23.03,0.04±0.04,4.87,0.035345847,7,1
+7,2,explore,KOPiv,GorlosPhos HBF4,p-Xylene,0.153,120,32.06±22.21,0.04±0.04,17.56,0.034297863,7,1
+7,3,explore,KOAc,X-Phos,DMAc,0.153,120,49.39±16.28,0.03±0.01,84.67,0.030082718,7,1
+7,4,explore,KOAc,GorlosPhos HBF4,DMAc,0.153,120,31.35±21.73,0.05±0.04,14.06,0.033795527,7,1
+7,5,explore,CsOPiv,X-Phos,p-Xylene,0.153,120,54.08±14.41,0.09±0.02,68.31,0.118034737,7,1
+8,1,explore,KOAc,tBPh-CPhos,p-Xylene,0.153,120,19.67±24.37,0.10±0.10,8.61,0.265866207,8,1
+8,2,explore,KOAc,X-Phos,DMAc,0.057,120,53.52±17.72,0.04±0.02,77.58,0.044840401,8,1
+8,3,explore,KOAc,tBPh-CPhos,DMAc,0.153,120,19.88±23.73,0.10±0.10,76.59,0.264482497,8,1
+8,4,explore,KOAc,tBPh-CPhos,DMAc,0.153,105,19.45±22.56,0.10±0.10,57.33,0.264426975,8,1
+8,5,explore,KOAc,tBPh-CPhos,p-Xylene,0.153,105,18.99±22.95,0.10±0.10,8.3,0.265865076,8,1
+9,1,explore,KOPiv,P(fur)3,DMAc,0.153,120,36.55±24.33,0.04±0.03,78.93,0.033074821,9,1
+9,2,explore,KOAc,X-Phos,BuCN,0.153,120,63.20±16.85,0.03±0.01,78.6,0.042418848,9,1
+9,3,explore,KOAc,P(fur)3,DMAc,0.153,120,36.43±24.45,0.04±0.03,52.08,0.034091718,9,1
+9,4,explore,KOAc,X-Phos,BuCN,0.1,120,62.64±16.72,0.04±0.01,56.57,0.052745776,9,1
+9,5,explore,KOPiv,P(fur)3,BuCN,0.153,120,34.58±24.01,0.04±0.03,53.11,0.045231781,9,1

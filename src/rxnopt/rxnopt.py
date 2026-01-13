@@ -18,6 +18,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.rule import Rule
 
+from rxnopt.utils.export_data import save_df
+
 from .optimize import Optimizer
 from .descriptor.desc_proc import array_process, done_array_process
 from .utils.util_func import check_desc_completeness, generate_onehot_desc, track_called, get_opt_type
@@ -388,60 +390,21 @@ class ReactionOptimizer:
             figure_path: Path for figures
             suffix: Optional filename suffix
         """
-        if figure_output is None:
-            figure_output = []
-
-        file_name = f"batch-{self.batch_id}_{datetime.now().strftime('%Y%m%d')}"
-        if suffix:
-            file_name = f"{file_name}_{suffix}"
-
-        save_path = Path(save_dir) / file_name
-
-        # Create directory if it doesn't exist
-        if not save_path.parent.exists():
-            self.opt_console.print(f"Creating directory: {save_path.parent}", style="yellow")
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Prepare prediction data
-        pred_data = {}
-        if hasattr(self, "pred_mean") and self.pred_mean is not None:
-            for i, metric in enumerate(self.opt_metrics):
-                # 拼接 "均值±标准差" 格式的字符串，可根据需求调整小数位数（例如:.2f 保留两位小数）
-                pred_data[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
-
-        else:
-            # For initialization phase, add empty columns
-            for metric in self.opt_metrics:
-                pred_data[f"pred {metric}"] = ["-"] * len(self.selected_conditions)
-        output_df = pd.DataFrame(
-            {
-                "batch": [self.batch_id] * len(self.selected_conditions),
-                "index": range(1, len(self.selected_conditions) + 1),
-                "type": self.recommend_type,
-                **pd.DataFrame(self.selected_conditions, columns=self.condition_types).to_dict("list"),
-                **pred_data,
-                **{metric: "[exp_data]" for metric in self.opt_metrics},
-            }
+        save_df(
+            save_path=save_dir,
+            filetype=filetype,
+            selected_conditions=self.selected_conditions,
+            condition_types=self.condition_types,
+            recommend_type=self.recommend_type,
+            batch_id=self.batch_id,
+            pred_mean=self.pred_mean,
+            pred_std=self.pred_std,
+            opt_metrics=self.opt_metrics,
+            figure_output=figure_output,
+            figure_path=figure_path,
+            suffix=suffix,
+            transpose=transpose,
         )
-
-        if filetype == "csv":
-            output_df.to_csv(save_path.with_suffix(".csv"), index=False)
-        elif filetype == "excel" or filetype == "xlsx":
-            writer = ExcelWriter(condition_types=self.condition_types, opt_metrics=self.opt_metrics)
-            writer.write_to_excel(
-                output_df=output_df,
-                batch_id=self.batch_id,
-                figure_output=figure_output,
-                figure_path=figure_path,
-                save_path=save_path,
-                transpose=transpose,
-            )
-        elif filetype == "json":
-            output_df.to_json(save_path.with_suffix(".json"), index=False, orient="records")
-        else:
-            raise ValueError(f"Unknown filetype: {filetype}")
-
-        self.opt_console.print(f"✓ Saved recommendations to: [cyan]{save_path.with_suffix('.' + filetype)}[/cyan]", style="green")
 
     def get_rxn_space_size(self) -> int:
         """Get the size of the reaction space.

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Literal, Optional, Union
 
 
-def save_reaction_results(
+def save_df(
     save_path: Union[str, Path],
     filetype: Literal["csv", "excel", "json"] = "csv",
     selected_conditions: np.ndarray = None,
@@ -234,7 +234,7 @@ def resave_output_results(input_file: str, output_file: str) -> None:
             opt_metrics = metric_columns if metric_columns else ["yield"]
 
     # Use the extracted save_reaction_results function
-    save_reaction_results(
+    save_df(
         save_path=output_file,
         filetype=filetype,
         selected_conditions=selected_conditions,

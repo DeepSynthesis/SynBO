@@ -108,16 +108,23 @@ def save_df(
     console.print(f"✓ Saved recommendations to: [cyan]{full_save_path.with_suffix('.' + filetype)}[/cyan]", style="green")
 
 
-def resave_output_results(input_file: str, output_file: str) -> None:
-    """Resave output results in a different format.
-
-    This function loads reaction optimization results from an input file (CSV, Excel, or JSON)
-    and saves them to an output file in a different format. It automatically detects the
-    input and output formats based on file extensions.
+def resave_output_results(
+    input_file: str,
+    output_file: str,
+    condition_columns: List[str],
+    metrics_columns: List[str],
+    figure_output: List[str] = None,
+    figure_path: Optional[str] = None,
+) -> None:
+    """Resave output results from one format to another.
 
     Args:
-        input_file: Path to input file (CSV, Excel, or JSON)
-        output_file: Path to output file (format determined by extension)
+        input_file: Path to the input file
+        output_file: Path to the output file
+        condition_columns: List of column names that represent conditions
+        metrics_columns: List of column names that represent metrics
+        figure_output: List of figure types to generate (optional)
+        figure_path: Path for figures (optional)
     """
     input_file = Path(input_file)
     output_file = Path(output_file)
@@ -146,40 +153,9 @@ def resave_output_results(input_file: str, output_file: str) -> None:
     else:
         raise ValueError(f"Unsupported output file format: {output_suffix}")
 
-    # Extract necessary information from the dataframe
-    # Condition types are all columns except: batch, index, type, pred columns, and metric columns
-    exclude_columns = ["batch", "index", "type"]
-    pred_columns = [col for col in df.columns if col.startswith("pred ")]
-    exclude_columns.extend(pred_columns)
-
-    # Identify metric columns (non-pred columns that are not condition types)
-    # These are typically numeric columns that aren't in exclude_columns
-    potential_metrics = [col for col in df.columns if col not in exclude_columns]
-
-    # Check which columns contain actual numeric data (not [exp_data] strings)
-    metric_columns = []
-    for col in potential_metrics:
-        # Try to convert to numeric, skip if it contains [exp_data] or similar placeholders
-        sample_values = df[col].dropna().head()
-        if len(sample_values) > 0:
-            try:
-                # Check if values are numeric or placeholders like [exp_data]
-                first_val = str(sample_values.iloc[0])
-                if first_val != "[exp_data]" and first_val != "-":
-                    metric_columns.append(col)
-            except:
-                pass
-
-    # If no metrics found, use pred columns to infer metric names
-    if not metric_columns and pred_columns:
-        metric_columns = [col.replace("pred ", "") for col in pred_columns]
-        # Also add these to exclude_columns so they don't get treated as condition types
-        exclude_columns.extend(metric_columns)
-
-    # Condition types are remaining columns
-    condition_types = [
-        col for col in df.columns if col not in exclude_columns and col not in metric_columns and not col.startswith("pred ")
-    ]
+    # Use provided column names directly
+    condition_types = condition_columns
+    opt_metrics = metrics_columns
 
     # Extract batch ID and recommendation type
     batch_id = df["batch"].iloc[0] if "batch" in df.columns else 0
@@ -192,46 +168,42 @@ def resave_output_results(input_file: str, output_file: str) -> None:
     pred_mean = None
     pred_std = None
 
+    # Look for pred columns matching the metrics
+    pred_columns = [col for col in df.columns if col.startswith("pred ")]
+
     if pred_columns:
         # Parse pred columns (format: "mean±std")
         pred_data = {}
         for col in pred_columns:
             metric_name = col.replace("pred ", "")
-            pred_values = []
-            for val in df[col]:
-                if val != "-" and pd.notna(val):
-                    try:
-                        # Parse "mean±std" format
-                        parts = str(val).split("±")
-                        mean = float(parts[0])
-                        std = float(parts[1]) if len(parts) > 1 else 0.0
-                        pred_values.append((mean, std))
-                    except:
+            if metric_name in opt_metrics:
+                pred_values = []
+                for val in df[col]:
+                    if val != "-" and pd.notna(val):
+                        try:
+                            # Parse "mean±std" format
+                            parts = str(val).split("±")
+                            mean = float(parts[0])
+                            std = float(parts[1]) if len(parts) > 1 else 0.0
+                            pred_values.append((mean, std))
+                        except:
+                            pred_values.append((0.0, 0.0))
+                    else:
                         pred_values.append((0.0, 0.0))
-                else:
-                    pred_values.append((0.0, 0.0))
-            pred_data[metric_name] = pred_values
+                pred_data[metric_name] = pred_values
 
         # Convert to arrays
         if pred_data:
-            # Use the actual metric names from pred_data
-            opt_metrics = list(pred_data.keys())
             n_metrics = len(opt_metrics)
             n_samples = len(df)
             pred_mean = np.zeros((n_samples, n_metrics))
             pred_std = np.zeros((n_samples, n_metrics))
 
             for i, metric_name in enumerate(opt_metrics):
-                for j, (mean, std) in enumerate(pred_data[metric_name]):
-                    if j < pred_mean.shape[0] and i < pred_mean.shape[1]:
+                if metric_name in pred_data:
+                    for j, (mean, std) in enumerate(pred_data[metric_name]):
                         pred_mean[j, i] = mean
                         pred_std[j, i] = std
-    else:
-        # Use pred_columns to determine opt_metrics if available
-        if pred_columns:
-            opt_metrics = [col.replace("pred ", "") for col in pred_columns]
-        else:
-            opt_metrics = metric_columns if metric_columns else ["yield"]
 
     # Use the extracted save_reaction_results function
     save_df(
@@ -244,5 +216,4 @@ def resave_output_results(input_file: str, output_file: str) -> None:
         pred_mean=pred_mean,
         pred_std=pred_std,
         opt_metrics=opt_metrics,
-        console_obj=console,
     )

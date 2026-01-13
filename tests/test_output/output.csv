@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost
-0,1,explore,CsOAc,PPh3,DMAc,0.1,105,0.00±0.00,0.00±0.00,[exp_data],[exp_data]
-0,2,explore,CsOAc,PPhtBu2,DMAc,0.1,105,0.00±0.00,0.00±0.00,[exp_data],[exp_data]
-0,3,explore,CsOAc,PPh2Me,DMAc,0.1,105,0.00±0.00,0.00±0.00,[exp_data],[exp_data]
-0,4,explore,CsOAc,CgMe-PPh,DMAc,0.1,105,0.00±0.00,0.00±0.00,[exp_data],[exp_data]
-0,5,explore,CsOAc,BrettPhos,DMAc,0.1,105,0.00±0.00,0.00±0.00,[exp_data],[exp_data]

@@ -121,13 +121,16 @@ class SPOCDescriptor:
         save_path = Path(save_path)
         if self.desc_type_to_filename:
             save_path = save_path.parent / Path(str(save_path.stem) + "_" + self.desc_type + save_path.suffix)
-        assert save_path.parent.exists(), f"The directory {save_path.parent} does not exist."
+        if not save_path.parent.exists():
+            save_path.parent.mkdir(parents=True)
         try:
             if save_path.suffix.lower() == ".csv":
+                desc_df.index.name = "index"
                 desc_df.to_csv(save_path, index=True)
                 self.console.print(f"✅ Results saved to CSV: {save_path}, data shape is {desc_df.shape}", style="bold green")
 
             elif save_path.suffix.lower() in [".xlsx"]:
+                desc_df.index.name = "index"
                 desc_df.to_excel(save_path, index=True)
                 self.console.print(f"✅ Results saved to Excel: {save_path}, data shape is {desc_df.shape}", style="bold green")
 

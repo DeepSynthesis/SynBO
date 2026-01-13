@@ -16,42 +16,40 @@ global_dir = Path(__file__).parent
 data_dir = global_dir / Path("../examples/")
 
 # 控制参数
-NUM_ROUNDS = 10  # k值：运行多少轮
+NUM_ROUNDS = 1  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization",
+    "experiment_name": "Asymmetric_Alkylation_Optimization",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
-        "dataset_file": str(data_dir / "B-H_HTE/B-H_HTE.csv"),
-        "descriptor_dir": str(data_dir / "B-H_HTE/descriptors"),
+        "dataset_file": str(data_dir / "asym_alkylation/asym_alkylation.csv"),
+        "descriptor_dir": str(data_dir / "asym_alkylation/descriptors"),
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
-        "name_suffix": ["_dft", "_dft", "_dft", None, None],
+        "reagent_types": ["reactant2", "catalyst1", "catalyst2"],
+        "name_suffix": ["_RDKit", "_RDKit", "_RDKit"],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "cost"],
+        "opt_metrics": ["yield", "ee"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "random",
+        "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
-        "optimize_method": "evolution",
-        "kwargs": {
-            "surrogate_model": "linear",
-        },
+        "optimize_method": "default_BO",
+        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
 }
 
-CONFIG["reaction_space"]["index_col"] = [f"{r}_file_name" for r in CONFIG["reaction_space"]["reagent_types"]]
+CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
 # ===========================================================================================================
 
 
@@ -65,16 +63,16 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
     file_path = max(candidates, key=lambda p: p.stat().st_mtime)
 
     current_df = pd.read_csv(file_path)
-    cols_to_drop = [c for c in ["yield", "cost"] if c in current_df.columns]
+    opt_metrics = CONFIG["optimization_settings"]["opt_metrics"]
+    cols_to_drop = [c for c in opt_metrics if c in current_df.columns]
     current_df.drop(columns=cols_to_drop, inplace=True)
 
     hte_df = pd.read_csv(dataset_path)
-    match_cols = ["base", "ligand", "solvent", "concentration", "temperature"]
 
     merged_df = pd.merge(
         current_df,
-        hte_df[match_cols + ["yield", "cost"]],
-        on=match_cols,
+        hte_df[CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]],
+        on=CONFIG["reaction_space"]["reagent_types"],
         how="left",
     )
     merged_df.to_csv(file_path, index=False)
@@ -306,6 +304,7 @@ def main():
             name_suffix=CONFIG["reaction_space"]["name_suffix"],
             index_col=CONFIG["reaction_space"]["index_col"],
             return_condition_dict=True,
+            fillna=True,
         )
         # 执行计算部分 (Calculation)
         run_simulation(experiment_dir, desc_dict, condition_dict)

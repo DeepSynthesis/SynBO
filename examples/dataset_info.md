@@ -111,3 +111,21 @@
 | exp data coverage     | 100.0%                                                                |
 | target type           | yield                                                                 |
 
+## Amide coupling reaction HTE dataset
+
+![alt text](assets/amine_coupling.png)
+
+- paper: Wang, J. Y.; Stevens, J. M.; Kariofillis, S. K.; Tom, M.-J.; Golden, D. L.; Li, J.; Tabora, J. E.; Parasram, M.; Shields, B. J.; Primer, D. N.; Hao, B.; Del Valle, D.; DiSomma, S.; Furman, A.; Zipp, G. G.; Melnikov, S.; Paulson, J.; Doyle, A. G. Identifying General Reaction Conditions by Bandit Optimization. Nature 2024, 626 (8001), 1025–1033. https://doi.org/10.1038/s41586-024-07021-y.
+
+
+- dataset information
+
+| feature               | value                                                                 |
+|-----------------------|-----------------------------------------------------------------------|
+| dataset size          | 960                                                                   |
+| reagent type          | solvent,base,activator,nucleophile                            |
+| exp data coverage     | 100.0%                                                                |
+| target type           | yield                                                                 |
+
+## NHC-Pd-DMS catalyzed coupling
+

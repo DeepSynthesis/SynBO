@@ -1,0 +1,51 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost,batch_index,round_index
+0,1,explore,CsOAc,PPhMe2,DMAc,0.1,105,-,-,0.0,0.0741067409999999,0,5
+0,2,explore,CsOAc,PPh2Me,DMAc,0.1,105,-,-,9.55,0.072878443,0,5
+0,3,explore,CsOAc,PCy3 HBF4,DMAc,0.1,105,-,-,12.83,0.077697116,0,5
+0,4,explore,CsOAc,JackiePhos,DMAc,0.1,105,-,-,41.0,0.401630076,0,5
+0,5,explore,CsOAc,PPh3,DMAc,0.1,105,-,-,62.82,0.07197331,0,5
+1,1,Evolution (Standard),CsOPiv,PPh3,DMAc,0.153,120,62.97±0.20,-0.07±0.00,58.4,0.108183344,1,5
+1,2,Evolution (Standard),KOPiv,PPh3,BuCN,0.057,90,62.23±0.40,-0.07±0.00,5.92,0.065923115,1,5
+1,3,Evolution (Standard),KOAc,PPh3,DMAc,0.153,120,62.96±0.10,-0.07±0.00,51.83,0.021790691,1,5
+1,4,Evolution (Standard),KOAc,PPh3,BuCN,0.057,120,62.49±0.25,-0.07±0.00,11.5,0.067060259,1,5
+1,5,Evolution (Standard),KOPiv,PPh3,DMAc,0.057,90,62.64±0.27,-0.07±0.00,46.46,0.035459033,1,5
+2,1,Evolution (Standard),KOPiv,PPh3,BuOAc,0.153,120,48.95±0.72,-0.01±0.00,4.33,0.028416873,2,5
+2,2,Evolution (Standard),CsOAc,PPh3,BuOAc,0.153,90,68.54±0.33,-0.05±0.00,0.81,0.074991821,2,5
+2,3,Evolution (Standard),KOAc,PPh3,BuOAc,0.153,90,59.85±0.28,-0.02±0.00,1.39,0.029494637,2,5
+2,4,Evolution (Standard),CsOAc,PPh3,BuOAc,0.153,120,65.30±0.47,-0.05±0.00,14.26,0.075067471,2,5
+2,5,Evolution (Standard),KOPiv,PPh3,BuOAc,0.153,90,52.90±0.35,-0.02±0.00,2.58,0.02840703,2,5
+3,1,Evolution (Standard),CsOAc,PPh3,DMAc,0.057,120,63.27±0.74,-0.08±0.00,89.71,0.082178459,3,5
+3,2,Evolution (Standard),KOPiv,PPhMe2,DMAc,0.153,120,0.00±0.99,-0.02±0.00,0.0,0.022861504,3,5
+3,3,Evolution (Standard),KOPiv,PPh3,DMAc,0.153,120,51.64±0.34,-0.02±0.00,79.1,0.020775005,3,5
+3,4,Evolution (Standard),CsOAc,PPh3,DMAc,0.153,120,59.30±0.63,-0.06±0.00,78.19,0.067367128,3,5
+3,5,Evolution (Standard),KOAc,PPh3,DMAc,0.057,120,57.20±0.29,-0.04±0.00,45.85,0.036551574,3,5
+4,1,Evolution (Standard),CsOAc,PPh3,DMAc,0.1,120,79.51±6.79,-0.07±0.00,87.32,0.072043938,4,5
+4,2,Evolution (Standard),KOPiv,PPh3,DMAc,0.057,120,75.12±8.43,-0.03±0.00,91.27,0.03558821,4,5
+4,3,Evolution (Standard),KOPiv,PPh3,DMAc,0.1,120,74.75±8.22,-0.03±0.00,86.46,0.025446713,4,5
+4,4,Evolution (Standard),KOPiv,PPh3,DMAc,0.153,105,60.15±6.40,-0.02±0.00,71.11,0.020751972,4,5
+4,5,Evolution (Standard),KOPiv,PPhMe2,DMAc,0.153,105,0.00±2.87,-0.02±0.00,0.0,0.022861504,4,5
+5,1,Evolution (Standard),KOPiv,PPh3,DMAc,0.057,105,69.99±9.46,-0.04±0.00,63.61,0.035508473,5,5
+5,2,Evolution (Standard),KOPiv,PPh3,DMAc,0.1,105,68.41±9.47,-0.03±0.00,63.13,0.025379457,5,5
+5,3,Evolution (Standard),KOPiv,PPh3,DMAc,0.153,90,50.06±10.45,-0.02±0.00,38.79,0.0206588,5,5
+5,4,Evolution (Standard),KOPiv,PPhMe2,DMAc,0.153,90,0.00±6.09,-0.02±0.00,0.0,0.022861504,5,5
+5,5,Evolution (Standard),CsOAc,PPh3,DMAc,0.057,105,67.86±9.20,-0.08±0.00,53.46,0.082073958,5,5
+6,1,Evolution (Standard),KOAc,PPh3,DMAc,0.153,105,33.44±1.65,-0.02±0.00,30.44,0.021729029,6,5
+6,2,Evolution (Standard),CsOPiv,PPh3,DMAc,0.057,120,60.70±1.78,-0.12±0.00,84.64,0.123037109,6,5
+6,3,Evolution (Standard),CsOAc,PPh3,DMAc,0.153,105,58.85±2.02,-0.07±0.00,66.27,0.067332765,6,5
+6,4,Evolution (Standard),KOAc,PPh3,DMAc,0.1,120,49.16±1.85,-0.03±0.00,74.04,0.026505208,6,5
+6,5,Evolution (Standard),KOPiv,PPh3,DMAc,0.1,90,43.54±1.85,-0.03±0.00,38.78,0.025309262,6,5
+7,1,Evolution (Standard),KOAc,PPh3,DMAc,0.153,90,22.93±2.12,-0.02±0.00,11.68,0.021674948,7,5
+7,2,Evolution (Standard),CsOPiv,PPh3,DMAc,0.1,120,71.44±0.40,-0.12±0.00,76.33,0.112885522,7,5
+7,3,Evolution (Standard),CsOPiv,PPh3,DMAc,0.153,105,46.97±0.61,-0.11±0.00,45.28,0.108145522,7,5
+7,4,Evolution (Standard),KOAc,PPh3,DMAc,0.1,105,37.24±1.42,-0.03±0.00,28.15,0.026372917,7,5
+7,5,Evolution (Standard),CsOAc,PPh3,DMAc,0.057,90,43.79±1.82,-0.08±0.00,36.96,0.082026393,7,5
+8,1,Evolution (Standard),CsOPiv,PPh3,DMAc,0.057,105,51.03±4.62,-0.12±0.00,59.68,0.122965155,8,5
+8,2,Evolution (Standard),KOPiv,PPhtBu2,DMAc,0.153,120,14.84±4.37,-0.02±0.01,0.0,0.03745612,8,5
+8,3,Evolution (Standard),CsOAc,PPh3,DMAc,0.1,90,38.36±3.93,-0.07±0.00,32.36,0.0718855,8,5
+8,4,Evolution (Standard),CsOPiv,PPh3,DMAc,0.1,105,48.68±4.26,-0.12±0.00,52.05,0.112815528,8,5
+8,5,Evolution (Standard),KOAc,PPh3,DMAc,0.057,105,34.96±3.94,-0.04±0.00,27.82,0.036499598,8,5
+9,1,Evolution (Standard),KOPiv,JackiePhos,DMAc,0.057,120,47.49±3.72,-0.39±0.00,82.13,0.36528153,9,5
+9,2,Evolution (Standard),KOAc,PPhMe2,DMAc,0.153,120,0.00±0.75,-0.02±0.00,2.78,0.023963818,9,5
+9,3,Evolution (Standard),KOPiv,PPh3,BuCN,0.057,120,37.65±1.83,-0.06±0.00,12.19,0.065971257,9,5
+9,4,Evolution (Standard),KOPiv,BrettPhos,DMAc,0.153,120,44.98±3.81,-0.33±0.02,0.89,0.140017489,9,5
+9,5,Evolution (Standard),KOPiv,PPh3,BuCN,0.153,120,33.12±1.51,-0.04±0.00,15.64,0.032643774,9,5

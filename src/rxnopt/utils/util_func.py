@@ -7,14 +7,13 @@ from __future__ import annotations
 
 from functools import wraps
 
+
 import pandas as pd
 import torch
 from pathlib import Path
 from rdkit import Chem
 from rdkit.Chem.Draw import rdMolDraw2D
 import re
-
-from rxnopt.utils.logger import console
 
 
 def track_called(func):
@@ -130,3 +129,5 @@ def plot_SMILES(SMILES: str, save_dir: str) -> dict:
         return {"success": True}
     except Exception as e:
         return {"success": False}
+
+

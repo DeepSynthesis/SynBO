@@ -1,0 +1,51 @@
+batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost,batch_index,round_index
+0,1,explore,KOAc,CgMe-PPh,BuOAc,0.153,105,-,-,38.53,0.061175441,0,3
+0,2,explore,CsOPiv,PPh2Me,BuOAc,0.153,105,-,-,0.0,0.116919229,0,3
+0,3,explore,CsOAc,CgMe-PPh,DMAc,0.153,105,-,-,100.0,0.098901909,0,3
+0,4,explore,CsOPiv,BrettPhos,p-Xylene,0.057,120,-,-,26.52,0.246325146,0,3
+0,5,explore,KOAc,PPhtBu2,DMAc,0.1,105,-,-,0.0,0.04320091,0,3
+1,1,Evolution (Thompson),CsOAc,GorlosPhos HBF4,DMAc,0.057,90,50.64±161.34,-0.12±0.15,5.38,0.094049073,1,3
+1,2,Evolution (Thompson),CsOPiv,GorlosPhos HBF4,BuCN,0.153,105,49.44±163.50,-0.14±0.15,29.82,0.13233438,1,3
+1,3,Evolution (Thompson),CsOPiv,PPhMe2,BuCN,0.153,90,44.16±146.34,-0.13±0.14,0.0,0.122306226,1,3
+1,4,Evolution (Thompson),KOAc,P(fur)3,BuOAc,0.1,120,0.00±170.81,-0.08±0.16,21.34,0.050428722,1,3
+1,5,Evolution (Thompson),KOPiv,X-Phos,DMAc,0.1,90,32.75±152.65,-0.11±0.14,55.17,0.033553867,1,3
+2,1,Evolution (Thompson),CsOPiv,JackiePhos,p-Xylene,0.153,120,19.83±116.95,-0.16±0.11,13.34,0.439356423,2,3
+2,2,Evolution (Thompson),CsOAc,JackiePhos,DMAc,0.057,105,27.16±114.58,-0.13±0.11,71.97,0.4118469870000001,2,3
+2,3,Evolution (Thompson),CsOAc,PCy3 HBF4,p-Xylene,0.057,120,12.59±96.29,-0.14±0.09,0.0,0.09175506,2,3
+2,4,Evolution (Thompson),KOAc,X-Phos,DMAc,0.057,105,35.91±97.45,-0.03±0.09,55.4,0.044776461,2,3
+2,5,Evolution (Thompson),CsOAc,CgMe-PPh,BuCN,0.153,90,100.00±89.19,-0.10±0.08,63.2,0.111075602,2,3
+3,1,Evolution (Thompson),CsOAc,PCy3 HBF4,p-Xylene,0.1,105,13.93±35.20,-0.08±0.12,0.55,0.079988646,3,3
+3,2,Evolution (Thompson),KOPiv,CgMe-PPh,DMAc,0.153,120,56.93±37.19,-0.08±0.12,99.81,0.0523066159999999,3,3
+3,3,Evolution (Thompson),KOPiv,PPh3,p-Xylene,0.153,105,19.51±36.36,-0.02±0.13,6.42,0.022143486,3,3
+3,4,Evolution (Thompson),KOPiv,tBPh-CPhos,p-Xylene,0.153,120,29.51±40.52,-0.11±0.16,29.39,0.264847749,3,3
+3,5,Evolution (Thompson),KOPiv,tBPh-CPhos,BuOAc,0.153,90,32.02±40.46,-0.07±0.16,11.24,0.271076167,3,3
+4,1,Evolution (Thompson),KOAc,CgMe-PPh,BuCN,0.1,90,66.22±35.08,-0.08±0.13,16.04,0.075709131,4,3
+4,2,Evolution (Thompson),KOPiv,CgMe-PPh,p-Xylene,0.1,90,62.97±35.75,-0.07±0.13,18.9,0.059064865,4,3
+4,3,Evolution (Thompson),KOPiv,PPh3,BuOAc,0.057,105,14.55±35.62,-0.05±0.13,0.98,0.055477494,4,3
+4,4,Evolution (Thompson),KOPiv,PPhMe2,DMAc,0.153,120,17.97±36.87,-0.02±0.13,0.0,0.022861504,4,3
+4,5,Evolution (Thompson),KOPiv,PPh3,BuOAc,0.153,120,14.40±36.10,-0.03±0.13,4.33,0.028416873,4,3
+5,1,Evolution (Thompson),CsOPiv,CgMe-PPh,p-Xylene,0.153,120,45.20±35.19,-0.14±0.13,19.13,0.141129795,5,3
+5,2,Evolution (Thompson),CsOPiv,P(fur)3,BuOAc,0.1,120,23.97±37.45,-0.14±0.13,15.21,0.136767955,5,3
+5,3,Evolution (Thompson),KOAc,BrettPhos,BuOAc,0.057,90,25.11±34.44,-0.16±0.13,17.54,0.176132882,5,3
+5,4,Evolution (Thompson),KOAc,CgMe-PPh,BuCN,0.1,105,48.63±33.29,-0.08±0.13,54.67,0.07600574,5,3
+5,5,Evolution (Thompson),KOAc,PPh2Me,BuOAc,0.153,105,18.09±36.19,-0.03±0.13,0.0,0.030545517,5,3
+6,1,Evolution (Thompson),KOAc,PPh3,DMAc,0.057,120,12.02±32.39,-0.05±0.13,45.85,0.036551574,6,3
+6,2,Evolution (Thompson),CsOPiv,CgMe-PPh,BuOAc,0.153,120,44.61±33.38,-0.15±0.13,26.69,0.147482559,6,3
+6,3,Evolution (Thompson),KOPiv,X-Phos,DMAc,0.153,120,41.72±33.18,-0.02±0.13,80.39,0.02897608,6,3
+6,4,Evolution (Thompson),KOPiv,P(fur)3,p-Xylene,0.1,90,17.25±33.69,-0.04±0.13,20.46,0.039898956,6,3
+6,5,Evolution (Thompson),KOAc,CgMe-PPh,DMAc,0.1,105,50.27±32.29,-0.06±0.13,80.38,0.057995393,6,3
+7,1,Evolution (Thompson),KOPiv,PPh3,BuOAc,0.1,120,14.17±34.72,-0.04±0.13,4.23,0.036937879,7,3
+7,2,Evolution (Thompson),KOAc,BrettPhos,DMAc,0.153,90,34.29±36.78,-0.14±0.13,5.75,0.141125799,7,3
+7,3,Evolution (Thompson),KOPiv,PPh3,DMAc,0.153,90,19.58±35.34,-0.02±0.13,38.79,0.0206588,7,3
+7,4,Evolution (Thompson),KOAc,CgMe-PPh,DMAc,0.1,120,58.85±35.52,-0.06±0.13,83.22,0.05800358,7,3
+7,5,Evolution (Thompson),KOPiv,PPh2Me,DMAc,0.153,105,20.76±37.43,-0.02±0.13,2.77,0.021613661,7,3
+8,1,Evolution (Thompson),KOPiv,BrettPhos,p-Xylene,0.057,105,13.74±35.11,-0.16±0.13,29.85,0.158869288,8,3
+8,2,Evolution (Thompson),KOPiv,PPhMe2,p-Xylene,0.057,120,0.00±35.30,-0.04±0.13,0.0,0.041606925,8,3
+8,3,Evolution (Thompson),KOAc,CgMe-PPh,DMAc,0.153,90,56.73±35.31,-0.05±0.13,28.9,0.053196497,8,3
+8,4,Evolution (Thompson),KOPiv,X-Phos,BuCN,0.153,120,50.99±35.49,-0.04±0.13,71.43,0.041269496,8,3
+8,5,Evolution (Thompson),CsOAc,X-Phos,DMAc,0.1,120,58.27±35.93,-0.08±0.13,84.81,0.080234058,8,3
+9,1,Evolution (Thompson),KOPiv,P(fur)3,BuCN,0.1,120,34.21±37.65,-0.05±0.13,40.02,0.055627352,9,3
+9,2,Evolution (Thompson),KOAc,CgMe-PPh,BuCN,0.057,90,50.58±35.40,-0.08±0.13,17.45,0.098577852,9,3
+9,3,Evolution (Thompson),KOPiv,CgMe-PPh,DMAc,0.1,120,62.04±36.70,-0.06±0.13,87.59,0.056921878,9,3
+9,4,Evolution (Thompson),CsOAc,X-Phos,BuCN,0.057,120,66.92±36.12,-0.10±0.13,72.21,0.121224204,9,3
+9,5,Evolution (Thompson),KOPiv,PPh3,p-Xylene,0.153,90,3.49±35.73,-0.02±0.13,1.58,0.022125821,9,3

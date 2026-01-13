@@ -11,8 +11,9 @@ from functools import wraps
 import pandas as pd
 import torch
 from pathlib import Path
+from indigo import Indigo
+from indigo.renderer import IndigoRenderer
 from rdkit import Chem
-from rdkit.Chem.Draw import rdMolDraw2D
 import re
 
 
@@ -104,30 +105,22 @@ def plot_SMILES(SMILES: str, save_dir: str) -> dict:
     mol = Chem.MolFromSmiles(SMILES)
     if mol is None:
         return {"success": False}
+
     save_path_obj = Path(save_dir)
     if not save_path_obj.exists():
         save_path_obj.mkdir(parents=True, exist_ok=True)
-    width, height = 400, 400
-    drawer = rdMolDraw2D.MolDraw2DCairo(width, height)
-    opts = drawer.drawOptions()
-    # --- 样式设置 ---
-    opts.bondLineWidth = 3.0  # 键的粗细
-    opts.minFontSize = 16  # 最小字体大小
-    opts.fixedFontSize = 20  # 固定字体大小
-    # opts.atomLabelFontFace = "Arial"  <-- 删除这一行，RDKit不支持此属性
 
-    # RDKit 默认就是类似 Arial 的无衬线字体
     try:
-        drawer.DrawMolecule(mol)
-        drawer.FinishDrawing()
-        # 确保这里调用了正确的文件名清洗函数
-        # safe_name = sanitize_filename(SMILES)
-        # 临时替代方案，防止 sanitize_filename 未定义导致测试失败：
+        indigo = Indigo()
+        renderer = IndigoRenderer(indigo)
+
         safe_name = sanitize_filename(SMILES)
         file_path = save_path_obj / f"{safe_name}.png"
-        drawer.WriteDrawingText(str(file_path))
+        mol = indigo.loadMolecule(SMILES)
+        indigo.setOption('render-coloring', True)
+        indigo.setOption("render-output-format", "png")
+        renderer.renderToFile(mol, str(file_path))
         return {"success": True}
     except Exception as e:
+        print(e)
         return {"success": False}
-
-

@@ -16,8 +16,6 @@ from rdkit.Chem.Draw import rdMolDraw2D
 import re
 
 
-
-
 def track_called(func):
     """Decorator to track if a method has been called.
 

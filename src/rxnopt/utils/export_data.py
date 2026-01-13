@@ -21,7 +21,6 @@ def save_reaction_results(
     figure_path: Optional[Union[str, Path]] = None,
     suffix: Optional[str] = None,
     transpose: Optional[bool] = False,
-    console_obj=None,
 ) -> None:
     """Save reaction optimization results to file.
 
@@ -59,8 +58,8 @@ def save_reaction_results(
 
     # Create directory if it doesn't exist
     if not full_save_path.parent.exists():
-        if console_obj:
-            console_obj.print(f"Creating directory: {full_save_path.parent}", style="yellow")
+
+        console.print(f"Creating directory: {full_save_path.parent}", style="yellow")
         full_save_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Prepare prediction data
@@ -106,8 +105,7 @@ def save_reaction_results(
     else:
         raise ValueError(f"Unknown filetype: {filetype}")
 
-    if console_obj:
-        console_obj.print(f"✓ Saved recommendations to: [cyan]{full_save_path.with_suffix('.' + filetype)}[/cyan]", style="green")
+    console.print(f"✓ Saved recommendations to: [cyan]{full_save_path.with_suffix('.' + filetype)}[/cyan]", style="green")
 
 
 def resave_output_results(input_file: str, output_file: str) -> None:

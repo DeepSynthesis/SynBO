@@ -105,7 +105,8 @@ def save_df(
     else:
         raise ValueError(f"Unknown filetype: {filetype}")
 
-    console.print(f"✓ Saved recommendations to: [cyan]{full_save_path.with_suffix('.' + filetype)}[/cyan]", style="green")
+    file_suffix = filetype if filetype != "excel" else "xlsx"
+    console.print(f"✓ Saved recommendations to: [cyan]{full_save_path.with_suffix('.' + file_suffix)}[/cyan]", style="green")
 
 
 def resave_output_results(

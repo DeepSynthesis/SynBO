@@ -13,7 +13,7 @@ class TestResaveOutput(unittest.TestCase):
         cls.input_file = Path(__file__).parent / "testfile/start_file.csv"
         cls.output_dir = Path(__file__).parent / "test_output"
         cls.output_dir.mkdir(exist_ok=True)
-        
+
         # Define condition columns and metrics columns
         cls.condition_columns = ["base", "ligand", "solvent", "concentration", "temperature"]
         cls.metrics_columns = ["yield", "cost"]
@@ -32,42 +32,33 @@ class TestResaveOutput(unittest.TestCase):
     def test_csv_to_csv_conversion(self):
         """Test conversion from CSV to CSV format."""
         output_file = self.output_dir / "output.csv"
-        
+
         resave_output_results(
-            str(self.input_file),
-            str(output_file),
-            condition_columns=self.condition_columns,
-            metrics_columns=self.metrics_columns
+            str(self.input_file), str(output_file), condition_columns=self.condition_columns, metrics_columns=self.metrics_columns
         )
-        
+
         # Verify the output file was created
         self.assertTrue(output_file.exists(), "Output CSV file should be created")
 
     def test_csv_to_excel_conversion(self):
         """Test conversion from CSV to Excel format."""
         output_file = self.output_dir / "output.xlsx"
-        
+
         resave_output_results(
-            str(self.input_file),
-            str(output_file),
-            condition_columns=self.condition_columns,
-            metrics_columns=self.metrics_columns
+            str(self.input_file), str(output_file), condition_columns=self.condition_columns, metrics_columns=self.metrics_columns
         )
-        
+
         # Verify the output file was created
         self.assertTrue(output_file.exists(), "Output Excel file should be created")
 
     def test_csv_to_json_conversion(self):
         """Test conversion from CSV to JSON format."""
         output_file = self.output_dir / "output.json"
-        
+
         resave_output_results(
-            str(self.input_file),
-            str(output_file),
-            condition_columns=self.condition_columns,
-            metrics_columns=self.metrics_columns
+            str(self.input_file), str(output_file), condition_columns=self.condition_columns, metrics_columns=self.metrics_columns
         )
-        
+
         # Verify the output file was created
         self.assertTrue(output_file.exists(), "Output JSON file should be created")
 

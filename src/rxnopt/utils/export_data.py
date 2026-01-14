@@ -115,6 +115,7 @@ def resave_output_results(
     metrics_columns: List[str],
     figure_output: List[str] = None,
     figure_path: Optional[str] = None,
+    transpose: Optional[bool] = False,
 ) -> None:
     """Resave output results from one format to another.
 
@@ -216,4 +217,7 @@ def resave_output_results(
         pred_mean=pred_mean,
         pred_std=pred_std,
         opt_metrics=opt_metrics,
+        figure_output=figure_output,
+        figure_path=figure_path,
+        transpose=transpose,
     )

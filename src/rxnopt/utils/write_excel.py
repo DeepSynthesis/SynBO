@@ -353,10 +353,9 @@ class ExcelWriter:
             cell.value = img_filename
 
     def _get_mol_SMILES(self, img_filename, figure_type):
-        if isinstance(self.condition_dict[figure_type], pd.DataFrame):
+        if isinstance(self.condition_dict[figure_type], dict):
             try:
-                lookup_df = self.condition_dict[figure_type]
-                mol_SMILES = lookup_df.loc[lookup_df["name"] == img_filename, "SMILES"].values[0]
+                mol_SMILES = self.condition_dict[figure_type][img_filename]
             except:
                 mol_SMILES = img_filename
         else:

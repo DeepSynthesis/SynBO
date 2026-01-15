@@ -84,7 +84,7 @@ def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str 
             df.set_index(idx_col, inplace=True)
 
         if v_col is not None:
-            condition_dict[r_type] = [{k: v} for k, v in zip(df.index.tolist(), df[v_col].tolist())]
+            condition_dict[r_type] = df[v_col].to_dict()
         else:
             condition_dict[r_type] = df.index.astype("str").tolist()
 

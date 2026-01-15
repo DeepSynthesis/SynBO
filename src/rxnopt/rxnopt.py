@@ -390,6 +390,13 @@ class ReactionOptimizer:
             figure_path: Path for figures
             suffix: Optional filename suffix
         """
+        # Prepare prediction info dictionary
+        pred_info = None
+        if self.pred_mean is not None and self.pred_std is not None:
+            pred_info = {}
+            for i, metric in enumerate(self.opt_metrics):
+                pred_info[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
+        
         save_df(
             save_path=save_dir,
             filetype=filetype,
@@ -397,8 +404,7 @@ class ReactionOptimizer:
             condition_dict=self.condition_dict,
             recommend_type=self.recommend_type,
             batch_id=self.batch_id,
-            pred_mean=self.pred_mean,
-            pred_std=self.pred_std,
+            pred_info=pred_info,
             opt_metrics=self.opt_metrics,
             figure_output=figure_output,
             figure_path=figure_path,

@@ -14,8 +14,7 @@ def save_df(
     condition_dict: Dict[str, pd.DataFrame] = None,
     recommend_type: List[str] = None,
     batch_id: int = 0,
-    pred_mean: Optional[np.ndarray] = None,
-    pred_std: Optional[np.ndarray] = None,
+    pred_info: Optional[Dict[str, List[str]]] = None,
     opt_metrics: List[str] = None,
     figure_output: List[str] = None,
     figure_path: Optional[Union[str, Path]] = None,
@@ -31,8 +30,7 @@ def save_df(
         condition_types: List of condition type names
         recommend_type: List of recommendation types ('explore' or 'exploit')
         batch_id: Batch identifier
-        pred_mean: Prediction mean values (n_samples x n_metrics)
-        pred_std: Prediction standard deviation values (n_samples x n_metrics)
+        pred_info: Dictionary with prediction data in format {"pred metric1": ["mean±std", ...], ...}
         opt_metrics: List of optimization metric names
         figure_output: List of figure types to generate
         figure_path: Path for figures
@@ -59,9 +57,8 @@ def save_df(
         full_save_path.parent.mkdir(parents=True, exist_ok=True)
 
     pred_data = {}
-    if pred_mean is not None and pred_std is not None:
-        for i, metric in enumerate(opt_metrics):
-            pred_data[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(pred_mean[:, i], pred_std[:, i])]
+    if pred_info is not None:
+        pred_data = pred_info
     else:
         for metric in opt_metrics:
             pred_data[f"pred {metric}"] = ["-"] * len(selected_conditions)
@@ -125,7 +122,7 @@ def resave_output_results(
 
     assert input_file.exists(), f"Input file {input_file} does not exist."
 
-    condition_dict = condition_dict if condition_dict is not None else [{k: None} for k in condition_columns]
+    condition_dict = condition_dict if condition_dict is not None else {k: None for k in condition_columns}
 
     # Determine input file format and load data
     input_suffix = input_file.suffix.lower()
@@ -149,7 +146,7 @@ def resave_output_results(
     else:
         raise ValueError(f"Unsupported output file format: {output_suffix}")
 
-    # opt_metrics = metrics_columns
+    opt_metrics = metrics_columns
 
     # Extract batch ID and recommendation type
     batch_id = df["batch"].iloc[0] if "batch" in df.columns else 0
@@ -159,47 +156,18 @@ def resave_output_results(
     selected_conditions = df[condition_columns].values
 
     # Extract prediction data if available
-    pred_mean = None
-    pred_std = None
+    pred_info = None
 
-    # Look for pred columns matching the metrics
     pred_columns = [col for col in df.columns if col.startswith("pred ")]
 
     if pred_columns:
-        # Parse pred columns (format: "mean±std")
-        pred_data = {}
+        pred_info = {}
         for col in pred_columns:
             metric_name = col.replace("pred ", "")
             if metric_name in opt_metrics:
-                pred_values = []
-                for val in df[col]:
-                    if val != "-" and pd.notna(val):
-                        try:
-                            # Parse "mean±std" format
-                            parts = str(val).split("±")
-                            mean = float(parts[0])
-                            std = float(parts[1]) if len(parts) > 1 else 0.0
-                            pred_values.append((mean, std))
-                        except:
-                            pred_values.append((0.0, 0.0))
-                    else:
-                        pred_values.append((0.0, 0.0))
-                pred_data[metric_name] = pred_values
+                # Convert to string and handle missing values
+                pred_info[col] = df[col].fillna("-").astype(str).tolist()
 
-        # Convert to arrays
-        if pred_data:
-            n_metrics = len(opt_metrics)
-            n_samples = len(df)
-            pred_mean = np.zeros((n_samples, n_metrics))
-            pred_std = np.zeros((n_samples, n_metrics))
-
-            for i, metric_name in enumerate(opt_metrics):
-                if metric_name in pred_data:
-                    for j, (mean, std) in enumerate(pred_data[metric_name]):
-                        pred_mean[j, i] = mean
-                        pred_std[j, i] = std
-
-    # Use the extracted save_reaction_results function
     save_df(
         save_path=output_file,
         filetype=filetype,
@@ -207,8 +175,7 @@ def resave_output_results(
         condition_dict=condition_dict,
         recommend_type=recommend_type,
         batch_id=batch_id,
-        pred_mean=pred_mean,
-        pred_std=pred_std,
+        pred_info=pred_info,
         opt_metrics=opt_metrics,
         figure_output=figure_output,
         figure_path=figure_path,

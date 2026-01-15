@@ -67,20 +67,27 @@ def load_desc_dict(
         return desc_dict
 
 
-def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str = None) -> dict:
+def load_condition_dict(reagent_types: list, rxn_space_dir: str, index_col: str = None, value_col: str = None) -> dict:
     index_col = _convert_tag(index_col, len(reagent_types))
+    value_col = _convert_tag(value_col, len(reagent_types))
     condition_dict = {}
     rxn_space_dir = Path(rxn_space_dir)
-    for idx_col, r_type in zip(index_col, reagent_types):
+    for r_type, idx_col, v_col in zip(reagent_types, index_col, value_col):
         rxn_space_file = rxn_space_dir / f"{r_type}.csv"
         assert rxn_space_file.exists(), f"Reaction space file for `{r_type}` does not exist in `{rxn_space_dir}`."
         df = pd.read_csv(rxn_space_file)
         if "select" in df.columns:
             df = df[df["select"]]
-        if index_col is not None:
+
+        if idx_col is not None:
             assert idx_col in df.columns, f"Index column {idx_col} not found in {rxn_space_file}."
             df.set_index(idx_col, inplace=True)
-        condition_dict[r_type] = df.index.astype("str").tolist()
+
+        if v_col is not None:
+            condition_dict[r_type] = [{k: v} for k, v in zip(df.index.tolist(), df[v_col].tolist())]
+        else:
+            condition_dict[r_type] = df.index.astype("str").tolist()
+
     return condition_dict
 
 

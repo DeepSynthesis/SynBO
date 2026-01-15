@@ -105,6 +105,7 @@ def resave_output_results(
     output_file: str,
     condition_columns: List[str],
     metrics_columns: List[str],
+    condition_dict: Dict[str, pd.DataFrame] = None,
     figure_output: List[str] = None,
     figure_path: Optional[str] = None,
     transpose: Optional[bool] = False,
@@ -123,6 +124,8 @@ def resave_output_results(
     output_file = Path(output_file)
 
     assert input_file.exists(), f"Input file {input_file} does not exist."
+
+    condition_dict = condition_dict if condition_dict is not None else [{k: None} for k in condition_columns]
 
     # Determine input file format and load data
     input_suffix = input_file.suffix.lower()
@@ -146,16 +149,14 @@ def resave_output_results(
     else:
         raise ValueError(f"Unsupported output file format: {output_suffix}")
 
-    # Use provided column names directly
-    condition_types = condition_columns
-    opt_metrics = metrics_columns
+    # opt_metrics = metrics_columns
 
     # Extract batch ID and recommendation type
     batch_id = df["batch"].iloc[0] if "batch" in df.columns else 0
     recommend_type = df["type"].tolist() if "type" in df.columns else ["explore"] * len(df)
 
     # Extract selected conditions
-    selected_conditions = df[condition_types].values
+    selected_conditions = df[condition_columns].values
 
     # Extract prediction data if available
     pred_mean = None
@@ -203,7 +204,7 @@ def resave_output_results(
         save_path=output_file,
         filetype=filetype,
         selected_conditions=selected_conditions,
-        condition_types=condition_types,
+        condition_dict=condition_dict,
         recommend_type=recommend_type,
         batch_id=batch_id,
         pred_mean=pred_mean,

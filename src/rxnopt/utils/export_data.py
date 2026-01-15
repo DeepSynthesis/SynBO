@@ -4,14 +4,14 @@ from pathlib import Path
 import pandas as pd
 from rxnopt.utils.logger import console
 from datetime import datetime
-from typing import List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 
 def save_df(
     save_path: Union[str, Path],
     filetype: Literal["csv", "excel", "json"] = "csv",
     selected_conditions: np.ndarray = None,
-    condition_types: List[str] = None,
+    condition_dict: Dict[str, pd.DataFrame] = None,
     recommend_type: List[str] = None,
     batch_id: int = 0,
     pred_mean: Optional[np.ndarray] = None,
@@ -42,56 +42,47 @@ def save_df(
     """
     if figure_output is None:
         figure_output = []
-
     save_path = Path(save_path)
 
-    # Generate filename
     file_name = f"batch-{batch_id}_{datetime.now().strftime('%Y%m%d')}"
     if suffix:
         file_name = f"{file_name}_{suffix}"
 
-    # If save_path is a directory, append the filename
     if save_path.is_dir() or not save_path.suffix:
         full_save_path = save_path / file_name
     else:
         full_save_path = save_path
 
-    # Create directory if it doesn't exist
     if not full_save_path.parent.exists():
 
         console.print(f"Creating directory: {full_save_path.parent}", style="yellow")
         full_save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Prepare prediction data
     pred_data = {}
     if pred_mean is not None and pred_std is not None:
         for i, metric in enumerate(opt_metrics):
-            # Format: "mean±std" with 2 decimal places
             pred_data[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(pred_mean[:, i], pred_std[:, i])]
     else:
-        # For initialization phase, add empty columns
         for metric in opt_metrics:
             pred_data[f"pred {metric}"] = ["-"] * len(selected_conditions)
 
-    # Create output dataframe
     output_df = pd.DataFrame(
         {
             "batch": [batch_id] * len(selected_conditions),
             "index": range(1, len(selected_conditions) + 1),
             "type": recommend_type,
-            **pd.DataFrame(selected_conditions, columns=condition_types).to_dict("list"),
+            **pd.DataFrame(selected_conditions, columns=condition_dict.keys()).to_dict("list"),
             **pred_data,
             **{metric: "[exp_data]" for metric in opt_metrics},
         }
     )
 
-    # Save based on filetype
     if filetype == "csv":
         output_df.to_csv(full_save_path.with_suffix(".csv"), index=False)
     elif filetype == "excel" or filetype == "xlsx":
         from rxnopt.utils.write_excel import ExcelWriter
 
-        writer = ExcelWriter(condition_types=condition_types, opt_metrics=opt_metrics)
+        writer = ExcelWriter(condition_dict=condition_dict, opt_metrics=opt_metrics)
         writer.write_to_excel(
             output_df=output_df,
             batch_id=batch_id,

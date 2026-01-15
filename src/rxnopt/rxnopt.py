@@ -394,7 +394,7 @@ class ReactionOptimizer:
             save_path=save_dir,
             filetype=filetype,
             selected_conditions=self.selected_conditions,
-            condition_types=self.condition_types,
+            condition_dict=self.condition_dict,
             recommend_type=self.recommend_type,
             batch_id=self.batch_id,
             pred_mean=self.pred_mean,

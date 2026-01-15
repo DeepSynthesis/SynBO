@@ -102,24 +102,32 @@ def sanitize_filename(filename: str) -> str:
 
 
 def plot_SMILES(SMILES: str, save_dir: str) -> dict:
+    print("debug: -2")
     mol = Chem.MolFromSmiles(SMILES)
     if mol is None:
+        print("debug: -ccc")
         return {"success": False}
-
+    print("debug: -1")
     save_path_obj = Path(save_dir)
     if not save_path_obj.exists():
         save_path_obj.mkdir(parents=True, exist_ok=True)
 
     try:
+        print("debug: 0")
         indigo = Indigo()
         renderer = IndigoRenderer(indigo)
-
+        print("debug: 1")
         safe_name = sanitize_filename(SMILES)
+        print("debug: 2")
         file_path = save_path_obj / f"{safe_name}.png"
         mol = indigo.loadMolecule(SMILES)
-        indigo.setOption('render-coloring', True)
+        print("debug: 3")
+        indigo.setOption("render-coloring", True)
+        print("debug: 4")
         indigo.setOption("render-output-format", "png")
+        print("debug: 5 ", file_path)
         renderer.renderToFile(mol, str(file_path))
+
         return {"success": True}
     except Exception as e:
         print(e)

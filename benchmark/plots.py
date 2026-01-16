@@ -3,10 +3,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from pathlib import Path
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
@@ -80,11 +76,11 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
             y="value",
             ax=ax,
             width=0.4,
-            color="lightgray",
+            color="lightblue",
             fliersize=3,
             linewidth=1.5,
             boxprops=dict(alpha=0.6, edgecolor="gray"),
-            medianprops=dict(color="red", linewidth=2),
+            medianprops=dict(color="#08519C", linewidth=2),
             label="Batch Best Distribution",
             zorder=5,
         )
@@ -269,11 +265,11 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
         x="batch_index",
         y="value",
         width=0.4,
-        color="lightgray",
+        color="lightgreen",
         fliersize=3,
         linewidth=1.5,
         boxprops=dict(alpha=0.6, edgecolor="gray"),
-        medianprops=dict(color="red", linewidth=2),
+        medianprops=dict(color="#006400", linewidth=2),
         label="Batch HV Distribution",
         zorder=5,
     )
@@ -312,7 +308,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_tags, experiment_dir):
     """
     绘制美化版箱型图：所有 df 最后优化到的最佳值分布。
-    
+
     Args:
         dfs: List of DataFrames containing experimental results
         target_columns: List of target column names
@@ -363,11 +359,11 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
             y="Best Value",
             ax=ax,
             width=0.4,
-            color="lightgray",
+            color="#FFCCCC",
             fliersize=0,
             linewidth=1.5,
             boxprops=dict(alpha=0.6, edgecolor="gray"),
-            medianprops=dict(color="red", linewidth=2),
+            medianprops=dict(color="#8B0000", linewidth=2),
             label="Distribution",
             zorder=5,
         )
@@ -460,7 +456,7 @@ def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range
     # 2. 处理所有df的帕累托前沿
     # ==========================================
     all_empirical_pfs = []
-    
+
     for df_idx, df in enumerate(dfs):
         exp_data_raw = df[target_columns].values
 
@@ -482,9 +478,7 @@ def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range
     # 3. 开始绘图（所有前沿在同一张图上）
     # ==========================================
     if n_targets == 2:
-        _plot_2d_scatter(
-            true_pf_data_sorted, all_empirical_pfs, target_columns, range_tags, direction_tags, experiment_dir
-        )
+        _plot_2d_scatter(true_pf_data_sorted, all_empirical_pfs, target_columns, range_tags, direction_tags, experiment_dir)
     elif n_targets == 3:
         pass
     else:
@@ -510,17 +504,34 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
         directions: 优化方向列表
         save_dir: 保存目录
     """
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(6, 5))
 
+    # Layer 2: 所有 Empirical Pareto Front (前景 - 仅线条，颜色淡一点)
+    for df_idx, emp_pf_data in all_empirical_pfs:
+        # 为了画线，按照第一个维度排序
+        emp_sorted_indices = np.argsort(emp_pf_data[:, 0])
+        emp_pf_data_sorted = emp_pf_data[emp_sorted_indices]
+
+        # 使用不同的颜色绘制每个df的前沿，颜色较淡（不添加label，不显示在图例中）
+        color = plt.cm.tab10(df_idx % 10)
+        plt.plot(
+            emp_pf_data_sorted[:, 0],
+            emp_pf_data_sorted[:, 1],
+            c=color,
+            linestyle="-",
+            linewidth=1,
+            alpha=0.6,
+            zorder=5,
+        )
     # Layer 1: True Pareto Front (背景 - 线条 + 节点)
     # 绘制线条
     plt.plot(
         true_pf_sorted[:, 0],
         true_pf_sorted[:, 1],
-        c="skyblue",
+        c="#11668a",
         linestyle="-",
-        linewidth=2,
-        alpha=0.6,
+        linewidth=1.5,
+        alpha=0.9,
         label="True Pareto Front",
         zorder=0,
     )
@@ -531,29 +542,10 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
         c="skyblue",
         edgecolors="k",
         linewidth=0.8,
-        s=80,
-        alpha=0.6,
+        s=50,
+        alpha=0.9,
         zorder=1,
     )
-
-    # Layer 2: 所有 Empirical Pareto Front (前景 - 仅线条，颜色淡一点)
-    for df_idx, emp_pf_data in all_empirical_pfs:
-        # 为了画线，按照第一个维度排序
-        emp_sorted_indices = np.argsort(emp_pf_data[:, 0])
-        emp_pf_data_sorted = emp_pf_data[emp_sorted_indices]
-
-        # 使用不同的颜色绘制每个df的前沿，颜色较淡
-        color = plt.cm.tab10(df_idx % 10)
-        plt.plot(
-            emp_pf_data_sorted[:, 0],
-            emp_pf_data_sorted[:, 1],
-            c=color,
-            linestyle="-",
-            linewidth=2,
-            alpha=0.5,
-            label=f"Run {df_idx + 1} PF",
-            zorder=5,
-        )
 
     # 设置坐标轴范围
     if ranges:
@@ -565,13 +557,27 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
         plt.ylim(y_min - y_padding, y_max + y_padding)
 
     # 标签与标题
-    plt.xlabel(f"{targets[0]} ({directions[0]})")
-    plt.ylabel(f"{targets[1]} ({directions[1]})")
-    plt.title("Optimization Process: True PF vs Empirical PFs")
+    plt.xlabel(f"{targets[0]} ({directions[0]})", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.ylabel(f"{targets[1]} ({directions[1]})", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.title("Optimization Process: True PF vs Empirical PFs", fontsize=16, fontname="Arial", fontweight="bold")
+
+    # 设置tick参数
+    plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+    plt.tick_params(axis="both", which="minor", width=1, length=4)
+
+    for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
+        label.set_fontname("Arial")
+
+    # 设置边框和网格
+    plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
+    ax = plt.gca()
+    ax.spines["top"].set_linewidth(1.2)
+    ax.spines["right"].set_linewidth(1.2)
+    ax.spines["bottom"].set_linewidth(1.2)
+    ax.spines["left"].set_linewidth(1.2)
 
     # Legend
-    plt.legend(loc="best")
-    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.legend(loc="best", fontsize=11, framealpha=0.9)
 
     save_path = save_dir / "plot_4_pareto_comparison.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")

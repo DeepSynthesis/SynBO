@@ -422,19 +422,17 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
 
 def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
-    绘制优化过程散点图 (只显示非支配解)：
-    1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，并按顺序连成一条浅蓝色线条。
-    2. 前景：仅绘制实验结果中找到的非支配解 (Empirical Pareto Front)，以散点显示，颜色根据 Batch Index 渐变。
+    绘制优化过程散点图：
+    1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，连线+绘制节点
+    2. 前景：绘制每个df的帕累托前沿（不用绘制节点，颜色淡一点），所有前沿画在一张图上
     """
-    df = df[df["round_index"] == 0]
-
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
     n_targets = len(target_columns)
 
     # ==========================================
-    # 1. 处理全空间数据 (True Pareto Front - Background Line)
+    # 1. 处理全空间数据 (True Pareto Front)
     # ==========================================
     if str(full_space_file).endswith(".csv"):
         full_df = pd.read_csv(full_space_file)
@@ -454,38 +452,38 @@ def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range
     true_pf_indices = full_fronts[0]
     true_pf_data = full_data_raw[true_pf_indices]  # 获取真实的 PF 数据
 
-    # --- 关键修改：为了画线，必须按照第一个维度排序 ---
-    # argsort 返回排序后的索引，保证连线是顺滑的，不会乱窜
+    # --- 为了画线，按照第一个维度排序 ---
     sorted_indices = np.argsort(true_pf_data[:, 0])
     true_pf_data_sorted = true_pf_data[sorted_indices]
 
     # ==========================================
-    # 2. 处理实验数据 (Empirical Pareto Front - Foreground Scatter)
+    # 2. 处理所有df的帕累托前沿
     # ==========================================
-    exp_data_raw = df[target_columns].values
-    batch_indices_raw = df["batch_index"].values
+    all_empirical_pfs = []
+    
+    for df_idx, df in enumerate(dfs):
+        exp_data_raw = df[target_columns].values
 
-    # 准备实验数据的排序 (同样处理 max/min)
-    exp_sorting_data = exp_data_raw.copy()
-    for i, direction in enumerate(direction_tags):
-        if direction == "max":
-            exp_sorting_data[:, i] *= -1
+        # 准备实验数据的排序 (同样处理 max/min)
+        exp_sorting_data = exp_data_raw.copy()
+        for i, direction in enumerate(direction_tags):
+            if direction == "max":
+                exp_sorting_data[:, i] *= -1
 
-    # 实验数据非支配排序
-    exp_fronts = nds.do(exp_sorting_data)
-    empirical_pf_indices = exp_fronts[0]  # 获取实验数据中的 Rank 0 (非支配解)
+        # 实验数据非支配排序
+        exp_fronts = nds.do(exp_sorting_data)
+        empirical_pf_indices = exp_fronts[0]  # 获取实验数据中的 Rank 0 (非支配解)
 
-    # 筛选出要绘制的前景数据
-    empirical_pf_data = exp_data_raw[empirical_pf_indices]
-    empirical_pf_batches = batch_indices_raw[empirical_pf_indices]
+        # 筛选出要绘制的前景数据
+        empirical_pf_data = exp_data_raw[empirical_pf_indices]
+        all_empirical_pfs.append((df_idx, empirical_pf_data))
 
     # ==========================================
-    # 3. 开始绘图
+    # 3. 开始绘图（所有前沿在同一张图上）
     # ==========================================
     if n_targets == 2:
-        # 注意这里传入的是排序后的 true_pf_data_sorted
         _plot_2d_scatter(
-            true_pf_data_sorted, empirical_pf_data, empirical_pf_batches, target_columns, range_tags, direction_tags, experiment_dir
+            true_pf_data_sorted, all_empirical_pfs, target_columns, range_tags, direction_tags, experiment_dir
         )
     elif n_targets == 3:
         pass
@@ -493,8 +491,7 @@ def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range
         print(f"Warning: {n_targets} objectives detected. Plotting only the first 2 dimensions for visualization.")
         _plot_2d_scatter(
             true_pf_data_sorted,
-            empirical_pf_data,
-            empirical_pf_batches,
+            all_empirical_pfs,
             target_columns[:2],
             range_tags[:2],
             direction_tags[:2],
@@ -502,47 +499,61 @@ def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range
         )
 
 
-def _plot_2d_scatter(true_pf_sorted, emp_pf_data, emp_batches, targets, ranges, directions, save_dir):
+def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directions, save_dir):
     """
-    内部辅助函数：绘制 2D 图
+    内部辅助函数：绘制 2D 图（所有前沿在同一张图上）
     Args:
-        true_pf_sorted: 已按X轴排序的全空间真实帕累托前沿点 (用于画线)
-        emp_pf_data:    实验中找到的非支配点 (用于画散点)
-        emp_batches:    这些非支配点对应的 batch index
+        true_pf_sorted: 已按X轴排序的全空间真实帕累托前沿点
+        all_empirical_pfs: 所有实验中找到的非支配点列表，每个元素是(df_idx, pf_data)
+        targets: 目标列名列表
+        ranges: 目标范围列表
+        directions: 优化方向列表
+        save_dir: 保存目录
     """
     plt.figure(figsize=(10, 8))
 
-    # Layer 1: True Pareto Front (背景 - 线条)
-    # 使用 plot 而不是 scatter，并设置 zorder 较低
+    # Layer 1: True Pareto Front (背景 - 线条 + 节点)
+    # 绘制线条
     plt.plot(
         true_pf_sorted[:, 0],
         true_pf_sorted[:, 1],
-        c="skyblue",  # 浅蓝色线条
-        linestyle="-",  # 实线
-        linewidth=2,  # 线宽
-        alpha=0.6,  # 半透明
+        c="skyblue",
+        linestyle="-",
+        linewidth=2,
+        alpha=0.6,
         label="True Pareto Front",
-        zorder=0,  # 放在最底层
+        zorder=0,
     )
-
-    # Layer 2: Empirical Pareto Front (前景 - 散点)
-    sc = plt.scatter(
-        emp_pf_data[:, 0],
-        emp_pf_data[:, 1],
-        c=emp_batches,
-        cmap="Blues",  # 颜色映射
-        edgecolors="k",  # 黑色描边
+    # 绘制节点
+    plt.scatter(
+        true_pf_sorted[:, 0],
+        true_pf_sorted[:, 1],
+        c="skyblue",
+        edgecolors="k",
         linewidth=0.8,
-        s=80,  # 大小
-        alpha=1.0,  # 不透明
-        label="Found Non-Dominated Solutions",
-        zorder=10,  # 放在最顶层
+        s=80,
+        alpha=0.6,
+        zorder=1,
     )
 
-    # 添加 Colorbar
-    if len(emp_batches) > 0:
-        cbar = plt.colorbar(sc)
-        cbar.set_label("Found at Batch Index")
+    # Layer 2: 所有 Empirical Pareto Front (前景 - 仅线条，颜色淡一点)
+    for df_idx, emp_pf_data in all_empirical_pfs:
+        # 为了画线，按照第一个维度排序
+        emp_sorted_indices = np.argsort(emp_pf_data[:, 0])
+        emp_pf_data_sorted = emp_pf_data[emp_sorted_indices]
+
+        # 使用不同的颜色绘制每个df的前沿，颜色较淡
+        color = plt.cm.tab10(df_idx % 10)
+        plt.plot(
+            emp_pf_data_sorted[:, 0],
+            emp_pf_data_sorted[:, 1],
+            c=color,
+            linestyle="-",
+            linewidth=2,
+            alpha=0.5,
+            label=f"Run {df_idx + 1} PF",
+            zorder=5,
+        )
 
     # 设置坐标轴范围
     if ranges:
@@ -556,63 +567,13 @@ def _plot_2d_scatter(true_pf_sorted, emp_pf_data, emp_batches, targets, ranges, 
     # 标签与标题
     plt.xlabel(f"{targets[0]} ({directions[0]})")
     plt.ylabel(f"{targets[1]} ({directions[1]})")
-    plt.title("Optimization Process: Found Solutions vs True PF Line")
+    plt.title("Optimization Process: True PF vs Empirical PFs")
 
     # Legend
     plt.legend(loc="best")
     plt.grid(True, linestyle="--", alpha=0.5)
 
-    save_path = save_dir / "plot_4_pareto_line_comparison.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
-    plt.close()
-    print(f"Plot 4 saved: {save_path}")
-
-
-def _plot_3d_scatter(pf_data, exp_data, batch_indices, targets, ranges, directions, save_dir):
-    """内部辅助函数：绘制 3D 图"""
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection="3d")
-    # Layer 1: True Pareto Front (背景)
-    ax.scatter(
-        pf_data[:, 0],
-        pf_data[:, 1],
-        pf_data[:, 2],
-        c="skyblue",
-        alpha=0.2,  # 3D 图中点多，透明度设低一点
-        s=20,
-        label="True Pareto Front",
-        depthshade=True,
-    )
-    # Layer 2: Optimization Process (前景)
-    sc = ax.scatter(
-        exp_data[:, 0],
-        exp_data[:, 1],
-        exp_data[:, 2],
-        c=batch_indices,
-        cmap="Blues",
-        edgecolors="k",
-        linewidth=0.3,
-        s=40,
-        alpha=1.0,
-        label="Observed Samples",
-        depthshade=False,  # 关闭深度阴影，保持颜色准确反映 Batch
-    )
-    # 添加 Colorbar
-    cbar = plt.colorbar(sc, ax=ax, pad=0.1)
-    cbar.set_label("Batch Iteration")
-    # 设置坐标轴范围
-    if ranges:
-        ax.set_xlim(ranges[0])
-        ax.set_ylim(ranges[1])
-        ax.set_zlim(ranges[2])
-    # 标签
-    ax.set_xlabel(f"{targets[0]} ({directions[0]})")
-    ax.set_ylabel(f"{targets[1]} ({directions[1]})")
-    ax.set_zlabel(f"{targets[2]} ({directions[2]})")
-    ax.set_title("Optimization Process (3D)")
-    # 调整视角 (可选)
-    ax.view_init(elev=30, azim=45)
-    save_path = save_dir / "plot_4_optimization_process_3d.png"
+    save_path = save_dir / "plot_4_pareto_comparison.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 4 saved: {save_path}")

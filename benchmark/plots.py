@@ -22,20 +22,32 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
         df = df.sort_values("batch_index").copy()
 
         for col, direction in zip(target_columns, direction_tags):
-            col_best_name = f"best_{col}"
-
+            # Group by batch_index and find the best value for each batch
             if direction == "max":
-                df[col_best_name] = df[col].cummax()
+                batch_best = df.groupby("batch_index")[col].max()
             elif direction == "min":
-                df[col_best_name] = df[col].cummin()
+                batch_best = df.groupby("batch_index")[col].min()
             else:
                 raise ValueError(f"Unknown direction '{direction}' for column '{col}'. Use 'max' or 'min'.")
 
-            for _, row in df.iterrows():
-                all_best_records.append({"batch_index": row["batch_index"], "target": col, "value": row[col_best_name]})
-                all_actual_records.append({"batch_index": row["batch_index"], "target": col, "value": row[col]})
+            # Calculate cumulative best across batches (current and all previous batches)
+            if direction == "max":
+                cumulative_best = batch_best.cummax()
+            elif direction == "min":
+                cumulative_best = batch_best.cummin()
+
+            # Add cumulative best records (best value up to and including current batch)
+            for batch_idx, best_value in cumulative_best.items():
+                all_best_records.append({"batch_index": batch_idx, "target": col, "value": best_value})
+
+            # Add batch best records (best value within each batch only)
+            for batch_idx, best_value in batch_best.items():
+                all_actual_records.append({"batch_index": batch_idx, "target": col, "value": best_value})
 
     best_df = pd.DataFrame(all_best_records)
+    from IPython import embed
+
+    embed()
     actual_df = pd.DataFrame(all_actual_records)
 
     n_cols = len(target_columns)
@@ -103,38 +115,32 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
 
 def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
-    绘制单个图：当前 Batch 下的超体积占全空间理论超体积的百分比。
+    Plot hypervolume coverage percentage across all runs.
 
-    关键逻辑：
-    1. 使用 range_tags 将所有数据归一化到 [0, 1]。
-    2. 将所有目标转换为“最小化”问题 (pymoo 的 HV 计算默认假设最小化)。
-       - min 目标: normalized_value
-       - max 目标: 1.0 - normalized_value
-    3. 参考点设为 [1.1, 1.1, ...] (略大于最差值 1.0)。
+    Key logic:
+    1. Normalize all data to [0, 1] using range_tags.
+    2. Convert all objectives to minimization (pymoo HV default).
+       - min: normalized_value
+       - max: 1.0 - normalized_value
+    3. Reference point set to [1.1, 1.1, ...] (slightly above worst value 1.0).
 
     Args:
-        df: 包含实验结果的 DataFrame，需包含 target_columns, 'round_index', 'batch_index'。
-        target_columns: 目标列名列表。
-        direction_tags: 优化方向列表，例如 ['max', 'min', 'max']。
-        range_tags: 理论范围列表，List[tuple(min, max)]，用于归一化。
-        full_space_file: 全空间数据文件路径。
-        experiment_dir: 图片保存目录 (Path 对象或字符串)。
+        dfs: List of DataFrames containing experimental results with target_columns and 'batch_index'.
+        target_columns: List of target column names.
+        direction_tags: Optimization direction list, e.g., ['max', 'min', 'max'].
+        range_tags: Theoretical range list, List[tuple(min, max)], for normalization.
+        full_space_file: Full space data file path.
+        experiment_dir: Image save directory (Path object or string).
     """
-    try:
-        from pymoo.indicators.hv import HV
-    except ImportError:
-        print("Error: 'pymoo' library is required for Hypervolume calculation. Run 'pip install pymoo'.")
-        return
+    from pymoo.indicators.hv import HV
 
-    # 0. 基础检查
     if len(target_columns) != len(direction_tags) or len(target_columns) != len(range_tags):
-        print("Error: The length of 'target_columns', 'direction_tags', and 'range_tags' must be the same.")
+        print("Error: The length of 'target_columns', 'direction_tags', and 'range_tags' must be same.")
         return
 
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. 读取全空间数据
     if str(full_space_file).endswith(".csv"):
         full_df = pd.read_csv(full_space_file)
     else:
@@ -142,35 +148,27 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
     full_data_raw = full_df[target_columns].values
 
-    # === 核心处理函数：归一化 + 最小化转换 ===
     def normalize_and_transform(data, ranges, directions):
         """
-        1. 根据 range_tags 归一化到 [0, 1]。
-        2. 根据 direction_tags 统一转换为最小化问题。
+        1. Normalize to [0, 1] using range_tags.
+        2. Convert to minimization problem using direction_tags.
         """
         data = np.array(data)
         transformed = np.zeros_like(data, dtype=float)
 
         for i, (col_min, col_max) in enumerate(ranges):
             col_data = data[:, i]
-            # 1. 归一化 (Normalization)
             if col_max == col_min:
-                # 避免除零，如果最大最小一样，设为 0.5 或者 1.0
                 norm_col = np.full_like(col_data, 1.0)
             else:
                 norm_col = (col_data - col_min) / (col_max - col_min)
 
-            # 确保归一化后的数据不越界（针对实验数据可能略微超出理论范围的情况）
             norm_col = np.clip(norm_col, 0.0, 1.0)
 
-            # 2. 方向转换 (Transformation to Minimization)
             direction = directions[i]
             if direction == "min":
-                # 越小越好，归一化后 0 是最好，1 是最差 -> 保持不变
                 transformed[:, i] = norm_col
             elif direction == "max":
-                # 越大越好，归一化后 1 是最好，0 是最差
-                # 转换为最小化：(1 - value)，此时 0 变为最好，1 变为最差
                 transformed[:, i] = 1.0 - norm_col
             else:
                 print(f"Warning: Unknown direction '{direction}', assuming 'max'.")
@@ -178,20 +176,9 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
         return transformed
 
-    # 2. 准备数据和 HV 计算器
-    # 转换全空间数据
     full_data_norm = normalize_and_transform(full_data_raw, range_tags, direction_tags)
-
-    # 设置参考点
-    # 因为数据已经归一化并统一转为最小化问题，值的范围是 [0, 1]
-    # 参考点应该比最差值 (1.0) 稍微大一点，以确保边界点被计算进去
     ref_point = np.array([1.1] * len(target_columns))
-
-    # 初始化 HV 指标计算器
     ind = HV(ref_point=ref_point)
-
-    # 计算全空间的理论最大超体积 (Total Theoretical Hypervolume)
-    # 注意：pymoo 的 ind() 会自动处理非支配排序，计算输入点集构成的帕累托前沿的体积
     total_hv = ind(full_data_norm)
 
     if total_hv == 0:
@@ -200,68 +187,67 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
     print(f"Total Theoretical HV (Normalized): {total_hv:.4f}")
 
-    # 3. 计算每一轮、每一个 Batch 的 HV
-    hv_records = []
+    all_hv_records = []
 
-    # 遍历每一轮实验 (Round)
-    for r_idx in sorted(df["round_index"].unique()):
-        sub_df = df[df["round_index"] == r_idx].sort_values("batch_index")
-
-        # 提取当前 round 的所有原始数据
-        round_data_raw = sub_df[target_columns].values
-
-        # 转换当前 round 数据 (使用同样的规则)
+    for df in dfs:
+        df = df.sort_values("batch_index").copy()
+        round_data_raw = df[target_columns].values
         round_data_norm = normalize_and_transform(round_data_raw, range_tags, direction_tags)
 
-        # 逐步增加样本点计算 HV (模拟实验过程)
-        # 注意：这里我们计算的是“当前已发现的所有点”构成的超体积
         for i in range(len(round_data_norm)):
-            # 取出从开始到当前步的所有数据
             current_pop = round_data_norm[: i + 1]
-
-            # 计算当前体积
             current_hv = ind(current_pop)
-
-            # 计算百分比
             hv_percentage = (current_hv / total_hv) * 100
+            batch_idx = df.iloc[i]["batch_index"]
 
-            # 获取对应的 batch_index
-            batch_idx = sub_df.iloc[i]["batch_index"]
+            all_hv_records.append({"batch_index": batch_idx, "hv_percentage": hv_percentage})
 
-            hv_records.append({"round_index": r_idx, "batch_index": batch_idx, "hv_percentage": hv_percentage})
+    hv_df = pd.DataFrame(all_hv_records)
 
-    hv_df = pd.DataFrame(hv_records)
-
-    # 4. 绘图
     if hv_df.empty:
         print("No data to plot.")
         return
 
     plt.figure(figsize=(10, 6))
 
-    # 使用 seaborn 绘制带有置信区间的折线图
     sns.lineplot(
         data=hv_df,
         x="batch_index",
         y="hv_percentage",
-        errorbar="sd",  # 显示标准差作为阴影
-        linewidth=2.5,
-        color="#2ca02c",  # 绿色
-        marker="o",  # 增加数据点标记
-        markevery=max(1, len(hv_df) // 20),  # 防止点太密
+        errorbar=("ci", 95),
+        linewidth=3.5,
+        color="#2ca02c",
+        marker="o",
+        markersize=8,
+        markevery=max(1, len(hv_df) // 20),
         label="Observed HV",
+        zorder=10,
     )
 
-    plt.title(f"Hypervolume Coverage ({len(target_columns)} Objectives)\nDirections: {direction_tags}", fontsize=14)
-    plt.xlabel("Batch Iteration", fontsize=12)
-    plt.ylabel("Hypervolume Coverage (%)", fontsize=12)
+    plt.title(
+        f"Hypervolume Coverage ({len(target_columns)} Objectives)\nDirections: {direction_tags}",
+        fontsize=16,
+        fontname="Arial",
+        fontweight="bold",
+    )
+    plt.xlabel("Batch Iteration", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.ylabel("Hypervolume Coverage (%)", fontsize=14, fontname="Arial", fontweight="bold")
 
-    # 设置 Y 轴范围，稍微留白
+    plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+    plt.tick_params(axis="both", which="minor", width=1, length=4)
+
+    for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
+        label.set_fontname("Arial")
+
     plt.ylim(0, 105)
+    plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
+    ax = plt.gca()
+    ax.spines["top"].set_linewidth(1.2)
+    ax.spines["right"].set_linewidth(1.2)
+    ax.spines["bottom"].set_linewidth(1.2)
+    ax.spines["left"].set_linewidth(1.2)
 
-    # 添加网格
-    plt.grid(True, linestyle="--", alpha=0.6)
-    plt.legend(loc="lower right")
+    plt.legend(loc="lower right", fontsize=11, framealpha=0.9)
 
     save_path = experiment_dir / "plot_2_hypervolume_coverage.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")

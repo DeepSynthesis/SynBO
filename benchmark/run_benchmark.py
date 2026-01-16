@@ -16,33 +16,33 @@ global_dir = Path(__file__).parent
 data_dir = global_dir / Path("../examples/")
 
 # 控制参数
-NUM_ROUNDS = 1  # k值：运行多少轮
+NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "Asymmetric_Alkylation_Optimization",
+    "experiment_name": "B-H_Optimization_RF_default_BO_EHVI_random",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
-        "dataset_file": str(data_dir / "asym_alkylation/asym_alkylation.csv"),
-        "descriptor_dir": str(data_dir / "asym_alkylation/descriptors"),
+        "dataset_file": str(data_dir / "B-H_HTE/B-H_HTE.csv"),
+        "descriptor_dir": str(data_dir / "B-H_HTE/descriptors"),
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["reactant2", "catalyst1", "catalyst2"],
-        "name_suffix": ["_RDKit", "_RDKit", "_RDKit"],
+        "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
+        "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "ee"],
+        "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "kmeans",
+        "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
@@ -244,31 +244,31 @@ def run_plotting(experiment_dir):
         print("No result files found to plot.")
         return
     # 合并数据
-    all_rounds_df = pd.concat([pd.read_csv(f) for f in result_files], ignore_index=True)
+    all_rounds_dfs = [pd.read_csv(f) for f in result_files]
     direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
     range_tags = [i["opt_range"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
 
     # 确保列名在 dataframe 中
-    valid_targets = [col for col in CONFIG["optimization_settings"]["opt_metrics"] if col in all_rounds_df.columns]
+    valid_targets = CONFIG["optimization_settings"]["opt_metrics"]
     if not valid_targets:
         print(f"Error: None of the target columns {CONFIG['optimization_settings']['opt_metrics']} found in CSV.")
         return
     # 设置 Seaborn 风格
     sns.set_theme(style="whitegrid")
     # --- 1. 绘制优化曲线 (Grid Plot with Variance) ---
-    plot_optimization_curves(all_rounds_df, valid_targets, direction_tags, range_tags, experiment_dir)
+    plot_optimization_curves(all_rounds_dfs, valid_targets, direction_tags, range_tags, experiment_dir)
     # --- 2. 绘制超体积占比 (Single Plot) ---
     # 注意：需要提供 CONFIG['data_paths']['dataset_file'] 并且安装 pymoo
     if Path(CONFIG["data_paths"]["dataset_file"]).exists():
         plot_hypervolume_coverage(
-            all_rounds_df, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
+            all_rounds_dfs, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
         )
     else:
         print(f"Skipping HV plot: Full space file not found at {CONFIG['data_paths']['dataset_file']}")
     # --- 3. 绘制最终最佳值分布 (Box Plot) ---
-    plot_final_distribution_boxplot(all_rounds_df, valid_targets, direction_tags, range_tags, experiment_dir)
+    plot_final_distribution_boxplot(all_rounds_dfs, valid_targets, direction_tags, range_tags, experiment_dir)
     plot_optimization_process_scatter(
-        all_rounds_df, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
+        all_rounds_dfs, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
     )
     print("All plotting tasks completed.")
 

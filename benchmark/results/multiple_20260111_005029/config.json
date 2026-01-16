@@ -25,11 +25,11 @@
             null
         ],
         "index_col": [
-            "base_file_name",
-            "ligand_file_name",
-            "solvent_file_name",
-            "concentration_file_name",
-            "temperature_file_name"
+            "index",
+            "index",
+            "index",
+            "index",
+            "index"
         ]
     },
     "optimization_settings": {

@@ -11,76 +11,92 @@ from pathlib import Path
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
-def plot_optimization_curves(df, target_columns, direction_tags, range_tags, experiment_dir):
-    """
-    绘制组图：每个目标值的优化曲线（当前 Batch 之前的历史最优值）。
-    使用阴影表示不同 Round 之间的 Variance (95% CI 或 SD)。
-
-    Args:
-        df: 包含实验数据的 DataFrame。
-        target_columns: 需要绘制的目标列名列表。
-        direction_tags: 对应每个目标的优化方向列表，['max', 'min', ...]。
-        range_tags: 对应每个目标的 Y 轴范围列表，例如 [(0, 1), (0, 100), None]。如果为 None 则自动缩放。
-        experiment_dir: 图片保存路径对象（通常是 pathlib.Path）。
-    """
-    # 校验输入长度是否一致，防止报错
+def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, experiment_dir):
     if not (len(target_columns) == len(direction_tags) == len(range_tags)):
-        raise ValueError("target_columns, direction_tags, and range_tags must have the same length.")
-    # 1. 预处理：根据方向计算 CumMax 或 CumMin（历史最优值）
-    processed_dfs = []
+        raise ValueError("target_columns, direction_tags, and range_tags must have same length.")
 
-    # 我们需要对每个 round 单独计算历史最优
-    for r_idx in df["round_index"].unique():
-        sub_df = df[df["round_index"] == r_idx].sort_values("batch_index").copy()
+    all_best_records = []
+    all_actual_records = []
+
+    for df_idx, df in enumerate(dfs):
+        df = df.sort_values("batch_index").copy()
 
         for col, direction in zip(target_columns, direction_tags):
-            col_name = f"best_{col}"  # 统一命名为 best_ 前缀
+            col_best_name = f"best_{col}"
 
             if direction == "max":
-                # 越大越好：计算截止到当前 batch 的最大值
-                sub_df[col_name] = sub_df[col].cummax()
+                df[col_best_name] = df[col].cummax()
             elif direction == "min":
-                # 越小越好：计算截止到当前 batch 的最小值
-                sub_df[col_name] = sub_df[col].cummin()
+                df[col_best_name] = df[col].cummin()
             else:
                 raise ValueError(f"Unknown direction '{direction}' for column '{col}'. Use 'max' or 'min'.")
 
-        processed_dfs.append(sub_df)
-    plot_df = pd.concat(processed_dfs, ignore_index=True)
-    # 2. 设置绘图布局
+            for _, row in df.iterrows():
+                all_best_records.append({"batch_index": row["batch_index"], "target": col, "value": row[col_best_name]})
+                all_actual_records.append({"batch_index": row["batch_index"], "target": col, "value": row[col]})
+
+    best_df = pd.DataFrame(all_best_records)
+    actual_df = pd.DataFrame(all_actual_records)
+
     n_cols = len(target_columns)
     fig, axes = plt.subplots(1, n_cols, figsize=(6 * n_cols, 5), constrained_layout=True)
+
     if n_cols == 1:
-        axes = [axes]  # 确保 axes 是列表以便迭代
+        axes = [axes]
+
     for i, col in enumerate(target_columns):
         ax = axes[i]
         direction = direction_tags[i]
         y_range = range_tags[i]
-        col_best_name = f"best_{col}"
-        # 使用 seaborn lineplot 自动处理聚合和阴影
-        sns.lineplot(data=plot_df, x="batch_index", y=col_best_name, ax=ax, errorbar="sd", linewidth=2)  # 使用标准差作为阴影
-        # 设置标题和标签
-        ax.set_title(f"Optimization Trace: {col} ({direction})")
-        ax.set_xlabel("Batch Iteration")
 
-        # 根据方向设置 Y 轴 Label
+        col_best_data = best_df[best_df["target"] == col]
+        col_actual_data = actual_df[actual_df["target"] == col]
+
+        sns.lineplot(
+            data=col_best_data,
+            x="batch_index",
+            y="value",
+            ax=ax,
+            errorbar="sd",
+            linewidth=3.5,
+            marker="o",
+            markersize=8,
+            label=f"Best {col}",
+            zorder=10,
+        )
+
+        sns.scatterplot(data=col_actual_data, x="batch_index", y="value", ax=ax, alpha=0.3, s=30, label="Actual Value", zorder=5)
+
+        ax.set_title(f"Optimization Trace: {col} ({direction})", fontsize=16, fontname="Arial", fontweight="bold")
+        ax.set_xlabel("Batch Iteration", fontsize=14, fontname="Arial", fontweight="bold")
+
         y_label_prefix = "Max" if direction == "max" else "Min"
-        ax.set_ylabel(f"Best Found {col} ({y_label_prefix})")
+        ax.set_ylabel(f"Best Found {col} ({y_label_prefix})", fontsize=14, fontname="Arial", fontweight="bold")
 
-        # 设置 Y 轴范围 (range_tags)
+        ax.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+        ax.tick_params(axis="both", which="minor", width=1, length=4)
+
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontname("Arial")
+
         if y_range is not None:
-            # 确保是 tuple 且有两个值
             if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
                 y_min, y_max = y_range
-                # 如果 min 或 max 是 None，则保持 matplotlib 的自动缩放，否则设置限制
                 current_ylim = ax.get_ylim()
                 new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
                 new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
                 ax.set_ylim(new_min, new_max)
-        ax.grid(True, linestyle="--", alpha=0.6)
+
+        ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
+        ax.spines["top"].set_linewidth(1.2)
+        ax.spines["right"].set_linewidth(1.2)
+        ax.spines["bottom"].set_linewidth(1.2)
+        ax.spines["left"].set_linewidth(1.2)
+
+        ax.legend(loc="best", fontsize=11, framealpha=0.9)
 
     save_path = experiment_dir / "plot_1_optimization_curves.png"
-    plt.savefig(save_path, dpi=300)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 1 saved: {save_path}")
 
@@ -364,8 +380,8 @@ def plot_optimization_process_scatter(df, target_columns, direction_tags, range_
     1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，并按顺序连成一条浅蓝色线条。
     2. 前景：仅绘制实验结果中找到的非支配解 (Empirical Pareto Front)，以散点显示，颜色根据 Batch Index 渐变。
     """
-    df = df[df['round_index'] == 0]
-    
+    df = df[df["round_index"] == 0]
+
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 

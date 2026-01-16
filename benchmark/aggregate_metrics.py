@@ -67,26 +67,26 @@ def extract_metrics(metrics_summary):
     aot_hv = metrics_summary.get("average_optimal_targets", {}).get("hypervolume", {})
     aot_hv_avg = aot_hv.get("average_normalized", 0)
     aot_hv_std = aot_hv.get("std_normalized", 0)
-    metrics["AOT_HV"] = f"{aot_hv_avg:.6f}±{aot_hv_std:.6f}"
+    metrics["AOT_HV"] = f"{aot_hv_avg:.3f}±{aot_hv_std:.3f}"
 
     # AUC_HV: Area Under Curve - Hypervolume
     auc_hv = metrics_summary.get("auc_of_optimization", {}).get("hypervolume", {})
     auc_hc_avg = auc_hv.get("average_normalized", 0)
     auc_hc_std = auc_hv.get("std_normalized", 0)
-    metrics["AUC_HV"] = f"{auc_hc_avg:.6f}±{auc_hc_std:.6f}"
+    metrics["AUC_HV"] = f"{auc_hc_avg:.3f}±{auc_hc_std:.3f}"
 
     # Additional yield and cost metrics for reference
     aot_yield = metrics_summary.get("average_optimal_targets", {}).get("yield", {})
-    metrics["AOT_yield"] = f"{aot_yield.get('average_normalized', 0):.4f}±{aot_yield.get('std_normalized', 0):.4f}"
+    metrics["AOT_yield"] = f"{aot_yield.get('average_normalized', 0):.3f}±{aot_yield.get('std_normalized', 0):.3f}"
 
     aot_cost = metrics_summary.get("average_optimal_targets", {}).get("cost", {})
-    metrics["AOT_cost"] = f"{aot_cost.get('average_normalized', 0):.6f}±{aot_cost.get('std_normalized', 0):.6f}"
+    metrics["AOT_cost"] = f"{aot_cost.get('average_normalized', 0):.3f}±{aot_cost.get('std_normalized', 0):.3f}"
 
     auc_yield = metrics_summary.get("auc_of_optimization", {}).get("yield", {})
-    metrics["AUC_yield"] = f"{auc_yield.get('average_normalized', 0):.4f}±{auc_yield.get('std_normalized', 0):.4f}"
+    metrics["AUC_yield"] = f"{auc_yield.get('average_normalized', 0):.3f}±{auc_yield.get('std_normalized', 0):.3f}"
 
     auc_cost = metrics_summary.get("auc_of_optimization", {}).get("cost", {})
-    metrics["AUC_cost"] = f"{auc_cost.get('average_normalized', 0):.6f}±{auc_cost.get('std_normalized', 0):.6f}"
+    metrics["AUC_cost"] = f"{auc_cost.get('average_normalized', 0):.3f}±{auc_cost.get('std_normalized', 0):.3f}"
 
     return metrics
 

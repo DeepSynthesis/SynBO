@@ -100,9 +100,13 @@ class ReactionOptimizer:
         try:
             for k, v in condition_dict.items():
                 if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) in (str, int, float)):
-                    condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
+                    if pd.Series(v).duplicated().sum() > 0:
+                        print(pd.Series(v)[pd.Series(v).duplicated()].values)
+                    assert pd.Series(v).duplicated().sum() == 0, f"Condition type `{k}` contains duplicate values"
+                    condition_dict[k] = sorted(pd.Series(v).fillna("None").drop_duplicates().tolist())
                 elif isinstance(v, pd.DataFrame):
                     assert k in v.columns, f"Condition type `{k}` not found in DataFrame!"
+                    assert v[k].duplicated().sum() == 0, f"Condition type `{k}` contains duplicate values"
                     condition_dict[k] = sorted(v[k].fillna("None").tolist())
                 else:
                     raise TypeError(f"the type of {k} is {type(v)}, which is not supported")
@@ -396,7 +400,7 @@ class ReactionOptimizer:
             pred_info = {}
             for i, metric in enumerate(self.opt_metrics):
                 pred_info[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
-        
+
         save_df(
             save_path=save_dir,
             filetype=filetype,

@@ -102,7 +102,8 @@ def sanitize_filename(filename: str) -> str:
 
 
 def plot_SMILES(SMILES: str, save_dir: str, file_name: str = None) -> dict:
-    print(SMILES)
+    SMILES = Chem.MolToSmiles(Chem.MolFromSmiles(SMILES), kekuleSmiles=True)
+    SMILES = SMILES.replace("->", "").replace("<-", "")
     mol = Chem.MolFromSmiles(SMILES)
     file_name = SMILES if file_name is None else file_name
     if mol is None:

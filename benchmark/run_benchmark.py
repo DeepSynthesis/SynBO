@@ -8,6 +8,7 @@ from tqdm import tqdm
 import shutil
 
 from plots import plot_final_distribution_boxplot, plot_hypervolume_coverage, plot_optimization_curves, plot_optimization_process_scatter
+from metrics import get_average_optimal_targets, get_auc_of_opt
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
 
@@ -274,6 +275,84 @@ def run_plotting(experiment_dir):
     print("All plotting tasks completed.")
 
 
+def run_metrics(experiment_dir):
+    """
+    Calculate and save metrics for the benchmark results.
+    """
+    experiment_dir = Path(experiment_dir)
+    print(f"\n{'='*20} Starting Metrics Calculation {'='*20}")
+    print(f"Source Directory: {experiment_dir}")
+    
+    result_files = sorted(list(experiment_dir.glob("all_batches_final_round_*.csv")))
+    if not result_files:
+        print("No result files found to calculate metrics.")
+        return
+    
+    # Load data
+    all_rounds_dfs = [pd.read_csv(f) for f in result_files]
+    valid_targets = CONFIG["optimization_settings"]["opt_metrics"]
+    direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
+    
+    # 1. Calculate average optimal targets
+    print("\nCalculating average optimal targets...")
+    avg_optimal_results = get_average_optimal_targets(all_rounds_dfs, valid_targets, direction_tags)
+    
+    # 2. Calculate AUC of optimization
+    print("Calculating AUC of optimization...")
+    auc_results = get_auc_of_opt(all_rounds_dfs, valid_targets, direction_tags)
+    
+    # 3. Compile all metrics into a summary
+    metrics_summary = {
+        "config": CONFIG,
+        "average_optimal_targets": {},
+        "auc_of_optimization": {}
+    }
+    
+    # Format average optimal results
+    for target, data in avg_optimal_results.items():
+        metrics_summary["average_optimal_targets"][target] = {
+            "average": float(data["average_optimal"]),
+            "std": float(data["std"]),
+            "all_values": [float(v) for v in data["all_optimal_values"]]
+        }
+    
+    # Format AUC results
+    for target, data in auc_results.items():
+        metrics_summary["auc_of_optimization"][target] = {
+            "average_auc": float(data["average_auc"]),
+            "std": float(data["std"]),
+            "all_auc_values": [float(v) for v in data["all_auc_values"]]
+        }
+    
+    # 4. Save metrics summary to JSON
+    metrics_file = experiment_dir / "metrics_summary.json"
+    with open(metrics_file, "w", encoding="utf-8") as f:
+        json.dump(metrics_summary, f, indent=4, ensure_ascii=False)
+    print(f"Metrics summary saved: {metrics_file}")
+    
+    # 5. Print summary to console
+    print("\n" + "="*60)
+    print("METRICS SUMMARY")
+    print("="*60)
+    
+    print("\n--- Average Optimal Targets ---")
+    for target, data in metrics_summary["average_optimal_targets"].items():
+        print(f"{target}:")
+        print(f"  Average: {data['average']:.4f}")
+        print(f"  Std: {data['std']:.4f}")
+        print(f"  All values: {[f'{v:.4f}' for v in data['all_values']]}")
+    
+    print("\n--- AUC of Optimization ---")
+    for target, data in metrics_summary["auc_of_optimization"].items():
+        print(f"{target}:")
+        print(f"  Average AUC: {data['average_auc']:.4f}")
+        print(f"  Std: {data['std']:.4f}")
+        print(f"  All AUC values: {[f'{v:.4f}' for v in data['all_auc_values']]}")
+    
+    print("="*60)
+    print("Metrics calculation completed.")
+
+
 def main():
     results_base = CONFIG["data_paths"]["results_base_dir"]
 
@@ -313,6 +392,9 @@ def main():
     # 3. 执行绘图部分 (Plotting)
     # 无论是复用旧数据还是新计算的数据，都运行绘图，以防旧数据的图被误删或需要更新绘图样式
     run_plotting(experiment_dir)
+
+    # 4. 执行指标计算部分 (Metrics)
+    run_metrics(experiment_dir)
 
     print(f"\nTask Complete. Results accessed at: {experiment_dir}")
 

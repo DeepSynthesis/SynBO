@@ -8,7 +8,7 @@ from tqdm import tqdm
 import shutil
 
 from plots import plot_final_distribution_boxplot, plot_hypervolume_coverage, plot_optimization_curves, plot_optimization_process_scatter
-from metrics import get_average_optimal_targets, get_auc_of_opt
+from metrics import get_average_optimal_targets, get_auc_of_opt, get_hypervolume, get_average_optimal_targets_hv, get_auc_of_opt_hv
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
 
@@ -282,75 +282,77 @@ def run_metrics(experiment_dir):
     experiment_dir = Path(experiment_dir)
     print(f"\n{'='*20} Starting Metrics Calculation {'='*20}")
     print(f"Source Directory: {experiment_dir}")
-    
+
     result_files = sorted(list(experiment_dir.glob("all_batches_final_round_*.csv")))
     if not result_files:
         print("No result files found to calculate metrics.")
         return
-    
+
     # Load data
     all_rounds_dfs = [pd.read_csv(f) for f in result_files]
     valid_targets = CONFIG["optimization_settings"]["opt_metrics"]
     direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
-    
+    range_tags = [i["opt_range"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
+
     # 1. Calculate average optimal targets
     print("\nCalculating average optimal targets...")
-    avg_optimal_results = get_average_optimal_targets(all_rounds_dfs, valid_targets, direction_tags)
-    
+    avg_optimal_results = get_average_optimal_targets(all_rounds_dfs, valid_targets, direction_tags, range_tags)
+
     # 2. Calculate AUC of optimization
     print("Calculating AUC of optimization...")
-    auc_results = get_auc_of_opt(all_rounds_dfs, valid_targets, direction_tags)
-    
-    # 3. Compile all metrics into a summary
-    metrics_summary = {
-        "config": CONFIG,
-        "average_optimal_targets": {},
-        "auc_of_optimization": {}
-    }
-    
+    auc_results = get_auc_of_opt(all_rounds_dfs, valid_targets, direction_tags, range_tags)
+
+    # 3. Calculate Average Optimal Targets HV
+    print("Calculating Average Optimal Targets HV...")
+    full_space_file = Path(CONFIG["data_paths"]["dataset_file"])
+    avg_opt_hv_results = get_average_optimal_targets_hv(all_rounds_dfs, valid_targets, direction_tags, range_tags, full_space_file)
+
+    # 4. Calculate AUC of Optimization HV
+    print("Calculating AUC of Optimization HV...")
+    auc_hv_results = get_auc_of_opt_hv(all_rounds_dfs, valid_targets, direction_tags, range_tags, full_space_file)
+
+    # 5. Compile all metrics into a summary
+    metrics_summary = {"average_optimal_targets": {}, "auc_of_optimization": {}}
+
     # Format average optimal results
     for target, data in avg_optimal_results.items():
         metrics_summary["average_optimal_targets"][target] = {
             "average": float(data["average_optimal"]),
+            "average_normalized": float(data["average_normalized"]),
             "std": float(data["std"]),
-            "all_values": [float(v) for v in data["all_optimal_values"]]
+            "std_normalized": float(data["std_normalized"]),
         }
-    
+
+    # Format Hypervolume Optimal results under average_optimal_targets
+    metrics_summary["average_optimal_targets"]["hypervolume"] = {
+        "average_normalized": float(avg_opt_hv_results["average_normalized"]),
+        "std_normalized": float(avg_opt_hv_results["std_normalized"]),
+        "total_hv": float(avg_opt_hv_results["total_hv"]),
+    }
+
     # Format AUC results
     for target, data in auc_results.items():
         metrics_summary["auc_of_optimization"][target] = {
-            "average_auc": float(data["average_auc"]),
+            "average": float(data["average"]),
+            "average_normalized": float(data["average_normalized"]),
             "std": float(data["std"]),
-            "all_auc_values": [float(v) for v in data["all_auc_values"]]
+            "std_normalized": float(data["std_normalized"]),
         }
-    
-    # 4. Save metrics summary to JSON
+
+    # Format Hypervolume AUC results under auc_of_optimization
+    metrics_summary["auc_of_optimization"]["hypervolume"] = {
+        "average": float(auc_hv_results["average"]),
+        "average_normalized": float(auc_hv_results["average_normalized"]),
+        "std": float(auc_hv_results["std"]),
+        "std_normalized": float(auc_hv_results["std_normalized"]),
+        "total_hv": float(auc_hv_results["total_hv"]),
+    }
+
+    # 6. Save metrics summary to JSON
     metrics_file = experiment_dir / "metrics_summary.json"
     with open(metrics_file, "w", encoding="utf-8") as f:
         json.dump(metrics_summary, f, indent=4, ensure_ascii=False)
     print(f"Metrics summary saved: {metrics_file}")
-    
-    # 5. Print summary to console
-    print("\n" + "="*60)
-    print("METRICS SUMMARY")
-    print("="*60)
-    
-    print("\n--- Average Optimal Targets ---")
-    for target, data in metrics_summary["average_optimal_targets"].items():
-        print(f"{target}:")
-        print(f"  Average: {data['average']:.4f}")
-        print(f"  Std: {data['std']:.4f}")
-        print(f"  All values: {[f'{v:.4f}' for v in data['all_values']]}")
-    
-    print("\n--- AUC of Optimization ---")
-    for target, data in metrics_summary["auc_of_optimization"].items():
-        print(f"{target}:")
-        print(f"  Average AUC: {data['average_auc']:.4f}")
-        print(f"  Std: {data['std']:.4f}")
-        print(f"  All AUC values: {[f'{v:.4f}' for v in data['all_auc_values']]}")
-    
-    print("="*60)
-    print("Metrics calculation completed.")
 
 
 def main():

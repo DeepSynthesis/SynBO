@@ -1,138 +1,42 @@
 {
-    "config": {
-        "experiment_name": "B-H_Optimization_RF_default_BO_EHVI_random",
-        "base_seed": 199,
-        "num_rounds": 10,
-        "iterations": 10,
-        "batch_size": 5,
-        "data_paths": {
-            "dataset_file": "/home/tzz/AIChem/reactionopt/benchmark/../examples/B-H_HTE/B-H_HTE.csv",
-            "descriptor_dir": "/home/tzz/AIChem/reactionopt/benchmark/../examples/B-H_HTE/descriptors",
-            "results_base_dir": "/home/tzz/AIChem/reactionopt/benchmark/results"
-        },
-        "reaction_space": {
-            "reagent_types": [
-                "base",
-                "ligand",
-                "solvent",
-                "concentration",
-                "temperature"
-            ],
-            "name_suffix": [
-                "_dft",
-                "_dft",
-                "_dft",
-                null,
-                null
-            ],
-            "index_col": [
-                "index",
-                "index",
-                "index",
-                "index",
-                "index"
-            ]
-        },
-        "optimization_settings": {
-            "opt_metrics": [
-                "yield",
-                "cost"
-            ],
-            "opt_direct_info": [
-                {
-                    "opt_direct": "max",
-                    "opt_range": [
-                        0,
-                        100
-                    ],
-                    "metric_weight": 1.0
-                },
-                {
-                    "opt_direct": "min",
-                    "opt_range": [
-                        0,
-                        0.5
-                    ],
-                    "metric_weight": 1.0
-                }
-            ],
-            "opt_type": "auto",
-            "desc_normalize": "minmax",
-            "sampling_method": "random",
-            "refine_desc": "filter_0.8",
-            "optimize_method": "default_BO",
-            "kwargs": {
-                "surrogate_model": "RF",
-                "acq_func": "EHVI"
-            }
-        }
-    },
     "average_optimal_targets": {
         "yield": {
             "average": 99.394,
+            "average_normalized": 0.99394,
             "std": 0.6987302770025098,
-            "all_values": [
-                98.38,
-                98.38,
-                99.81,
-                100.0,
-                99.98,
-                99.81,
-                98.38,
-                99.22,
-                99.98,
-                100.0
-            ]
+            "std_normalized": 0.006987302770025068
         },
         "cost": {
             "average": 0.0221215204,
+            "average_normalized": 0.9557569592,
             "std": 0.0015918903529535695,
-            "all_values": [
-                0.026281679,
-                0.021729029,
-                0.021613661,
-                0.020775005,
-                0.021612277,
-                0.020775005,
-                0.021613286,
-                0.020775005,
-                0.023178753,
-                0.022861504
-            ]
+            "std_normalized": 0.0031837807059071285
+        },
+        "hypervolume": {
+            "average_normalized": 0.9780613941434236,
+            "std_normalized": 0.012409075205735372,
+            "total_hv": 1.1566615574040002
         }
     },
     "auc_of_optimization": {
         "yield": {
-            "average_auc": 818.6119999999999,
+            "average": 818.6119999999999,
+            "average_normalized": 0.8186120000000001,
             "std": 41.961500700046486,
-            "all_auc_values": [
-                801.2399999999999,
-                759.235,
-                807.3499999999999,
-                900.0,
-                864.84,
-                813.3599999999999,
-                752.78,
-                835.2,
-                834.57,
-                817.5450000000001
-            ]
+            "std_normalized": 0.04196150070004649
         },
         "cost": {
-            "average_auc": 0.26416917404999996,
-            "std": 0.03259574691056251,
-            "all_auc_values": [
-                0.2721919615,
-                0.2931938225,
-                0.194522949,
-                0.2512408825,
-                0.28778927800000004,
-                0.2914777535,
-                0.2314255405,
-                0.260852471,
-                0.24913819199999998,
-                0.30985889
-            ]
+            "average": 4.235830825949999,
+            "average_normalized": 0.84716616519,
+            "std": 0.032595746910562384,
+            "std_normalized": 0.006519149382112477
+        },
+        "hypervolume": {
+            "average": 9.05603973472383,
+            "average_normalized": 0.7829463750009223,
+            "std": 0.4104775102739119,
+            "std_normalized": 0.035488125947159804,
+            "total_hv": 1.1566615574040002
         }
     }
 }

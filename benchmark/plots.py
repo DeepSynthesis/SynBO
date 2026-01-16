@@ -45,9 +45,6 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
                 all_actual_records.append({"batch_index": batch_idx, "target": col, "value": best_value})
 
     best_df = pd.DataFrame(all_best_records)
-    from IPython import embed
-
-    embed()
     actual_df = pd.DataFrame(all_actual_records)
 
     n_cols = len(target_columns)
@@ -130,6 +127,10 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     """
     Plot hypervolume coverage percentage across all runs.
 
+    Similar to plot_optimization_curves:
+    1. Boxplot: HV distribution for each batch (across multiple rounds)
+    2. Lineplot with errorbar: Cumulative best HV (current and all previous batches)
+
     Key logic:
     1. Normalize all data to [0, 1] using range_tags.
     2. Convert all objectives to minimization (pymoo HV default).
@@ -200,41 +201,81 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
     print(f"Total Theoretical HV (Normalized): {total_hv:.4f}")
 
-    all_hv_records = []
+    all_best_records = []
+    all_actual_records = []
 
     for df in dfs:
         df = df.sort_values("batch_index").copy()
         round_data_raw = df[target_columns].values
         round_data_norm = normalize_and_transform(round_data_raw, range_tags, direction_tags)
 
-        for i in range(len(round_data_norm)):
-            current_pop = round_data_norm[: i + 1]
-            current_hv = ind(current_pop)
+        # Calculate HV for each batch (HV of all samples up to and including that batch)
+        batch_hv_values = {}
+        batch_indices = sorted(df["batch_index"].unique())
+
+        for batch_idx in batch_indices:
+            # Get all samples up to and including this batch
+            batch_samples = df[df["batch_index"] <= batch_idx]
+            batch_data_raw = batch_samples[target_columns].values
+            batch_data_norm = normalize_and_transform(batch_data_raw, range_tags, direction_tags)
+
+            # Calculate HV for this batch
+            current_hv = ind(batch_data_norm)
             hv_percentage = (current_hv / total_hv) * 100
-            batch_idx = df.iloc[i]["batch_index"]
 
-            all_hv_records.append({"batch_index": batch_idx, "hv_percentage": hv_percentage})
+            batch_hv_values[batch_idx] = hv_percentage
 
-    hv_df = pd.DataFrame(all_hv_records)
+        # Convert to series for cummax and groupby
+        batch_hv_series = pd.Series(batch_hv_values)
 
-    if hv_df.empty:
+        # Calculate cumulative best HV (hypervolume should be maximized)
+        cumulative_best_hv = batch_hv_series.cummax()
+
+        # Add cumulative best records (best HV up to and including current batch)
+        for batch_idx, hv_value in cumulative_best_hv.items():
+            all_best_records.append({"batch_index": batch_idx, "value": hv_value})
+
+        # Add batch HV records (HV at each batch)
+        for batch_idx, hv_value in batch_hv_series.items():
+            all_actual_records.append({"batch_index": batch_idx, "value": hv_value})
+
+    best_df = pd.DataFrame(all_best_records)
+    actual_df = pd.DataFrame(all_actual_records)
+
+    if best_df.empty or actual_df.empty:
         print("No data to plot.")
         return
 
     plt.figure(figsize=(10, 6))
 
+    # Lineplot with errorbar for cumulative best HV
     sns.lineplot(
-        data=hv_df,
+        data=best_df,
         x="batch_index",
-        y="hv_percentage",
+        y="value",
         errorbar=("ci", 95),
         linewidth=3.5,
         color="#2ca02c",
         marker="o",
         markersize=8,
-        markevery=max(1, len(hv_df) // 20),
-        label="Observed HV",
+        markevery=max(1, len(best_df) // 20),
+        label="Cumulative Best HV",
         zorder=10,
+    )
+
+    # Boxplot for batch HV distribution
+    sns.boxplot(
+        data=actual_df,
+        x="batch_index",
+        y="value",
+        width=0.4,
+        color="lightgray",
+        fliersize=3,
+        linewidth=1.5,
+        boxprops=dict(alpha=0.6, edgecolor="gray"),
+        medianprops=dict(color="red", linewidth=2),
+        label="Batch HV Distribution",
+        zorder=5,
     )
 
     plt.title(
@@ -260,7 +301,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     ax.spines["bottom"].set_linewidth(1.2)
     ax.spines["left"].set_linewidth(1.2)
 
-    plt.legend(loc="lower right", fontsize=11, framealpha=0.9)
+    ax.legend(loc="lower right", fontsize=11, framealpha=0.9)
 
     save_path = experiment_dir / "plot_2_hypervolume_coverage.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
@@ -268,7 +309,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     print(f"Plot 2 saved: {save_path}")
 
 
-def plot_final_distribution_boxplot(df, target_columns, direction_tags, range_tags, experiment_dir):
+def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_tags, experiment_dir):
     """
     绘制美化版箱型图：所有 column_name_list 最后优化到的最佳值分布。
     """

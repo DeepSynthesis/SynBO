@@ -266,7 +266,7 @@ def run_plotting(experiment_dir):
     else:
         print(f"Skipping HV plot: Full space file not found at {CONFIG['data_paths']['dataset_file']}")
     # --- 3. 绘制最终最佳值分布 (Box Plot) ---
-    range_tags_final = [[80, 100], [0.1, 0.15]]
+    range_tags_final = [[80, 100], [0.0, 0.1]]
     plot_final_distribution_boxplot(all_rounds_dfs, valid_targets, direction_tags, range_tags_final, experiment_dir)
     plot_optimization_process_scatter(
         all_rounds_dfs, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir

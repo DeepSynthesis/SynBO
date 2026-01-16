@@ -311,28 +311,28 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
 def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_tags, experiment_dir):
     """
-    绘制美化版箱型图：所有 column_name_list 最后优化到的最佳值分布。
+    绘制美化版箱型图：所有 df 最后优化到的最佳值分布。
+    
+    Args:
+        dfs: List of DataFrames containing experimental results
+        target_columns: List of target column names
+        direction_tags: Optimization direction list
+        range_tags: Theoretical range list
+        experiment_dir: Image save directory
     """
-    # --- 0. 全局风格设置 ---
-    sns.set_theme(style="whitegrid", context="talk", font_scale=0.9)
-    # 自定义配色：主色调（箱子）和 点色调
-    box_color = "#4C72B0"  # 深一点的蓝色，显得专业
-    point_color = "#C44E52"  # 柔和的红色
-
-    # 1. 提取每一轮(round)的最终最佳值
+    # 1. 提取每一个df的最终最佳值
     final_best_records = []
     dir_map = dict(zip(target_columns, direction_tags))
     range_map = dict(zip(target_columns, range_tags))
 
-    for r_idx in df["round_index"].unique():
-        sub_df = df[df["round_index"] == r_idx]
-        record = {"round_index": r_idx}
+    for df_idx, df in enumerate(dfs):
+        record = {"run_index": df_idx}
         for col in target_columns:
             direction = dir_map[col]
             if direction == "max":
-                best_val = sub_df[col].max()
+                best_val = df[col].max()
             elif direction == "min":
-                best_val = sub_df[col].min()
+                best_val = df[col].min()
             else:
                 raise Exception(f"Unknown direction: {direction}")
             record[col] = best_val
@@ -341,80 +341,86 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
     best_df = pd.DataFrame(final_best_records)
 
     # 2. 转换数据格式
-    melted_df = best_df.melt(id_vars=["round_index"], value_vars=target_columns, var_name="Target", value_name="Best Value")
+    melted_df = best_df.melt(id_vars=["run_index"], value_vars=target_columns, var_name="Target", value_name="Best Value")
 
     # 3. 绘图初始化
-    # height 和 aspect 稍微调整，让图看起来更舒展
-    g = sns.FacetGrid(melted_df, col="Target", sharey=False, height=5, aspect=0.7, col_wrap=min(len(target_columns), 4))
+    n_cols = len(target_columns)
+    fig, axes = plt.subplots(1, n_cols, figsize=(3 * n_cols, 5), constrained_layout=True)
 
-    # --- 4. 绘图核心优化 ---
+    if n_cols == 1:
+        axes = [axes]
 
-    # A. 绘制箱型图
-    # boxprops: 设置箱子的透明度(alpha)和边缘线
-    # fliersize=0: 隐藏箱型图自带的离群点，因为我们要用 stripplot 画所有点
-    # width: 箱子宽度适中
-    g.map_dataframe(
-        sns.boxplot, y="Best Value", width=0.4, color=box_color, fliersize=0, linewidth=1.5, boxprops=dict(alpha=0.4, edgecolor=box_color)
-    )
+    for i, col in enumerate(target_columns):
+        ax = axes[i]
+        direction = direction_tags[i]
+        y_range = range_tags[i]
 
-    # B. 绘制散点图 (数据点)
-    # 使用 stripplot 叠加真实数据点
-    # edgecolors="white", linewidth=1: 给点加上白色描边，防止背景深色时看不清
-    g.map_dataframe(sns.stripplot, y="Best Value", color=point_color, size=6, jitter=0.2, alpha=0.9, edgecolor="white", linewidth=1)
+        col_data = melted_df[melted_df["Target"] == col]
 
-    # 5. 针对每个子图的精细调整
-    axes = g.axes.flatten()
-    ordered_targets = list(g.col_names)
+        sns.boxplot(
+            data=col_data,
+            x="Target",
+            y="Best Value",
+            ax=ax,
+            width=0.4,
+            color="lightgray",
+            fliersize=0,
+            linewidth=1.5,
+            boxprops=dict(alpha=0.6, edgecolor="gray"),
+            medianprops=dict(color="red", linewidth=2),
+            label="Distribution",
+            zorder=5,
+        )
 
-    for ax, target_name in zip(axes, ordered_targets):
-        y_range = range_map.get(target_name)
-        direction = dir_map.get(target_name)
+        sns.stripplot(
+            data=col_data,
+            x="Target",
+            y="Best Value",
+            ax=ax,
+            color="#C44E52",
+            size=6,
+            jitter=0.2,
+            alpha=0.9,
+            edgecolor="white",
+            linewidth=1,
+            zorder=10,
+        )
 
-        # 计算当前数据的统计值，用于标注（可选）
-        current_data = melted_df[melted_df["Target"] == target_name]["Best Value"]
-        mean_val = current_data.mean()
+        ax.set_title(col, fontsize=16, fontname="Arial", fontweight="bold")
+        ax.set_xlabel("", fontsize=14, fontname="Arial", fontweight="bold")
 
-        # 绘制一条均值虚线（增强信息量）
-        ax.axhline(mean_val, color=box_color, linestyle="--", linewidth=1, alpha=0.6, label=f"Mean: {mean_val:.2f}")
+        y_label_prefix = "Max" if direction == "max" else "Min"
+        ax.set_ylabel(f"Best Found {col} ({y_label_prefix})", fontsize=14, fontname="Arial", fontweight="bold")
 
-        # 设置 Y 轴范围
-        if y_range:
-            margin = (y_range[1] - y_range[0]) * 0.1
-            ax.set_ylim(y_range[0] - margin, y_range[1] + margin)
+        ax.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+        ax.tick_params(axis="both", which="minor", width=1, length=4)
 
-        # 标题美化
-        # 使用不同的颜色或箭头符号来指示方向
-        arrow = "▲" if direction == "max" else "▼"
-        color_title = "#2ca02c" if direction == "max" else "#d62728"  # 绿色代表最大化，红色代表最小化（仅作区分，可改）
-        # 这里为了保持商务风，统一用黑色，但在文字上区分
-        title_text = f"{target_name}\n({arrow} {direction.capitalize()})"
-        ax.set_title(title_text, fontsize=12, fontweight="bold", pad=15)
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontname("Arial")
 
-        # 坐标轴美化
-        ax.set_ylabel("")  # 移除默认的label，最后统一加或者保持简洁
-        ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))  # 限制Y轴刻度数量，避免拥挤
-        ax.grid(True, axis="y", linestyle=":", alpha=0.6)  # 虚线网格
+        if y_range is not None:
+            if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
+                y_min, y_max = y_range
+                current_ylim = ax.get_ylim()
+                new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
+                new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
+                ax.set_ylim(new_min, new_max)
 
-    # 6. 全局布局调整
-    # 增加左侧 Y 轴标签
-    # 技巧：在 Figure 对象上添加一个 text 作为全局 Y label
-    g.fig.text(0.01, 0.5, "Best Optimization Value", va="center", rotation="vertical", fontsize=12, color="gray")
+        ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
+        ax.spines["top"].set_linewidth(1.2)
+        ax.spines["right"].set_linewidth(1.2)
+        ax.spines["bottom"].set_linewidth(1.2)
+        ax.spines["left"].set_linewidth(1.2)
 
-    plt.subplots_adjust(top=0.82, wspace=0.3, left=0.08)  # 留出顶部给大标题，增加子图间距
-
-    # 主标题
-    g.fig.suptitle("Distribution of Final Optimization Results", fontsize=16, fontweight="bold", y=0.92, color="#333333")
-
-    # 副标题/说明
-    g.fig.text(0.5, 0.88, f"Across {len(df['round_index'].unique())} Independent Rounds", ha="center", fontsize=11, color="gray")
+        ax.legend(loc="best", fontsize=11, framealpha=0.9)
 
     save_path = experiment_dir / "plot_3_best_value_distribution.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")  # bbox_inches='tight' 防止文字被截断
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"Plot 3 saved (Beautified): {save_path}")
+    print(f"Plot 3 saved: {save_path}")
 
 
-def plot_optimization_process_scatter(df, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
+def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
     绘制优化过程散点图 (只显示非支配解)：
     1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，并按顺序连成一条浅蓝色线条。

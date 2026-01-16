@@ -73,11 +73,24 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
             linewidth=3.5,
             marker="o",
             markersize=8,
-            label=f"Best {col}",
+            label=f"Cumulative Best {col}",
             zorder=10,
         )
 
-        sns.scatterplot(data=col_actual_data, x="batch_index", y="value", ax=ax, alpha=0.3, s=30, label="Actual Value", zorder=5)
+        sns.boxplot(
+            data=col_actual_data,
+            x="batch_index",
+            y="value",
+            ax=ax,
+            width=0.4,
+            color="lightgray",
+            fliersize=3,
+            linewidth=1.5,
+            boxprops=dict(alpha=0.6, edgecolor="gray"),
+            medianprops=dict(color="red", linewidth=2),
+            label="Batch Best Distribution",
+            zorder=5,
+        )
 
         ax.set_title(f"Optimization Trace: {col} ({direction})", fontsize=16, fontname="Arial", fontweight="bold")
         ax.set_xlabel("Batch Iteration", fontsize=14, fontname="Arial", fontweight="bold")

@@ -85,11 +85,10 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
             zorder=5,
         )
 
-        ax.set_title(f"Optimization Trace: {col} ({direction})", fontsize=16, fontname="Arial", fontweight="bold")
+        ax.set_title(f"Optimization Trace: {col}", fontsize=16, fontname="Arial", fontweight="bold")
         ax.set_xlabel("Batch Iteration", fontsize=14, fontname="Arial", fontweight="bold")
 
-        y_label_prefix = "Max" if direction == "max" else "Min"
-        ax.set_ylabel(f"Best Found {col} ({y_label_prefix})", fontsize=14, fontname="Arial", fontweight="bold")
+        ax.set_ylabel(f"Best Found {col}", fontsize=14, fontname="Arial", fontweight="bold")
 
         ax.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
         ax.tick_params(axis="both", which="minor", width=1, length=4)
@@ -275,7 +274,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     )
 
     plt.title(
-        f"Hypervolume Coverage ({len(target_columns)} Objectives)\nDirections: {direction_tags}",
+        f"Hypervolume Coverage",
         fontsize=16,
         fontname="Arial",
         fontweight="bold",
@@ -385,8 +384,7 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
         ax.set_title(col, fontsize=16, fontname="Arial", fontweight="bold")
         ax.set_xlabel("", fontsize=14, fontname="Arial", fontweight="bold")
 
-        y_label_prefix = "Max" if direction == "max" else "Min"
-        ax.set_ylabel(f"Best Found {col} ({y_label_prefix})", fontsize=14, fontname="Arial", fontweight="bold")
+        ax.set_ylabel(f"Best Found {col}", fontsize=14, fontname="Arial", fontweight="bold")
 
         ax.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
         ax.tick_params(axis="both", which="minor", width=1, length=4)
@@ -557,9 +555,9 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
         plt.ylim(y_min - y_padding, y_max + y_padding)
 
     # 标签与标题
-    plt.xlabel(f"{targets[0]} ({directions[0]})", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.ylabel(f"{targets[1]} ({directions[1]})", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title("Optimization Process: True PF vs Empirical PFs", fontsize=16, fontname="Arial", fontweight="bold")
+    plt.xlabel(f"{targets[0]}", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.ylabel(f"{targets[1]}", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.title("Optimization Process: True PF vs rxnopt PFs", fontsize=16, fontname="Arial", fontweight="bold")
 
     # 设置tick参数
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)

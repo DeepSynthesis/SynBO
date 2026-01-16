@@ -57,7 +57,7 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
             x="batch_index",
             y="value",
             ax=ax,
-            errorbar="sd",
+            errorbar=("ci", 95),
             linewidth=3.5,
             marker="o",
             markersize=8,
@@ -101,7 +101,7 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
     print(f"Plot 1 saved: {save_path}")
 
 
-def plot_hypervolume_coverage(df, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
+def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
     绘制单个图：当前 Batch 下的超体积占全空间理论超体积的百分比。
 

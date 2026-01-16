@@ -1,0 +1,2 @@
+dataset,experiment_name,base_seed,num_rounds,iterations,batch_size,opt_metrics,opt_directions,opt_type,desc_normalize,sampling_method,refine_desc,optimize_method,surrogate_model,acq_func,AOT_HV,AUC_HC,AOT_yield,AOT_cost,AUC_yield,AUC_cost
+B-H_HTE,B-H_Optimization_RF_default_BO_EHVI_random,199,10,10,5,"yield, cost","max([0, 100], w=1.0); min([0, 0.5], w=1.0)",auto,minmax,random,filter_0.8,default_BO,RF,EHVI,0.978061±0.012409,0.782946±0.035488,99.3940±0.6987,0.022122±0.001592,818.6120±41.9615,4.235831±0.032596

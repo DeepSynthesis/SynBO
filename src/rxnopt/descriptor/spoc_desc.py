@@ -13,8 +13,11 @@ from rdkit.ML.Descriptors import MoleculeDescriptors
 
 
 class SPOCDescriptor:
-    def __init__(self, smiles_list: Sequence[str], desc_type: str = "OneHot", desc_type_to_filename: bool = False) -> None:
+    def __init__(
+        self, smiles_list: Sequence[str], name_list: Sequence[str] = None, desc_type: str = "OneHot", desc_type_to_filename: bool = False
+    ) -> None:
         self.smiles_list = smiles_list
+        self.name_list = smiles_list if name_list is None else name_list
         if isinstance(self.smiles_list, pd.Series):
             self.smiles_list = self.smiles_list.tolist()
         elif not isinstance(self.smiles_list, list):
@@ -111,7 +114,7 @@ class SPOCDescriptor:
         pass
 
     def save_results(self, save_path: Path | str, index_name: str = "name"):
-        desc_df = pd.DataFrame(self.desc_array, index=self.smiles_list)
+        desc_df = pd.DataFrame(self.desc_array, index=self.name_list)
         if self.desc_names is not None:
             desc_df.columns = self.desc_names
         if desc_df.empty:
@@ -146,6 +149,7 @@ class SPOCDescriptor:
 def calc_spoc_desc(
     smiles_list: List[str],
     save_path: Path | str,
+    name_list: List[str] | None = None,
     fp_type: str = "RDKit",
     size: int = 1024,
     radius: int = 2,
@@ -161,7 +165,11 @@ def calc_spoc_desc(
         radius: Radius for circular fingerprints
 
     """
-    spoc_desc = SPOCDescriptor(smiles_list=smiles_list, desc_type=fp_type, desc_type_to_filename=desc_type_to_filename)
+    if name_list is None:
+        name_list = smiles_list
+    else:
+        assert len(name_list) == len(smiles_list), "Length of name_list and smiles_list must be the same"
+    spoc_desc = SPOCDescriptor(smiles_list=smiles_list, name_list=name_list, desc_type=fp_type, desc_type_to_filename=desc_type_to_filename)
     match fp_type:
         case "OneHot":
             spoc_desc.one_hot_descriptor()
@@ -187,4 +195,4 @@ def calc_spoc_desc(
         case _:
             raise ValueError(f"Unsupported SPOC descriptor type: {fp_type}")
 
-    spoc_desc.save_results(save_path, index_name=index_name)
+    spoc_desc.save_results(save_path, name_list=name_list, index_name=index_name)

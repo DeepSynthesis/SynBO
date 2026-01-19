@@ -21,29 +21,29 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization_RF_default_BO_EHVI_random",
+    "experiment_name": "asym_hydrogenation",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
-        "dataset_file": str(data_dir / "B-H_HTE/B-H_HTE.csv"),
-        "descriptor_dir": str(data_dir / "B-H_HTE/descriptors"),
+        "dataset_file": str(data_dir / "asym_alkylation/asym_alkylation.csv"),
+        "descriptor_dir": str(data_dir / "asym_alkylation/descriptors"),
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
-        "name_suffix": ["_dft", "_dft", "_dft", None, None],
+        "reagent_types": ["reactant2", "catalyst1", "catalyst2"],
+        "name_suffix": "_RDKit",  # ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "cost"],
+        "opt_metrics": ["yield", "ee"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "random",
+        "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},

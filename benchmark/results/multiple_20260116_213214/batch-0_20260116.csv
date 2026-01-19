@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost
-0,1,explore,KOPiv,P(fur)3,BuCN,0.1,120,-,-,40.02,0.055627352
-0,2,explore,CsOAc,X-Phos,BuOAc,0.1,90,-,-,85.24,0.092185628
-0,3,explore,KOPiv,BrettPhos,BuOAc,0.153,120,-,-,36.18,0.148063961
-0,4,explore,CsOAc,CgMe-PPh,p-Xylene,0.153,90,-,-,44.22,0.100348101
-0,5,explore,CsOAc,PPhMe2,p-Xylene,0.153,120,-,-,0.0,0.071029328

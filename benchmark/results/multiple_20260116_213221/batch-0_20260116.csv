@@ -1,6 +1,0 @@
-batch,index,type,base,ligand,solvent,concentration,temperature,pred yield,pred cost,yield,cost
-0,1,explore,CsOAc,PCy3 HBF4,DMAc,0.1,105,-,-,12.83,0.077697116
-0,2,explore,CsOAc,GorlosPhos HBF4,BuOAc,0.057,105,-,-,22.02,0.114304299
-0,3,explore,CsOPiv,PPhtBu2,BuOAc,0.1,120,-,-,0.0,0.1412912419999999
-0,4,explore,KOPiv,PPhtBu2,p-Xylene,0.1,90,-,-,0.0,0.04443312
-0,5,explore,CsOPiv,P(fur)3,BuCN,0.153,105,-,-,52.69,0.132696569

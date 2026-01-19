@@ -110,7 +110,7 @@ class SPOCDescriptor:
         # self.desc_array = np.array([x for x in bits])
         pass
 
-    def save_results(self, save_path: Path | str):
+    def save_results(self, save_path: Path | str, index_name: str = "name"):
         desc_df = pd.DataFrame(self.desc_array, index=self.smiles_list)
         if self.desc_names is not None:
             desc_df.columns = self.desc_names
@@ -125,12 +125,12 @@ class SPOCDescriptor:
             save_path.parent.mkdir(parents=True)
         try:
             if save_path.suffix.lower() == ".csv":
-                desc_df.index.name = "index"
+                desc_df.index.name = index_name
                 desc_df.to_csv(save_path, index=True)
                 self.console.print(f"✅ Results saved to CSV: {save_path}, data shape is {desc_df.shape}", style="bold green")
 
             elif save_path.suffix.lower() in [".xlsx"]:
-                desc_df.index.name = "index"
+                desc_df.index.name = index_name
                 desc_df.to_excel(save_path, index=True)
                 self.console.print(f"✅ Results saved to Excel: {save_path}, data shape is {desc_df.shape}", style="bold green")
 
@@ -150,6 +150,7 @@ def calc_spoc_desc(
     size: int = 1024,
     radius: int = 2,
     desc_type_to_filename: bool = True,
+    index_name: str = "name",
 ) -> None:
     """Generate molecular descriptors based on fingerprint type.
 
@@ -186,4 +187,4 @@ def calc_spoc_desc(
         case _:
             raise ValueError(f"Unsupported SPOC descriptor type: {fp_type}")
 
-    spoc_desc.save_results(save_path)
+    spoc_desc.save_results(save_path, index_name=index_name)

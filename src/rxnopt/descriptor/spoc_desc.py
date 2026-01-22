@@ -195,4 +195,4 @@ def calc_spoc_desc(
         case _:
             raise ValueError(f"Unsupported SPOC descriptor type: {fp_type}")
 
-    spoc_desc.save_results(save_path, name_list=name_list, index_name=index_name)
+    spoc_desc.save_results(save_path, index_name=index_name)

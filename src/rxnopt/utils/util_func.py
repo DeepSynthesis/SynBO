@@ -101,7 +101,19 @@ def sanitize_filename(filename: str) -> str:
     return safe_name
 
 
-def plot_SMILES(SMILES: str, save_dir: str, file_name: str = None) -> dict:
+def plot_SMILES(SMILES: str, save_dir: str, file_name: str = None, output_format: str = "png") -> dict:
+    """
+    Plot SMILES molecule as PNG or SVG
+
+    Args:
+        SMILES: SMILES string to plot
+        save_dir: Directory to save the image
+        file_name: Name of the file (default: SMILES string)
+        output_format: Output format ("png" or "svg", default: "png")
+
+    Returns:
+        Dictionary with success status and file path if successful
+    """
     SMILES = Chem.MolToSmiles(Chem.MolFromSmiles(SMILES), kekuleSmiles=True)
     SMILES = SMILES.replace("->", "").replace("<-", "")
     mol = Chem.MolFromSmiles(SMILES)
@@ -116,13 +128,20 @@ def plot_SMILES(SMILES: str, save_dir: str, file_name: str = None) -> dict:
         indigo = Indigo()
         renderer = IndigoRenderer(indigo)
         safe_name = sanitize_filename(file_name)
-        file_path = save_path_obj / f"{safe_name}.png"
+
+        if output_format.lower() == "svg":
+            file_path = save_path_obj / f"{safe_name}.svg"
+            indigo.setOption("render-output-format", "svg")
+        else:
+            file_path = save_path_obj / f"{safe_name}.png"
+            indigo.setOption("render-output-format", "png")
+
         mol = indigo.loadMolecule(SMILES)
+        mol.layout()
         indigo.setOption("render-coloring", True)
-        indigo.setOption("render-output-format", "png")
         renderer.renderToFile(mol, str(file_path))
 
-        return {"success": True}
+        return {"success": True, "file_path": str(file_path)}
     except Exception as e:
         print(e)
         return {"success": False}

@@ -9,11 +9,12 @@ BASE_CONFIG = copy.deepcopy(ORIGINAL_CONFIG)
 
 # 定义不同的优化方法和初始化策略组合
 TEST_VARIATIONS = {
-    "surrogate_models": ["linear", "GP", "RF", "ensemble"],
-    "optimize_methods": ["evolution", "random_select", "particle_swarm", "default_BO"],
-    "acq_functions": ["EHVI", "UCB", "NEI", "ParEGO"],
+    "descriptor": ["DFT", "RDKitDescriptors", "MorganFP", "OneHot"],
+    "surrogate_models": ["GP"],  # ["linear", "GP", "RF", "ensemble"],
+    "optimize_methods": ["default_BO"],  # ["evolution", "random_select", "particle_swarm", "default_BO"],
+    "acq_functions": ["EHVI"],  # , "UCB", "NEI", "ParEGO"],
     "evolution_methods": ["Thompson", "Standard"],
-    "sampling_methods": ["random", "lhs", "kmeans"],
+    "sampling_methods": ["random"],  # , "lhs", "kmeans"],
 }
 # ============================================================================
 
@@ -41,13 +42,16 @@ def generate_test_configs():
                 # default_BO需要surrogate_model和acq_func
                 for surrogate_model in TEST_VARIATIONS["surrogate_models"]:
                     for acq_func in TEST_VARIATIONS["acq_functions"]:
-                        config = copy.deepcopy(BASE_CONFIG)
-                        config["optimization_settings"]["optimize_method"] = optimize_method
-                        config["optimization_settings"]["sampling_method"] = sampling_method
-                        config["optimization_settings"]["kwargs"] = {"surrogate_model": surrogate_model, "acq_func": acq_func}
+                        for desc in TEST_VARIATIONS["descriptor"]:
+                            config = copy.deepcopy(BASE_CONFIG)
+                            config["optimization_settings"]["optimize_method"] = optimize_method
+                            config["optimization_settings"]["sampling_method"] = sampling_method
+                            config["optimization_settings"]["kwargs"] = {"surrogate_model": surrogate_model, "acq_func": acq_func}
 
-                        config["experiment_name"] = f"B-H_Optimization_{surrogate_model}_{optimize_method}_{acq_func}_{sampling_method}"
-                        configs.append(config)
+                            config["experiment_name"] = (
+                                f"B-H_Optimization_{surrogate_model}_{optimize_method}_{acq_func}_{sampling_method}_with_{desc}"
+                            )
+                            configs.append(config)
 
             elif optimize_method == "evolution":
                 for surrogate_model in TEST_VARIATIONS["surrogate_models"]:

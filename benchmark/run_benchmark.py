@@ -33,20 +33,20 @@ CONFIG = {
     },
     "reaction_space": {
         "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
-        "name_suffix": ["_RDKit", "_RDKit", "_RDKit", None, None],
+        "name_suffix": ["_OneHot", "_OneHot", "_OneHot", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "ee"],
+        "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
         "sampling_method": "kmeans",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
 }
 

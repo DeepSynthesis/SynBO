@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
-from quanda import MultiMolDesc
+from qspoc import QSPOCDesc
 from rich.console import Console
 
 console = Console()
@@ -15,7 +15,7 @@ def calc_qm_desc(
     sterimol_vec_lists: List[List[int]] = None,
     ignore_IF: Optional[bool] = False,
 ) -> None:
-    mmdesc = MultiMolDesc(ignore_IF=ignore_IF)
+    mmdesc = QSPOCDesc(ignore_IF=ignore_IF)
     mmdesc.load_data(smiles_list, tag_list, atom_lists, bond_lists, sterimol_vec_lists)
     mmdesc.compute_all_descriptors()
     mmdesc.save_results(save_path)
@@ -35,7 +35,7 @@ def calc_qm_desc_from_file(
     prop_tag: Optional[str] = None,
     ignore_IF: Optional[bool] = False,
 ):
-    mmdesc = MultiMolDesc(ignore_IF=ignore_IF)
+    mmdesc = QSPOCDesc(ignore_IF=ignore_IF)
     mmdesc.load_data_from_file(file_path, smiles_tag, tag_tag, atomlists_tag, bondlists_tag, stlists_tag, prop_tag)
     mmdesc.compute_all_descriptors()
     mmdesc.save_results(save_path)

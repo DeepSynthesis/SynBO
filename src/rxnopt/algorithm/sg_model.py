@@ -66,7 +66,7 @@ class GPSurrogateModel(BaseSurrogateModel):
             covar_module=covar_module,
         ).to(self.device)
 
-        # Add noise constraint like edboplus
+        # Add noise constraint
         self.model.likelihood.noise_covar.register_constraint("raw_noise", GreaterThan(1e-5))
 
         # Train the model
@@ -296,7 +296,7 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         # Dummy mean and covariance modules to satisfy gpytorch requirements
         self.mean_module = gpytorch.means.ZeroMean()
         self.covar_module = gpytorch.kernels.RBFKernel()
-        
+
         # Add batch_shape attribute for ModelListGP compatibility
         self._batch_shape = torch.Size([])
 
@@ -306,7 +306,7 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         mean = self.mean_module(x)
         covar = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean, covar)
-    
+
     @property
     def batch_shape(self):
         """Return batch_shape for ModelListGP compatibility"""
@@ -348,10 +348,10 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
         # Create a posterior distribution compatible with BoTorch
         from gpytorch.distributions import MultivariateNormal
         from linear_operator.operators import DiagLinearOperator
-        
+
         # Ensure variance is positive
         variance = torch.clamp(variance, min=1e-6)
-        
+
         # Reshape to match GP output format
         if batch_size is not None:
             # For 3D input (batch_size, q, d), output should be (batch_size, q, 1)
@@ -364,10 +364,10 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
             # For 2D input (n, d), output should be (n,)
             mean_squeezed = mean.squeeze(-1)
             var_squeezed = variance.squeeze(-1)
-        
+
         # Create diagonal covariance
         covar = DiagLinearOperator(var_squeezed)
-        
+
         # Create the posterior distribution
         mvn = MultivariateNormal(mean_squeezed, covar)
 
@@ -377,6 +377,7 @@ class SklearnModelWrapper(gpytorch.models.ExactGP):
 
         # Wrap in BoTorch's GPyTorchPosterior
         from botorch.posteriors.gpytorch import GPyTorchPosterior
+
         return GPyTorchPosterior(mvn)
 
     def fit_surrogate(self, train_x: torch.Tensor, train_y: torch.Tensor):

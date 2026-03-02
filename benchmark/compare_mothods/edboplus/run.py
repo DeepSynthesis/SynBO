@@ -29,7 +29,7 @@ def demo_single_benchmark():
     """
 
     # Load the dataset
-    dataset_path = Path("../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv")
+    dataset_path = Path(__file__).parent / Path("../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv")
     df_exp = pd.read_csv(dataset_path)
 
     print(f"\nLoaded dataset: {dataset_path.name}")

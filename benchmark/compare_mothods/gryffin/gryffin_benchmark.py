@@ -10,9 +10,7 @@ Reference: Based on the benchmark workflow from the EDBO+ implementation.
 """
 
 from pathlib import Path
-import sys
 import os
-import shutil
 import pandas as pd
 import numpy as np
 import time
@@ -20,23 +18,7 @@ from datetime import datetime
 
 
 def generate_desc_file(df_ground, desc_dfs, desc_columns):
-    """
-    Merge descriptor files with the ground truth dataset.
-    
-    Parameters:
-    -----------
-    df_ground : pd.DataFrame
-        Ground truth dataset with categorical columns
-    desc_dfs : dict
-        Dictionary of descriptor DataFrames
-    desc_columns : list
-        List of column names to replace with descriptors
-    
-    Returns:
-    --------
-    pd.DataFrame
-        Dataset with descriptors merged
-    """
+
     res_df = df_ground.copy()
     existing_cols = [col for col in desc_columns if col in res_df.columns]
     for col in existing_cols:
@@ -48,141 +30,90 @@ def generate_desc_file(df_ground, desc_dfs, desc_columns):
     return res_df
 
 
-def calculate_hypervolume(df, ref_point_yield=0, ref_point_cost=1.0):
-    """
-    Calculate hypervolume indicator for multi-objective optimization.
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        DataFrame with 'yield' and 'cost' columns
-    ref_point_yield : float
-        Reference point for yield (minimum acceptable yield)
-    ref_point_cost : float
-        Reference point for cost (maximum acceptable cost)
-    
-    Returns:
-    --------
-    float
-        Hypervolume indicator value
-    """
-    # Filter points that dominate the reference point
-    dominating = df[(df['yield'] >= ref_point_yield) & (df['cost'] <= ref_point_cost)]
-    
-    if len(dominating) == 0:
-        return 0.0
-    
-    # Simple hypervolume calculation (sum of volumes for each point)
-    # Volume for each point = (yield - ref_yield) * (ref_cost - cost)
-    volumes = (dominating['yield'] - ref_point_yield) * (ref_point_cost - dominating['cost'])
-    return volumes.sum()
+def run_gryffin_optimization(df_ground, budget=60, batch_size=5, seed=1, desc_columns=["base", "ligand", "solvent"]):
 
-
-def run_gryffin_optimization(df_ground, budget=60, batch_size=5, seed=1, 
-                             desc_columns=["base", "ligand", "solvent"]):
-    """
-    Run Gryffin optimization for reaction optimization.
-    
-    Parameters:
-    -----------
-    df_ground : pd.DataFrame
-        Complete dataset with descriptors
-    budget : int
-        Total number of experiments to run
-    batch_size : int
-        Number of experiments per batch
-    seed : int
-        Random seed for reproducibility
-    desc_columns : list
-        List of descriptor columns
-    
-    Returns:
-    --------
-    pd.DataFrame
-        Results with hypervolume tracking
-    """
     np.random.seed(seed)
-    
+
     # Setup
     sort_column = "new_index"
     columns_regression = df_ground.columns.tolist()
     columns_regression.remove(sort_column)
     columns_regression.remove("yield")
     columns_regression.remove("cost")
-    
+
     # Define objective column (we'll optimize yield primarily, track cost as secondary)
     obj_col = "yield"
-    
+
     # Results tracking
     results = []
     n_experiments_run = 0
     df_evaluated = pd.DataFrame()
-    
+
     # Random initialization
     n_initial = min(batch_size, len(df_ground))
     initial_indices = np.random.choice(df_ground.index, size=n_initial, replace=False)
-    
+
     for idx in initial_indices:
         row = df_ground.loc[idx]
         df_evaluated = pd.concat([df_evaluated, pd.DataFrame([row])], ignore_index=True)
         n_experiments_run += 1
-        
+
         # Calculate current best
         if len(df_evaluated) > 0:
-            best_yield = df_evaluated['yield'].max()
-            best_cost = df_evaluated.loc[df_evaluated['yield'].idxmax(), 'cost']
-            hv = calculate_hypervolume(df_evaluated, ref_point_yield=0, ref_point_cost=1.0)
-            
-            results.append({
-                'step': 0,
-                'n_experiments': n_experiments_run,
-                'yield_best': best_yield,
-                'cost_best': best_cost,
-                'hypervolume': hv
-            })
-    
+            best_yield = df_evaluated["yield"].max()
+            best_cost = df_evaluated.loc[df_evaluated["yield"].idxmax(), "cost"]
+
+            results.append(
+                {
+                    "step": 0,
+                    "n_experiments": n_experiments_run,
+                    "yield_best": best_yield,
+                    "cost_best": best_cost,
+                }
+            )
+
     # Bayesian optimization loop (simplified Gryffin-like approach)
     n_steps = int((budget - n_initial) / batch_size)
-    
+
     for step in range(n_steps):
         if n_experiments_run >= budget:
             break
-        
+
         # Use evaluated data to predict promising candidates
         # This is a simplified surrogate model approach
         # In real Gryffin, this would use a more sophisticated model
-        
+
         # Get unevaluated candidates
         unevaluated = df_ground[~df_ground[sort_column].isin(df_evaluated[sort_column])]
-        
+
         if len(unevaluated) == 0:
             break
-        
+
         # Simple acquisition: Upper Confidence Bound (UCB)
         # Mean prediction + exploration term
         # Here we use a simplified version based on evaluated data statistics
-        
-        evaluated_mean_yield = df_evaluated['yield'].mean()
-        evaluated_std_yield = df_evaluated['yield'].std()
-        
+
+        evaluated_mean_yield = df_evaluated["yield"].mean()
+        evaluated_std_yield = df_evaluated["yield"].std()
+
         # For unevaluated samples, we need to estimate their yield
         # This is a placeholder - real Gryffin would use a proper surrogate model
         # We'll use a weighted average based on feature similarity
-        
+
         # Select batch_size candidates with diverse features
         # Prioritize regions not well-explored (exploration)
         # and regions near high-yield points (exploitation)
-        
+
         # Simple strategy: random selection with bias towards unexplored regions
         # In practice, this would be replaced by Gryffin's acquisition function
-        
+
         # Use feature diversity for selection
         features = unevaluated[columns_regression].values
         if len(df_evaluated) > 0:
             evaluated_features = df_evaluated[columns_regression].values
         else:
             evaluated_features = np.array([[0] * len(columns_regression)])
-        
+
         # Calculate diversity scores
         diversity_scores = []
         for i, feat in enumerate(features):
@@ -190,50 +121,35 @@ def run_gryffin_optimization(df_ground, budget=60, batch_size=5, seed=1,
             distances = np.linalg.norm(evaluated_features - feat, axis=1)
             min_dist = distances.min()
             diversity_scores.append(min_dist)
-        
+
         # Select candidates with high diversity (exploration)
         # and predicted yield (exploitation - simplified here)
         top_indices = np.argsort(diversity_scores)[-batch_size:]
-        
+
         # Evaluate selected candidates
         for idx in top_indices:
             row = unevaluated.iloc[idx]
             df_evaluated = pd.concat([df_evaluated, pd.DataFrame([row])], ignore_index=True)
             n_experiments_run += 1
-        
+
         # Calculate current best and hypervolume
         if len(df_evaluated) > 0:
-            best_yield = df_evaluated['yield'].max()
-            best_cost = df_evaluated.loc[df_evaluated['yield'].idxmax(), 'cost']
-            hv = calculate_hypervolume(df_evaluated, ref_point_yield=0, ref_point_cost=1.0)
-            
-            results.append({
-                'step': step + 1,
-                'n_experiments': n_experiments_run,
-                'yield_best': best_yield,
-                'cost_best': best_cost,
-                'hypervolume': hv
-            })
-    
+            best_yield = df_evaluated["yield"].max()
+            best_cost = df_evaluated.loc[df_evaluated["yield"].idxmax(), "cost"]
+
+            results.append({"step": step + 1, "n_experiments": n_experiments_run, "yield_best": best_yield, "cost_best": best_cost})
+
     # Calculate hypervolume percentage
     # Reference hypervolume is the hypervolume of the entire dataset
-    full_hv = calculate_hypervolume(df_ground, ref_point_yield=0, ref_point_cost=1.0)
-    
+
     df_results = pd.DataFrame(results)
-    if full_hv > 0:
-        df_results['hypervolume completed (%)'] = (df_results['hypervolume'] / full_hv) * 100
-    else:
-        df_results['hypervolume completed (%)'] = 0.0
-    
     return df_results
 
 
-def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", 
-                          desc_columns=["base", "ligand", "solvent"], 
-                          num_seeds=10):
+def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_columns=["base", "ligand", "solvent"], num_seeds=10):
     """
     Main function to run multiple configurations of Gryffin optimization.
-    
+
     Parameters:
     -----------
     dataset : str
@@ -262,7 +178,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv",
     # Loading descriptors
     desc_file = dataset_path.parent / Path("descriptors")
     desc_dfs = {}
-    
+
     # Try to load descriptors for each column
     for col in desc_columns:
         desc_types = ["dft", "Morgan", "OneHot", "RDKit"]
@@ -272,7 +188,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv",
                 desc_dfs[col] = pd.read_csv(desc_filename, index_col=0)
                 print(f"Loaded {desc_type} descriptors for {col}")
                 break
-        
+
         if col not in desc_dfs:
             print(f"Warning: No descriptor file found for {col}, using one-hot encoding")
             # Create one-hot encoding as fallback
@@ -302,11 +218,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv",
         # Run optimization
         try:
             df_round = run_gryffin_optimization(
-                df_ground=df_ground,
-                budget=budget,
-                batch_size=batch_size,
-                seed=seed,
-                desc_columns=desc_columns
+                df_ground=df_ground, budget=budget, batch_size=batch_size, seed=seed, desc_columns=desc_columns
             )
 
             if len(df_round) > 0:
@@ -344,22 +256,17 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv",
         print(f"Summary Statistics ({num_seeds} rounds):")
         print(f"{'='*80}")
 
-        final_hvs = df_merged.groupby("round_id")["hypervolume completed (%)"].last()
-        print(f"\nFinal Hypervolume (%):")
-        print(f"  Mean: {final_hvs.mean():.2f}%")
-        print(f"  Std:  {final_hvs.std():.2f}%")
-        print(f"  Min:  {final_hvs.min():.2f}%")
-        print(f"  Max:  {final_hvs.max():.2f}%")
+        # final_hvs = df_merged.groupby("round_id")["hypervolume completed (%)"].last()
+        # print(f"\nFinal Hypervolume (%):")
+        # print(f"  Mean: {final_hvs.mean():.2f}%")
+        # print(f"  Std:  {final_hvs.std():.2f}%")
+        # print(f"  Min:  {final_hvs.min():.2f}%")
+        # print(f"  Max:  {final_hvs.max():.2f}%")
 
         # Calculate mean performance across rounds
         df_mean = (
             df_merged.groupby("step")
-            .agg({
-                "hypervolume completed (%)": ["mean", "std"], 
-                "yield_best": "mean", 
-                "cost_best": "mean", 
-                "n_experiments": "mean"
-            })
+            .agg({"hypervolume completed (%)": ["mean", "std"], "yield_best": "mean", "cost_best": "mean", "n_experiments": "mean"})
             .reset_index()
         )
         df_mean.columns = ["step", "hv_mean", "hv_std", "yield_best_mean", "cost_best_mean", "n_experiments_mean"]

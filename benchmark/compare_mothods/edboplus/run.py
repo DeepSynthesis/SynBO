@@ -155,7 +155,7 @@ def demo_single_benchmark():
     print(f"{'=' * 80}\n")
 
 
-def demo_multiple_configs():
+def demo_multiple_configs(dataset_type="datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"):
     """
     Demo: Run multiple benchmarks with different configurations.
     This demonstrates how to compare different acquisition functions and batch sizes.
@@ -165,10 +165,10 @@ def demo_multiple_configs():
     print("=" * 80)
 
     # Load the dataset
-    dataset_path = "../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
+    dataset_path = f"../../{dataset_type}"
     df_exp = pd.read_csv(dataset_path)
 
-    print(f"\n1. Loaded dataset: {dataset_path}")
+    print(f"\n1. Loaded dataset: {dataset_path.name}")
     print(f"   Dataset shape: {df_exp.shape}")
 
     # Setup parameters
@@ -183,135 +183,60 @@ def demo_multiple_configs():
     objective_thresholds = [None, None]
     budget = 60
     seed = 1
+    batch_size = 5
 
     # Define configurations to test
-    configurations = []
-
-    # Test different batch sizes
-    for batch_size in [3, 5, 10]:
-        configurations.append({"batch": batch_size, "acq": "EHVI", "sampling": "cvtsampling", "steps": int(budget / batch_size)})
-
-    # Test different sampling methods
-    for sampling_method in ["seed", "lhs", "cvtsampling"]:
-        configurations.append({"batch": 5, "acq": "EHVI", "sampling": sampling_method, "steps": int(budget / 5)})
-
-    print(f"\n2. Configurations to test ({len(configurations)}):")
-    for i, config in enumerate(configurations, 1):
-        print(f"   {i}. Batch={config['batch']}, Acq={config['acq']}, " f"Sampling={config['sampling']}, Steps={config['steps']}")
+    config = {"batch": batch_size, "acq": "EHVI", "sampling": "cvtsampling", "steps": int(budget / batch_size)}
 
     # Create results directory
     if not os.path.exists("results"):
         os.makedirs("results")
 
-    print(f"\n3. Running benchmarks (this may take several minutes)...")
+    print(f"Running benchmarks")
 
-    results_summary = []
+    # Create benchmark filename
+    label_benchmark = f"EDBOplus_for_{dataset_path.name}"
 
-    for i, config in enumerate(configurations, 1):
-        print(
-            f"\n   [{i}/{len(configurations)}] Running configuration: "
-            f"Batch={config['batch']}, Acq={config['acq']}, Sampling={config['sampling']}"
-        )
+    # Clean up previous files
+    for filename in [label_benchmark, f"pred_{label_benchmark}", f"results_{label_benchmark}"]:
+        if os.path.exists(filename):
+            os.remove(filename)
 
-        # Create benchmark filename
-        label_benchmark = f"demo_multi_batch_{config['batch']}_" f"acq_{config['acq']}_sampling_{config['sampling']}_" f"seed_{seed}.csv"
+    # Initialize and run benchmark
+    bench = Benchmark(
+        df_ground=df_exp,
+        index_column=sort_column,
+        objective_names=objectives,
+        objective_modes=objective_modes,
+        objective_thresholds=objective_thresholds,
+        features_regression=columns_regression,
+        filename=label_benchmark,
+        filename_results=f"results_{label_benchmark}",
+        acquisition_function=config["acq"],
+    )
 
-        # Clean up previous files
-        for filename in [label_benchmark, f"pred_{label_benchmark}", f"results_{label_benchmark}"]:
-            if os.path.exists(filename):
-                os.remove(filename)
+    bench.run(
+        steps=config["steps"],
+        batch=config["batch"],
+        seed=seed,
+        plot_ground=False,
+        plot_predictions=False,
+        plot_train=False,
+        init_method=config["sampling"],
+    )
 
-        # Initialize and run benchmark
-        bench = Benchmark(
-            df_ground=df_exp,
-            index_column=sort_column,
-            objective_names=objectives,
-            objective_modes=objective_modes,
-            objective_thresholds=objective_thresholds,
-            features_regression=columns_regression,
-            filename=label_benchmark,
-            filename_results=f"results_{label_benchmark}",
-            acquisition_function=config["acq"],
-        )
+    # Move results
+    for filename in [label_benchmark, f"pred_{label_benchmark}", f"results_{label_benchmark}"]:
+        if os.path.exists(filename):
+            shutil.move(filename, f"results/{filename}")
 
-        bench.run(
-            steps=config["steps"],
-            batch=config["batch"],
-            seed=seed,
-            plot_ground=False,
-            plot_predictions=False,
-            plot_train=False,
-            init_method=config["sampling"],
-        )
-
-        # Move results
-        for filename in [label_benchmark, f"pred_{label_benchmark}", f"results_{label_benchmark}"]:
-            if os.path.exists(filename):
-                shutil.move(filename, f"results/{filename}")
-
-        # Load final hypervolume
-        results_path = f"results/results_{label_benchmark}"
-        if os.path.exists(results_path):
-            df_results = pd.read_csv(results_path)
-            final_hv = df_results.iloc[-1]["hypervolume completed (%)"]
-            results_summary.append(
-                {"batch": config["batch"], "acq": config["acq"], "sampling": config["sampling"], "final_hv_pct": final_hv}
-            )
-            print(f"      Completed! Final hypervolume: {final_hv:.2f}%")
-
-    # Print summary
-    print(f"\n4. Results Summary:")
-    print(f"   {'Batch':<6} {'Acq':<6} {'Sampling':<12} {'Hypervolume %':<12}")
-    print(f"   {'-'*6} {'-'*6} {'-'*12} {'-'*12}")
-
-    for result in results_summary:
-        print(f"   {result['batch']:<6} {result['acq']:<6} {result['sampling']:<12} " f"{result['final_hv_pct']:<12.2f}")
-
-    print(f"\n{'=' * 80}")
-    print("Multiple benchmarks completed!")
-    print(f"Results saved to: results/")
-    print(f"{'=' * 80}\n")
-
-
-def main():
-    """
-    Main function to run demos.
-    """
-    print("\n" + "=" * 80)
-    print("EDBO+ DEMO SCRIPT")
-    print("=" * 80)
-    print("\nThis demo demonstrates how to use the EDBO+ package for")
-    print("multi-objective reaction optimization.")
-
-    # Demo 1: Single benchmark run
-    print("\n\nRunning Demo 1: Single Benchmark Run")
-    print("-" * 80)
-    demo_single_benchmark()
-
-    # Uncomment to run Demo 2: Multiple configurations
-    # Note: This will take much longer to complete
-    print("\n\nRunning Demo 2: Multiple Benchmark Configurations")
-    print("-" * 80)
-    demo_multiple_configs()
-
-    print("\n" + "=" * 80)
-    print("DEMO COMPLETED SUCCESSFULLY!")
-    print("=" * 80)
-
-    print("\nTo run your own benchmarks:")
-    print("1. Prepare your dataset with features and objective columns")
-    print("2. Define objectives (e.g., ['yield', 'cost'])")
-    print("3. Set optimization modes (e.g., ['max', 'min'])")
-    print("4. Initialize Benchmark class with your parameters")
-    print("5. Call bench.run() to start optimization")
-    print("6. Analyze results from the generated CSV files")
-
-    print("\nFor more information, refer to:")
-    print("  - edbo/plus/optimizer_botorch.py (main optimizer)")
-    print("  - edbo/plus/benchmark/multiobjective_benchmark.py (benchmark)")
-
-    print("\n" + "=" * 80)
+    # Load final hypervolume
+    results_path = f"results/results_{label_benchmark}"
+    if os.path.exists(results_path):
+        df_results = pd.read_csv(results_path)
+        final_hv = df_results.iloc[-1]["hypervolume completed (%)"]
+        print(f"      Completed! Final hypervolume: {final_hv:.2f}%")
 
 
 if __name__ == "__main__":
-    main()
+    demo_multiple_configs()

@@ -9,6 +9,7 @@ Usage:
 Reference: Based on the benchmark workflow from the original EDBO+ implementation.
 """
 
+from pathlib import Path
 import sys
 import os
 import shutil
@@ -26,19 +27,12 @@ def demo_single_benchmark():
     Demo: Run a single benchmark with EDBO+ on the B-H_HTE dataset.
     This demonstrates the basic workflow for running a multi-objective optimization.
     """
-    print("=" * 80)
-    print("DEMO: Single EDBO+ Benchmark Run")
-    print("=" * 80)
 
     # Load the dataset
-    dataset_path = "../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
+    dataset_path = Path("../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv")
     df_exp = pd.read_csv(dataset_path)
 
-    print(f"\n1. Loaded dataset: {dataset_path}")
-    print(f"   Dataset shape: {df_exp.shape}")
-    print(f"   Columns: {df_exp.columns.tolist()}")
-    print(f"\n   First 3 rows:")
-    print(df_exp.head(3))
+    print(f"\nLoaded dataset: {dataset_path.name}")
 
     # Define the index column for tracking experiments
     sort_column = "new_index"

@@ -1,284 +1,270 @@
 """
 Gryffin Benchmark Script with Multiple Random Seeds
-This script runs Gryffin benchmarks with multiple random seeds and merges results.
+This script runs Gryffin benchmarks with multiple random seeds for the B-H_HTE dataset.
 
 Usage:
     conda activate gryffin_env
-    python benchmark/compare_mothods/Gryffin/gryffin_benchmark.py
+    python benchmark/compare_mothods/gryffin/gryffin_benchmark.py
 
-Reference: Based on the benchmark workflow from the EDBO+ implementation.
+Reference: Based on Gryffin optimization workflow and EDBO+ benchmark structure.
 """
 
 from pathlib import Path
+import sys
 import os
 import pandas as pd
-import numpy as np
 import time
 from datetime import datetime
+import numpy as np
+
+try:
+    from gryffin import Gryffin
+except ImportError:
+    print("Error: Gryffin not found. Please install it in gryffin_env conda environment.")
+    print("Installation: pip install gryffin")
+    sys.exit(1)
 
 
 def generate_desc_file(df_ground, desc_dfs, desc_columns):
-
+    """Merge descriptor files with ground truth data."""
     res_df = df_ground.copy()
     existing_cols = [col for col in desc_columns if col in res_df.columns]
     for col in existing_cols:
         desc_table = desc_dfs[col]
-        desc_table = desc_table.select_dtypes(include=["float64", "float32"])
+        desc_table = desc_table.select_dtypes(include=["float64", "float32", "int64"])
         res_df = res_df.merge(desc_table, left_on=col, right_index=True, how="left")
         res_df.drop([col], axis=1, inplace=True)
-
     return res_df
 
 
-def run_gryffin_optimization(df_ground, budget=60, batch_size=5, seed=1, desc_columns=["base", "ligand", "solvent"]):
+def create_gryffin_config(df_ground):
+    """Create Gryffin configuration based on dataset parameters."""
+    config = {
+        "parameters": [],
+        "objectives": [
+            {"name": "yield", "goal": "max", "tolerance": 1.0},
+            {"name": "cost", "goal": "min", "tolerance": 0.01},
+        ]
+    }
+    
+    # Identify parameter columns (excluding objectives and index)
+    param_columns = df_ground.columns.tolist()
+    param_columns = [col for col in param_columns if col not in ["new_index", "yield", "cost"]]
+    
+    # Get unique values for categorical parameters from original dataset
+    # For this dataset, we'll treat all parameters as continuous after encoding
+    # since they're already encoded as descriptors
+    for col in param_columns:
+        min_val = df_ground[col].min()
+        max_val = df_ground[col].max()
+        config["parameters"].append({
+            "name": col,
+            "type": "continuous",
+            "low": float(min_val),
+            "high": float(max_val)
+        })
+    
+    return config
 
-    np.random.seed(seed)
 
-    # Setup
-    sort_column = "new_index"
-    columns_regression = df_ground.columns.tolist()
-    columns_regression.remove(sort_column)
-    columns_regression.remove("yield")
-    columns_regression.remove("cost")
+def evaluate_experiment(df_ground, params_dict):
+    """Evaluate experiment by finding the closest match in the dataset."""
+    # Convert params to DataFrame
+    df_params = pd.DataFrame([params_dict])
+    
+    # Find the closest row in the dataset based on Euclidean distance
+    # Get feature columns (excluding index and objectives)
+    feature_cols = [col for col in df_ground.columns 
+                    if col not in ["new_index", "yield", "cost"]]
+    
+    # Calculate distances
+    distances = np.sqrt(((df_ground[feature_cols].values - df_params[feature_cols].values) ** 2).sum(axis=1))
+    
+    # Find the closest row
+    closest_idx = distances.argmin()
+    
+    # Return the objectives from the closest row
+    return {
+        "yield": df_ground.iloc[closest_idx]["yield"],
+        "cost": df_ground.iloc[closest_idx]["cost"]
+    }
 
-    # Define objective column (we'll optimize yield primarily, track cost as secondary)
-    obj_col = "yield"
 
-    # Results tracking
+def run_gryffin_benchmark(df_ground, config, budget=60, seed=1):
+    """Run a single Gryffin optimization run."""
+    # Initialize Gryffin
+    gryffin = Gryffin(config_dict=config)
+    
+    observations = []
     results = []
-    n_experiments_run = 0
-    df_evaluated = pd.DataFrame()
-
-    # Random initialization
-    n_initial = min(batch_size, len(df_ground))
-    initial_indices = np.random.choice(df_ground.index, size=n_initial, replace=False)
-
-    for idx in initial_indices:
-        row = df_ground.loc[idx]
-        df_evaluated = pd.concat([df_evaluated, pd.DataFrame([row])], ignore_index=True)
-        n_experiments_run += 1
-
-        # Calculate current best
-        if len(df_evaluated) > 0:
-            best_yield = df_evaluated["yield"].max()
-            best_cost = df_evaluated.loc[df_evaluated["yield"].idxmax(), "cost"]
-
-            results.append(
-                {
-                    "step": 0,
-                    "n_experiments": n_experiments_run,
-                    "yield_best": best_yield,
-                    "cost_best": best_cost,
-                }
-            )
-
-    # Bayesian optimization loop (simplified Gryffin-like approach)
-    n_steps = int((budget - n_initial) / batch_size)
-
-    for step in range(n_steps):
-        if n_experiments_run >= budget:
-            break
-
-        # Use evaluated data to predict promising candidates
-        # This is a simplified surrogate model approach
-        # In real Gryffin, this would use a more sophisticated model
-
-        # Get unevaluated candidates
-        unevaluated = df_ground[~df_ground[sort_column].isin(df_evaluated[sort_column])]
-
-        if len(unevaluated) == 0:
-            break
-
-        # Simple acquisition: Upper Confidence Bound (UCB)
-        # Mean prediction + exploration term
-        # Here we use a simplified version based on evaluated data statistics
-
-        evaluated_mean_yield = df_evaluated["yield"].mean()
-        evaluated_std_yield = df_evaluated["yield"].std()
-
-        # For unevaluated samples, we need to estimate their yield
-        # This is a placeholder - real Gryffin would use a proper surrogate model
-        # We'll use a weighted average based on feature similarity
-
-        # Select batch_size candidates with diverse features
-        # Prioritize regions not well-explored (exploration)
-        # and regions near high-yield points (exploitation)
-
-        # Simple strategy: random selection with bias towards unexplored regions
-        # In practice, this would be replaced by Gryffin's acquisition function
-
-        # Use feature diversity for selection
-        features = unevaluated[columns_regression].values
-        if len(df_evaluated) > 0:
-            evaluated_features = df_evaluated[columns_regression].values
+    
+    for iteration in range(budget):
+        # Query Gryffin for new parameters
+        if len(observations) == 0:
+            # First iteration: sample random point
+            params = {}
+            for param in config["parameters"]:
+                params[param["name"]] = np.random.uniform(
+                    param["low"], param["high"]
+                )
         else:
-            evaluated_features = np.array([[0] * len(columns_regression)])
+            # Use Gryffin to recommend parameters
+            recommended = gryffin.recommend(observations=observations)
+            if isinstance(recommended, list):
+                params = recommended[0]
+            else:
+                params = recommended
+        
+        # Evaluate the proposed parameters
+        objectives = evaluate_experiment(df_ground, params)
+        
+        # Add objectives to params
+        params["yield"] = objectives["yield"]
+        params["cost"] = objectives["cost"]
+        
+        # Store observation for Gryffin
+        observations.append(params)
+        
+        # Calculate best yield and cost so far
+        yields = [obs["yield"] for obs in observations]
+        costs = [obs["cost"] for obs in observations]
+        
+        best_yield = max(yields)
+        best_cost = min(costs)
+        
+        # Calculate hypervolume (simplified version)
+        # For yield (maximize) and cost (minimize), we can use a simple metric
+        # Normalized hypervolume approximation
+        yield_range = df_ground["yield"].max() - df_ground["yield"].min()
+        cost_range = df_ground["cost"].max() - df_ground["cost"].min()
+        
+        # Normalize and combine (higher is better)
+        norm_yield = (best_yield - df_ground["yield"].min()) / yield_range if yield_range > 0 else 0
+        norm_cost = (df_ground["cost"].max() - best_cost) / cost_range if cost_range > 0 else 0
+        
+        # Simple combined metric (can be improved with proper hypervolume calculation)
+        hv_approx = (norm_yield + norm_cost) / 2 * 100
+        
+        results.append({
+            "step": iteration + 1,
+            "n_experiments": iteration + 1,
+            "yield_best": best_yield,
+            "cost_best": best_cost,
+            "hypervolume completed (%)": hv_approx
+        })
+    
+    return pd.DataFrame(results)
 
-        # Calculate diversity scores
-        diversity_scores = []
-        for i, feat in enumerate(features):
-            # Calculate minimum distance to evaluated points
-            distances = np.linalg.norm(evaluated_features - feat, axis=1)
-            min_dist = distances.min()
-            diversity_scores.append(min_dist)
 
-        # Select candidates with high diversity (exploration)
-        # and predicted yield (exploitation - simplified here)
-        top_indices = np.argsort(diversity_scores)[-batch_size:]
-
-        # Evaluate selected candidates
-        for idx in top_indices:
-            row = unevaluated.iloc[idx]
-            df_evaluated = pd.concat([df_evaluated, pd.DataFrame([row])], ignore_index=True)
-            n_experiments_run += 1
-
-        # Calculate current best and hypervolume
-        if len(df_evaluated) > 0:
-            best_yield = df_evaluated["yield"].max()
-            best_cost = df_evaluated.loc[df_evaluated["yield"].idxmax(), "cost"]
-
-            results.append({"step": step + 1, "n_experiments": n_experiments_run, "yield_best": best_yield, "cost_best": best_cost})
-
-    # Calculate hypervolume percentage
-    # Reference hypervolume is the hypervolume of the entire dataset
-
-    df_results = pd.DataFrame(results)
-    return df_results
-
-
-def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_columns=["base", "ligand", "solvent"], num_seeds=10):
-    """
-    Main function to run multiple configurations of Gryffin optimization.
-
-    Parameters:
-    -----------
-    dataset : str
-        Path to the dataset file
-    desc_columns : list
-        List of descriptor columns to use
-    num_seeds : int
-        Number of random seeds to run
-    """
+def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", 
+                          desc_columns=["base", "ligand", "solvent"], 
+                          num_seeds=10):
+    """Run Gryffin benchmark with multiple random seeds."""
     # Start timing
     start_time = time.time()
     start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    
     # Load the dataset
     dataset_path = Path(__file__).parent / Path(f"../../datasets/{dataset}")
     df_exp = pd.read_csv(dataset_path)
-
+    
     # Setup parameters
     sort_column = "new_index"
-
-    objectives = ["yield", "cost"]
-    objective_modes = ["max", "min"]
     budget = 60
-    batch_size = 5
-
+    
     # Loading descriptors
     desc_file = dataset_path.parent / Path("descriptors")
-    desc_dfs = {}
-
-    # Try to load descriptors for each column
-    for col in desc_columns:
-        desc_types = ["dft", "Morgan", "OneHot", "RDKit"]
-        for desc_type in desc_types:
-            desc_filename = desc_file / Path(f"{col}_{desc_type}.csv")
-            if desc_filename.exists():
-                desc_dfs[col] = pd.read_csv(desc_filename, index_col=0)
-                print(f"Loaded {desc_type} descriptors for {col}")
-                break
-
-        if col not in desc_dfs:
-            print(f"Warning: No descriptor file found for {col}, using one-hot encoding")
-            # Create one-hot encoding as fallback
-            one_hot = pd.get_dummies(df_exp[col], prefix=col)
-            desc_dfs[col] = one_hot
-
-    df_ground = generate_desc_file(df_exp, desc_dfs, desc_columns)
-
-    print(f"\nGryffin Benchmark with {num_seeds} Random Seeds")
+    desc_dfs = {col: pd.read_csv(desc_file / Path(f"{col}_OneHot.csv"), index_col=0) 
+                 for col in desc_columns}
+    
+    # Add continuous parameters descriptors
+    desc_dfs["concentration"] = pd.DataFrame({"concentration": df_exp["concentration"].unique()})
+    desc_dfs["temperature"] = pd.DataFrame({"temperature": df_exp["temperature"].unique()})
+    
+    # Merge descriptors with ground truth
+    df_ground = generate_desc_file(df_exp, desc_dfs, desc_columns + ["concentration", "temperature"])
+    
+    print(f"Gryffin Benchmark with {num_seeds} Random Seeds")
     print(f"Dataset: {dataset}")
-    print(f"Budget: {budget} experiments ({int(budget / batch_size)} steps × {batch_size} batch size)")
+    print(f"Budget: {budget} experiments")
     print(f"Number of seeds: {num_seeds}")
-    print(f"Descriptor columns: {desc_columns}")
-
+    print(f"Features: {df_ground.shape[1]-3} (excluding index and objectives)")
+    
+    # Create Gryffin configuration
+    config = create_gryffin_config(df_ground)
+    
     # Create benchmark filename
-    label_benchmark = f"Gryffin_for_{dataset_path.name.replace('.csv', '')}"
-
+    label_benchmark = f"Gryffin_for_{dataset_path.name}"
+    
     # List to store all results
     all_results = []
-
+    
     # Run benchmarks with different seeds
     for round_id in range(1, num_seeds + 1):
         seed = round_id  # Use round_id as seed
-
+        np.random.seed(seed)
+        
         print(f"\n[Round {round_id}/{num_seeds}] Seed = {seed}")
-
-        # Run optimization
-        try:
-            df_round = run_gryffin_optimization(
-                df_ground=df_ground, budget=budget, batch_size=batch_size, seed=seed, desc_columns=desc_columns
-            )
-
-            if len(df_round) > 0:
-                df_round["round_id"] = round_id
-                df_round["seed"] = seed
-                all_results.append(df_round)
-
-                final_hv = df_round.iloc[-1]["hypervolume completed (%)"]
-                print(f"  Final hypervolume: {final_hv:.2f}%")
-                print(f"  Best yield: {df_round.iloc[-1]['yield_best']:.2f}%")
-                print(f"  Associated cost: {df_round.iloc[-1]['cost_best']:.4f}")
-            else:
-                print(f"  Warning: No results generated for seed {seed}")
-
-        except Exception as e:
-            print(f"  Error in round {round_id}: {str(e)}")
-            continue
-
+        
+        # Run Gryffin benchmark
+        df_round = run_gryffin_benchmark(df_ground, config, budget=budget, seed=seed)
+        df_round["round_id"] = round_id
+        df_round["seed"] = seed
+        
+        all_results.append(df_round)
+        
+        final_hv = df_round.iloc[-1]["hypervolume completed (%)"]
+        print(f"  Final hypervolume: {final_hv:.2f}%")
+        print(f"  Best yield: {df_round.iloc[-1]['yield_best']:.2f}%")
+        print(f"  Best cost: {df_round.iloc[-1]['cost_best']:.4f}")
+    
     # End timing
     end_time = time.time()
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     total_time = end_time - start_time
-
+    
     if all_results:
         df_merged = pd.concat(all_results, ignore_index=True)
-
+        
+        # Ensure results directory exists
+        results_dir = Path(__file__).parent / Path("results")
+        results_dir.mkdir(exist_ok=True)
+        
         # Save merged results
-        os.makedirs("results", exist_ok=True)
-        merged_filename = f"results/merged_{label_benchmark}.csv"
+        merged_filename = results_dir / f"merged_{label_benchmark}"
         df_merged.to_csv(merged_filename, index=False)
         print(f"\nMerged results saved to: {merged_filename}")
-
+        
         # Print summary statistics
-        print(f"\n{'='*80}")
-        print(f"Summary Statistics ({num_seeds} rounds):")
-        print(f"{'='*80}")
-
-        # final_hvs = df_merged.groupby("round_id")["hypervolume completed (%)"].last()
-        # print(f"\nFinal Hypervolume (%):")
-        # print(f"  Mean: {final_hvs.mean():.2f}%")
-        # print(f"  Std:  {final_hvs.std():.2f}%")
-        # print(f"  Min:  {final_hvs.min():.2f}%")
-        # print(f"  Max:  {final_hvs.max():.2f}%")
-
+        print(f"\nSummary Statistics ({num_seeds} rounds):")
+        print(f"{'-'*80}")
+        
+        final_hvs = df_merged.groupby("round_id")["hypervolume completed (%)"].last()
+        print(f"Final Hypervolume (%):")
+        print(f"  Mean: {final_hvs.mean():.2f}%")
+        print(f"  Std:  {final_hvs.std():.2f}%")
+        print(f"  Min:  {final_hvs.min():.2f}%")
+        print(f"  Max:  {final_hvs.max():.2f}%")
+        
         # Calculate mean performance across rounds
         df_mean = (
             df_merged.groupby("step")
-            .agg({"hypervolume completed (%)": ["mean", "std"], "yield_best": "mean", "cost_best": "mean", "n_experiments": "mean"})
+            .agg({"hypervolume completed (%)": ["mean", "std"], 
+                   "yield_best": "mean", 
+                   "cost_best": "mean", 
+                   "n_experiments": "mean"})
             .reset_index()
         )
-        df_mean.columns = ["step", "hv_mean", "hv_std", "yield_best_mean", "cost_best_mean", "n_experiments_mean"]
-
+        df_mean.columns = ["step", "hv_mean", "hv_std", "yield_best_mean", 
+                          "cost_best_mean", "n_experiments_mean"]
+        
         # Save mean results
-        mean_filename = f"results/mean_{label_benchmark}.csv"
+        mean_filename = results_dir / f"mean_{label_benchmark}"
         df_mean.to_csv(mean_filename, index=False)
-        print(f"\nMean results saved to: {mean_filename}")
-
+        print(f"Mean results saved to: {mean_filename}")
+    
     # Save timing information to txt file
-    os.makedirs("results", exist_ok=True)
-    timing_filename = f"results/timing_{dataset_path.name.replace('.csv', '')}.txt"
+    timing_filename = results_dir / f"timing_{dataset_path.name.replace('.csv', '')}.txt"
     with open(timing_filename, "w") as f:
         f.write("=" * 80 + "\n")
         f.write("Gryffin Benchmark Timing Information\n")
@@ -287,8 +273,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         f.write(f"Number of seeds: {num_seeds}\n")
         f.write(f"Budget per seed: {budget} experiments\n")
         f.write(f"Total experiments: {num_seeds * budget}\n")
-        f.write(f"Batch size: {batch_size}\n")
-        f.write(f"Descriptor columns: {desc_columns}\n\n")
+        f.write(f"Features: {df_ground.shape[1]-3} (excluding index and objectives)\n\n")
         f.write("-" * 80 + "\n")
         f.write("Timing Information:\n")
         f.write("-" * 80 + "\n")
@@ -297,7 +282,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         f.write(f"Total time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)\n")
         f.write(f"Average time per seed: {total_time/num_seeds:.2f} seconds\n")
         f.write(f"\n")
-
+        
         if all_results:
             f.write("-" * 80 + "\n")
             f.write("Performance Summary:\n")
@@ -308,23 +293,22 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
             f.write(f"  Min:  {final_hvs.min():.2f}%\n")
             f.write(f"  Max:  {final_hvs.max():.2f}%\n")
             f.write("\n")
-
+            
             # Performance per round
             f.write("-" * 80 + "\n")
             f.write("Performance per Round:\n")
             f.write("-" * 80 + "\n")
             f.write(f"{'Round':<8} {'Seed':<8} {'Final HV (%)':<15} {'Time Est (s)':<15}\n")
             f.write("-" * 80 + "\n")
-            avg_time_per_step = total_time / (num_seeds * int(budget / batch_size))
+            avg_time_per_seed = total_time / num_seeds
             for round_id in range(1, num_seeds + 1):
-                if round_id in final_hvs.index:
-                    hv = final_hvs[round_id]
-                    f.write(f"{round_id:<8} {round_id:<8} {hv:<15.2f} {avg_time_per_step*int(budget/batch_size):<15.2f}\n")
-
+                hv = final_hvs[round_id]
+                f.write(f"{round_id:<8} {round_id:<8} {hv:<15.2f} {avg_time_per_seed:<15.2f}\n")
+        
         f.write("\n" + "=" * 80 + "\n")
-
+    
     print(f"\nTiming information saved to: {timing_filename}")
-
+    
     print(f"\n{'='*80}")
     print("Benchmark completed successfully!")
     print(f"{'='*80}")

@@ -32,10 +32,20 @@ def generate_desc_file(df_ground, desc_dfs, desc_columns):
         res_df.drop([col], axis=1, inplace=True)
     return res_df
 
-
 def create_gryffin_config(df_ground):
     """Create Gryffin configuration based on dataset parameters."""
     config = {
+        "general": {
+            "num_cpus": 24,
+            # "auto_desc_gen": True,
+            "batches": 1,
+            "sampling_strategies": 1,
+            "boosted": False,
+            "caching": True,
+            "random_seed": 10,
+            "acquisition_optimizer": "adam",
+            "verbosity": 3,
+        },
         "parameters": [],
         "objectives": [
             {"name": "yield", "goal": "max", "tolerance": 1.0, "absolute": False},
@@ -50,16 +60,15 @@ def create_gryffin_config(df_ground):
     # Get unique values for categorical parameters from original dataset
     # For this dataset, we'll treat all parameters as continuous after encoding
     # since they're already encoded as descriptors
+    
+    
     for col in param_columns:
         min_val = df_ground[col].min()
         max_val = df_ground[col].max()
-
-        # Skip columns with NaN values
-        if pd.isna(min_val) or pd.isna(max_val):
-            continue
-
+        
         # Skip columns where min equals max (no variation)
         if min_val == max_val:
+            df_ground.drop(col, axis=1, inplace=True)
             continue
 
         config["parameters"].append({"name": col, "type": "continuous", "low": float(min_val), "high": float(max_val)})
@@ -106,7 +115,7 @@ def run_gryffin_benchmark(df_ground, config, budget=60, seed=1):
                     # Handle case where low equals high
                     params[param["name"]] = low
                 else:
-                    print(low, high)
+                    # print(low, high)
                     params[param["name"]] = np.random.uniform(low, high)
         else:
             # Use Gryffin to recommend parameters

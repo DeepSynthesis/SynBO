@@ -1,6 +1,6 @@
-amine_smiles_anion
-O=S(=O)([O-])C(F)(F)F
-O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F
-CC(=O)[O-]
-O=C([O-])C(F)(F)F
-O=S(=O)(NS(=O)(=O)C(F)(F)F)C(F)(F)F
+amine_smiles_anion,atom_idx
+O=S(=O)([O-])C(F)(F)F,3
+O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,3
+CC(=O)[O-],3
+O=C([O-])C(F)(F)F,2
+O=S(=O)(NS(=O)(=O)C(F)(F)F)C(F)(F)F,

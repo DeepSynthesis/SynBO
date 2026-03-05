@@ -10,5 +10,3 @@ O=C(O)[O][Na],3
 O=P(O)(O)[O][K],4
 CN(C)c1ccncc1,1
 c1ccncc1,3
-blanck_cell,0
-O=C([O][Cs])[O][Cs],2

@@ -4,10 +4,14 @@ from qspoc import QSPOCDesc
 
 save_path = Path(__file__).parent / Path("..")
 
-mol_type = "alkali"
+mol_type = "amine_anion"
 mol_df_path = Path(__file__).parent / Path(f"reagents/{mol_type}_smiles.csv")
 
-qm_desc = QSPOCDesc(multiwfn_path="Multiwfn", save_dir=save_path, exe_path_dict={"xtb": "xtb"})
+qm_desc = QSPOCDesc(
+    multiwfn_path="/home/tzz/AIChem/QSPOC/bin/Multiwfn/Multiwfn_3.8_bin_Linux_noGUI/Multiwfn_noGUI",
+    save_dir=save_path,
+    exe_path_dict={"xtb": "xtb"},
+)
 qm_desc.load_data_from_file(mol_df_path, f"{mol_type}_smiles", atomlists_tag="atom_idx")
 qm_desc.get_init_sturct()
 qm_desc.geometric_opt(method="xtb")

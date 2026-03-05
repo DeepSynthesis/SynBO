@@ -1,4 +1,4 @@
-amine_smiles_ion,atom_idx
+amine_ion_smiles,atom_idx
 CC(C)([C@@H](C[NH2+]C(c1ccccc1)c2ccccc2)N)C,"5,7"
 CC(C)([C@@H](C[NH2+]C(c1ccc(Br)cc1)c2ccc(Br)cc2)N)C,"5,7"
 CC(C)([C@H](C[NH+]1CCSCC1)N)C,"5,7"

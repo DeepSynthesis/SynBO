@@ -1,4 +1,4 @@
-amine_smiles_anion,atom_idx
+amine_anion_smiles,atom_idx
 O=S(=O)([O-])C(F)(F)F,3
 O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,3
 CC(=O)[O-],3

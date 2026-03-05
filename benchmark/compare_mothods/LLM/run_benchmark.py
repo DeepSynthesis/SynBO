@@ -10,6 +10,7 @@ import os
 from typing import Dict, List, Optional
 import requests
 from io import StringIO
+import time
 
 
 class LLMBenchmark:
@@ -90,12 +91,14 @@ class LLMBenchmark:
         self.all_results = None
         self.conversation_history = []
 
-    def call_llm_api(self, messages: List[Dict[str, str]]) -> str:
+    def call_llm_api(self, messages: List[Dict[str, str]], max_retries: int = 3, timeout: int = 300) -> str:
         """
-        Call the LLM API with the given messages.
+        Call LLM API with given messages and retry mechanism.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content'
+            max_retries: Maximum number of retry attempts (default: 3)
+            timeout: Request timeout in seconds (default: 300)
 
         Returns:
             The assistant's response text
@@ -104,14 +107,44 @@ class LLMBenchmark:
 
         payload = {"model": self.model, "messages": messages, "temperature": 0.7, "max_tokens": 2000}
 
-        try:
-            response = requests.post(self.api_url, headers=headers, json=payload, timeout=60)
-            response.raise_for_status()
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
-        except requests.exceptions.RequestException as e:
-            print(f"API call failed: {e}")
-            raise
+        for attempt in range(max_retries):
+            try:
+                print(f"  Attempt {attempt + 1}/{max_retries} (timeout: {timeout}s)...")
+                response = requests.post(self.api_url, headers=headers, json=payload, timeout=timeout)
+                response.raise_for_status()
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            except requests.exceptions.Timeout as e:
+                print(f"  Timeout error: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 5  # Exponential backoff
+                    print(f"  Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"API call failed after {max_retries} attempts: {e}")
+            except requests.exceptions.RequestException as e:
+                print(f"  Request error: {e}")
+                # Try to get more details from response
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        print(f"  Response status: {e.response.status_code}")
+                        print(f"  Response content: {e.response.text[:500]}")
+                    except:
+                        pass
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 5
+                    print(f"  Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"API call failed after {max_retries} attempts: {e}")
+            except Exception as e:
+                print(f"  Unexpected error: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 5
+                    print(f"  Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"API call failed after {max_retries} attempts: {e}")
 
     def lookup_yield_cost(self, row: pd.Series) -> tuple:
         """
@@ -234,9 +267,12 @@ class LLMBenchmark:
             # Build messages list
             messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]
 
-            # Add conversation history
-            for msg in self.conversation_history[-4:]:  # Keep last 4 exchanges to manage context
-                messages.append(msg)
+            # Add only the most recent assistant response to provide context
+            # Limit to last 2 messages (1 user + 1 assistant) to avoid exceeding API limits
+            if len(self.conversation_history) > 0:
+                recent_history = self.conversation_history[-2:]
+                for msg in recent_history:
+                    messages.append(msg)
 
             # Call LLM API
             print(f"Calling LLM API...")
@@ -258,7 +294,6 @@ class LLMBenchmark:
 
             # Fill metrics from reference dataset
             print(f"Looking up yield and cost values...")
-            from IPython import embed; embed()
             new_experiments = self.fill_metrics(new_experiments)
 
             # Check for missing values
@@ -301,7 +336,7 @@ def main():
     # Configuration - Update these with your actual API credentials
     API_KEY = os.environ.get("OPENAI_API_KEY", "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78")
     API_URL = os.environ.get("OPENAI_API_URL", "https://aihubmix.com/v1/chat/completions")
-    MODEL = os.environ.get("OPENAI_MODEL", "glm-5")
+    MODEL = os.environ.get("OPENAI_MODEL", "claude-sonnet-4-6")
 
     # You can also use other LLM providers by changing the API_URL and format
     # For example, for a local LLaMA server:

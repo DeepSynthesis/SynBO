@@ -35,12 +35,15 @@ Attention: the reagent types (catalyst, solvent and temperature) could be differ
 Attention: If there are no previous optimization results, the `batch` number should be 0. And this time, you should generate a new batch of experiments.
 
 **Output Format:**
-Please present your suggestions in a `csv` format:
+Your output should be like this without any other messages:
+
 ```csv
 batch,index,catalyst,solvent,temperature,metrics1,metrics2
-1,1,catalyst1,solvent1,100,50,50
-1,2,catalyst1,solvent1,150,60,60
-1,3,catalyst2,solvent2,100,15,32
+1,1,catalyst1,solvent1,100,,
+1,2,catalyst1,solvent1,150,,
+1,3,catalyst2,solvent2,100,,
 ```
-Attention: the batch number should be incremented by 1 from the previous optimization results.
+
+Attention: the batch number should be incremented by 1 from the previous optimization results. You Must add batch column  AND index column to the output！！！！
 Attention: you should only output the csv content, and do not output any other information.
+

@@ -125,7 +125,7 @@ class LLMBenchmark:
             except requests.exceptions.RequestException as e:
                 print(f"  Request error: {e}")
                 # Try to get more details from response
-                if hasattr(e, 'response') and e.response is not None:
+                if hasattr(e, "response") and e.response is not None:
                     try:
                         print(f"  Response status: {e.response.status_code}")
                         print(f"  Response content: {e.response.text[:500]}")
@@ -198,8 +198,8 @@ class LLMBenchmark:
 
         # Parse CSV
         csv_content = "\n".join(csv_lines)
-        df = pd.read_csv(StringIO(csv_content))
-
+        df = pd.read_csv(StringIO(csv_content), index_col=None)
+        # from IPython import embed; embed()
         return df
 
     def fill_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -239,10 +239,16 @@ class LLMBenchmark:
             # First round - send configuration only
             message = f"For this optimization:\n\n{json.dumps(self.config, indent=4)}\n"
         else:
-            # Subsequent rounds - send configuration and previous results
-            csv_str = self.all_results.to_csv(index=False)
+            # Subsequent rounds - send configuration and recent results only
+            # Only send the most recent 2 batches to avoid exceeding API limits
+            # if len(self.all_results) > 2 * self.batch_size:
+            #     recent_results = self.all_results.iloc[-2 * self.batch_size :]
+            # else:
+            recent_results = self.all_results
+
+            csv_str = recent_results.to_csv(index=False)
             message = f"For this optimization:\n\n{json.dumps(self.config, indent=4)}\n\n"
-            message += f"Previous optimization results:\n\n{csv_str}\n"
+            message += f"Previous optimization results (most recent batches):\n\n{csv_str}\n"
 
         return message
 
@@ -265,18 +271,18 @@ class LLMBenchmark:
             user_message = self.construct_user_message(round_num)
 
             # Build messages list
+            # Only send system prompt and current user message
+            # Do not add conversation history to avoid "assistant message prefill" error
+            # Previous results are already included in the user message
             messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]
-
-            # Add only the most recent assistant response to provide context
-            # Limit to last 2 messages (1 user + 1 assistant) to avoid exceeding API limits
-            if len(self.conversation_history) > 0:
-                recent_history = self.conversation_history[-2:]
-                for msg in recent_history:
-                    messages.append(msg)
 
             # Call LLM API
             print(f"Calling LLM API...")
             assistant_response = self.call_llm_api(messages)
+
+            print("--------response-------")
+            print(assistant_response)
+            print("----end response-------")
 
             # Store conversation
             self.conversation_history.append({"role": "user", "content": user_message})
@@ -294,6 +300,7 @@ class LLMBenchmark:
 
             # Fill metrics from reference dataset
             print(f"Looking up yield and cost values...")
+            
             new_experiments = self.fill_metrics(new_experiments)
 
             # Check for missing values

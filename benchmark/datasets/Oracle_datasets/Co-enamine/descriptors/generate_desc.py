@@ -4,7 +4,7 @@ from qspoc import QSPOCDesc
 
 save_path = Path(__file__).parent / Path("..")
 
-mol_type = "cobalt"
+mol_type = "oxidant"
 mol_df_path = Path(__file__).parent / Path(f"reagents/{mol_type}_smiles.csv")
 
 qm_desc = QSPOCDesc(

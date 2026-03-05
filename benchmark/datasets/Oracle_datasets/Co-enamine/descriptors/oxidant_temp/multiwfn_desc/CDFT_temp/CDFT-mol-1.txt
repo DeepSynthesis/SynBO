@@ -1,0 +1,30 @@
+ Note: the E(HOMO) of TCE used for evaluating nucleophilicity index is the value evaluated at B3LYP/6-31G* level
+ 
+ Hirshfeld charges, condensed Fukui functions and condensed dual descriptors
+ Units used below are "e" (elementary charge)
+     Atom     q(N)    q(N+1)   q(N-1)     f-       f+       f0      CDD
+     1(Ag)   1.0004   0.0004   2.0004   1.0000   1.0000   1.0000   0.0000
+ 
+ Condensed local electrophilicity/nucleophilicity index (e*eV)
+     Atom              Electrophilicity          Nucleophilicity
+     1(Ag)                 12.64049                -10.52628
+ 
+ Condensed local softness (e/Hartree), relative electrophilicity/nucleophilicity (dimensionless) and condensed local hyper-softness (e/Hartree^2)
+     Atom         s-          s+          s0        s+/s-       s-/s+       s(2)
+     1(Ag)      1.9106      1.9107      1.9106      1.0000      1.0000      0.0002
+ 
+ E(N):       -3.386121 Hartree
+ E(N+1):       -3.821738 Hartree
+ E(N-1):       -2.427109 Hartree
+ E_HOMO(N):     -0.722035 Hartree,  -19.6476 eV
+ E_HOMO(N+1):   -0.297080 Hartree,   -8.0840 eV
+ E_HOMO(N-1):    0.000000 Hartree,    0.0000 eV
+ First vertical IP:     0.959013 Hartree,   26.0961 eV
+ First vertical EA:     0.435617 Hartree,   11.8537 eV
+ Mulliken electronegativity:     0.697315 Hartree,   18.9749 eV
+ Chemical potential:            -0.697315 Hartree,  -18.9749 eV
+ Hardness (=fundamental gap):    0.523396 Hartree,   14.2423 eV
+ Softness:      1.910599 Hartree^-1,    0.0702 eV^-1
+ Softness^2:    3.650388 Hartree^-2,    0.0049 eV^-2
+ Electrophilicity index:    0.464512 Hartree,   12.6400 eV
+ Nucleophilicity index:    -0.386837 Hartree,  -10.5264 eV

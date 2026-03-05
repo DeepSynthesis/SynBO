@@ -1,0 +1,63 @@
+ Note: the E(HOMO) of TCE used for evaluating nucleophilicity index is the value evaluated at B3LYP/6-31G* level
+ 
+ Hirshfeld charges, condensed Fukui functions and condensed dual descriptors
+ Units used below are "e" (elementary charge)
+     Atom     q(N)    q(N+1)   q(N-1)     f-       f+       f0      CDD
+     1(O )  -0.2868  -0.4286  -0.1177   0.1691   0.1418   0.1554  -0.0273
+     2(C )   0.1876   0.1109   0.2287   0.0411   0.0767   0.0589   0.0356
+     3(C )  -0.1199  -0.1375  -0.0769   0.0430   0.0175   0.0303  -0.0254
+     4(C )  -0.1201  -0.1376  -0.0772   0.0429   0.0176   0.0302  -0.0253
+     5(C )   0.1864   0.1097   0.2275   0.0411   0.0767   0.0589   0.0356
+     6(O )  -0.2874  -0.4290  -0.1184   0.1690   0.1416   0.1553  -0.0274
+     7(N )   0.0027  -0.0780   0.0688   0.0661   0.0807   0.0734   0.0146
+     8(Cl)   0.0145  -0.2535   0.2515   0.2370   0.2681   0.2525   0.0311
+     9(H )   0.1062   0.0613   0.1539   0.0477   0.0449   0.0463  -0.0028
+    10(H )   0.1063   0.0614   0.1540   0.0477   0.0449   0.0463  -0.0028
+    11(H )   0.1063   0.0615   0.1539   0.0476   0.0448   0.0462  -0.0028
+    12(H )   0.1064   0.0615   0.1541   0.0477   0.0449   0.0463  -0.0028
+ 
+ Condensed local electrophilicity/nucleophilicity index (e*eV)
+     Atom              Electrophilicity          Nucleophilicity
+     1(O )                  0.65294                 -0.41886
+     2(C )                  0.35318                 -0.10182
+     3(C )                  0.08083                 -0.10649
+     4(C )                  0.08090                 -0.10629
+     5(C )                  0.35323                 -0.10177
+     6(O )                  0.65231                 -0.41881
+     7(N )                  0.37167                 -0.16370
+     8(Cl)                  1.23475                 -0.58719
+     9(H )                  0.20684                 -0.11809
+    10(H )                  0.20681                 -0.11812
+    11(H )                  0.20648                 -0.11796
+    12(H )                  0.20665                 -0.11808
+ 
+ Condensed local softness (e/Hartree), relative electrophilicity/nucleophilicity (dimensionless) and condensed local hyper-softness (e/Hartree^2)
+     Atom         s-          s+          s0        s+/s-       s-/s+       s(2)
+     1(O )      0.4659      0.3907      0.4283      0.8385      1.1926     -0.2074
+     2(C )      0.1133      0.2113      0.1623      1.8658      0.5360      0.2702
+     3(C )      0.1184      0.0484      0.0834      0.4083      2.4492     -0.1932
+     4(C )      0.1182      0.0484      0.0833      0.4094      2.4425     -0.1924
+     5(C )      0.1132      0.2113      0.1623      1.8669      0.5356      0.2705
+     6(O )      0.4659      0.3903      0.4281      0.8378      1.1936     -0.2082
+     7(N )      0.1821      0.2224      0.2022      1.2212      0.8188      0.1110
+     8(Cl)      0.6531      0.7388      0.6960      1.1311      0.8841      0.2360
+     9(H )      0.1314      0.1238      0.1276      0.9422      1.0614     -0.0209
+    10(H )      0.1314      0.1237      0.1276      0.9418      1.0618     -0.0211
+    11(H )      0.1312      0.1235      0.1274      0.9415      1.0621     -0.0211
+    12(H )      0.1313      0.1236      0.1275      0.9414      1.0623     -0.0212
+ 
+ E(N):      -26.212845 Hartree
+ E(N+1):      -26.381902 Hartree
+ E(N-1):      -25.680926 Hartree
+ E_HOMO(N):     -0.426247 Hartree,  -11.5988 eV
+ E_HOMO(N+1):   -0.219995 Hartree,   -5.9864 eV
+ E_HOMO(N-1):   -0.637686 Hartree,  -17.3523 eV
+ First vertical IP:     0.531918 Hartree,   14.4742 eV
+ First vertical EA:     0.169057 Hartree,    4.6003 eV
+ Mulliken electronegativity:     0.350488 Hartree,    9.5373 eV
+ Chemical potential:            -0.350488 Hartree,   -9.5373 eV
+ Hardness (=fundamental gap):    0.362861 Hartree,    9.8739 eV
+ Softness:      2.755877 Hartree^-1,    0.1013 eV^-1
+ Softness^2:    7.594856 Hartree^-2,    0.0103 eV^-2
+ Electrophilicity index:    0.169268 Hartree,    4.6060 eV
+ Nucleophilicity index:    -0.091049 Hartree,   -2.4776 eV

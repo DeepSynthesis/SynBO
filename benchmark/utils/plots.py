@@ -53,9 +53,11 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
         ax = axes[i]
         direction = direction_tags[i]
         y_range = range_tags[i]
-
-        col_best_data = best_df[best_df["target"] == col]
-        col_actual_data = actual_df[actual_df["target"] == col]
+        try:
+            col_best_data = best_df[best_df["target"] == col]
+            col_actual_data = actual_df[actual_df["target"] == col]
+        except:
+            from IPython import embed; embed(); exit()
 
         sns.lineplot(
             data=col_best_data,

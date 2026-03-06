@@ -21,6 +21,7 @@ class LLMBenchmark:
         model: str = "gemini-3-flash-preview",
         dataset_path: str = "benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
         prompt_path: str = "benchmark/compare_mothods/LLM/prompt.md",
+        start_point_path: str = "benchmark/datasets/HTE_datasets/B-H_HTE/start_point.json",
         output_dir: str = "benchmark/compare_mothods/LLM/results",
         batch_size: int = 5,
         max_rounds: int = 10,
@@ -34,6 +35,7 @@ class LLMBenchmark:
             model: Model name to use
             dataset_path: Path to the reference dataset
             prompt_path: Path to the prompt template
+            start_point_path: Path to the start_point.json file with predefined indices
             output_dir: Directory to save results
             batch_size: Number of experiments per batch
             max_rounds: Maximum number of conversation rounds
@@ -52,6 +54,10 @@ class LLMBenchmark:
 
         # Load reference dataset
         self.reference_df = pd.read_csv(dataset_path)
+
+        # Load start_point.json
+        with open(start_point_path, "r") as f:
+            self.start_point = json.load(f)
 
         # Load system prompt
         with open(prompt_path, "r", encoding="utf-8") as f:
@@ -225,6 +231,25 @@ class LLMBenchmark:
 
         return df
 
+    def get_experiments_from_indices(self, indices: List[int]) -> pd.DataFrame:
+        """
+        Get experiments from reference dataset using iloc indices.
+
+        Args:
+            indices: List of integer indices to fetch from the dataset
+
+        Returns:
+            DataFrame containing the selected experiments
+        """
+        selected_rows = self.reference_df.iloc[indices].copy()
+
+        # Add batch and index columns
+        selected_rows = selected_rows.reset_index(drop=True)
+        selected_rows["batch"] = 1  # First batch
+        selected_rows["index"] = indices
+
+        return selected_rows
+
     def construct_user_message(self, round_num: int) -> str:
         """
         Construct the user message for the current round.
@@ -267,58 +292,80 @@ class LLMBenchmark:
         for round_num in range(self.max_rounds):
             print(f"\n=== Round {round_num + 1}/{self.max_rounds} ===")
 
-            # Construct user message
-            user_message = self.construct_user_message(round_num)
+            # Check if this is the first round (round_num == 0)
+            # If yes, use predefined indices from start_point.json instead of calling LLM
+            if round_num == 0:
+                print(f"First round: Using predefined indices from start_point.json")
+                round_key = "round1"
+                indices = self.start_point[round_key]
+                print(f"Using indices: {indices}")
 
-            # Build messages list
-            # Only send system prompt and current user message
-            # Do not add conversation history to avoid "assistant message prefill" error
-            # Previous results are already included in the user message
-            messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]
+                # Get experiments from dataset using iloc
+                new_experiments = self.get_experiments_from_indices(indices)
+                print(f"Retrieved {len(new_experiments)} experiments from dataset")
 
-            # Call LLM API
-            print(f"Calling LLM API...")
-            assistant_response = self.call_llm_api(messages)
+                # The metrics are already in the dataset, no need to fill
+                print(f"Batch statistics:")
+                print(f"  - Mean yield: {new_experiments['yield'].mean():.2f}")
+                print(f"  - Max yield: {new_experiments['yield'].max():.2f}")
+                print(f"  - Mean cost: {new_experiments['cost'].mean():.4f}")
+            else:
+                # Subsequent rounds: use LLM to generate new experiments
+                # Construct user message
+                user_message = self.construct_user_message(round_num)
 
-            print("--------response-------")
-            print(assistant_response)
-            print("----end response-------")
+                # Build messages list
+                # Only send system prompt and current user message
+                # Do not add conversation history to avoid "assistant message prefill" error
+                # Previous results are already included in the user message
+                messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]
 
-            # Store conversation
-            self.conversation_history.append({"role": "user", "content": user_message})
-            self.conversation_history.append({"role": "assistant", "content": assistant_response})
+                # Call LLM API
+                print(f"Calling LLM API...")
+                assistant_response = self.call_llm_api(messages)
 
-            # Parse response
-            print(f"Parsing LLM response...")
-            try:
-                new_experiments = self.parse_llm_response(assistant_response)
-                print(f"Received {len(new_experiments)} experiment suggestions")
-            except Exception as e:
-                print(f"Error parsing response: {e}")
-                print(f"Response content: {assistant_response}")
-                continue
+                print("--------response-------")
+                print(assistant_response)
+                print("----end response-------")
 
-            # Fill metrics from reference dataset
-            print(f"Looking up yield and cost values...")
+                # Store conversation
+                self.conversation_history.append({"role": "user", "content": user_message})
+                self.conversation_history.append({"role": "assistant", "content": assistant_response})
 
-            new_experiments = self.fill_metrics(new_experiments)
+                # Parse response
+                print(f"Parsing LLM response...")
+                try:
+                    new_experiments = self.parse_llm_response(assistant_response)
+                    print(f"Received {len(new_experiments)} experiment suggestions")
+                except Exception as e:
+                    print(f"Error parsing response: {e}")
+                    print(f"Response content: {assistant_response}")
+                    continue
 
-            # Check for missing values
-            missing_count = new_experiments["yield"].isna().sum()
-            if missing_count > 0:
-                print(f"Warning: {missing_count} experiments had no match in reference dataset")
+                # Fill metrics from reference dataset
+                print(f"Looking up yield and cost values...")
+
+                new_experiments = self.fill_metrics(new_experiments)
+
+                # Check for missing values
+                missing_count = new_experiments["yield"].isna().sum()
+                if missing_count > 0:
+                    print(f"Warning: {missing_count} experiments had no match in reference dataset")
+
+                print(f"Batch statistics:")
+                print(f"  - Mean yield: {new_experiments['yield'].mean():.2f}")
+                print(f"  - Max yield: {new_experiments['yield'].max():.2f}")
+                print(f"  - Mean cost: {new_experiments['cost'].mean():.4f}")
 
             # Concatenate with existing results
             if self.all_results is None:
                 self.all_results = new_experiments
             else:
+                # Update batch number for new experiments
+                new_experiments["batch"] = round_num + 1
                 self.all_results = pd.concat([self.all_results, new_experiments], ignore_index=True)
 
             print(f"Total experiments so far: {len(self.all_results)}")
-            print(f"Batch statistics:")
-            print(f"  - Mean yield: {new_experiments['yield'].mean():.2f}")
-            print(f"  - Max yield: {new_experiments['yield'].max():.2f}")
-            print(f"  - Mean cost: {new_experiments['cost'].mean():.4f}")
 
             # Save intermediate results
             intermediate_file = os.path.join(self.output_dir, f"round_{round_num + 1}_results.csv")
@@ -343,7 +390,7 @@ def main():
     # Configuration - Update these with your actual API credentials
     API_KEY = os.environ.get("OPENAI_API_KEY", "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78")
     API_URL = os.environ.get("OPENAI_API_URL", "https://aihubmix.com/v1/chat/completions")
-    MODEL = os.environ.get("OPENAI_MODEL", "gemini-3-pro-preview")
+    MODEL = os.environ.get("OPENAI_MODEL", "glm-5")
 
     # You can also use other LLM providers by changing the API_URL and format
     # For example, for a local LLaMA server:
@@ -357,6 +404,7 @@ def main():
         model=MODEL,
         dataset_path="../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
         prompt_path="prompt.md",
+        start_point_path="../../datasets/HTE_datasets/B-H_HTE/start_point.json",
         output_dir="results",
         batch_size=5,
         max_rounds=10,

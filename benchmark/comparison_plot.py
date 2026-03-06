@@ -68,7 +68,6 @@ def plot_comparison(
             for col in model_config["target_columns"]
         ]
 
-        # rxnopt格式: 包含batch_index和round_index列
         # 可能需要从多个round文件中加载
         if "round_index" in df.columns:
             # 已经是合并后的数据
@@ -148,8 +147,8 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.5]],
         },
-        "LLM (Gemini3-flash)": {
-            "results_path": "compare_mothods/LLM/results/final_results-gemini-3-flash.csv",
+        "LLM (Claude-sonnet-4.6)": {
+            "results_path": "compare_mothods/LLM/results/final_results-claude-sonnet-4.6.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.5]],

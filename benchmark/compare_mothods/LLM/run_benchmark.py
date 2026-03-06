@@ -264,10 +264,10 @@ class LLMBenchmark:
             print(f"Found existing final results")
             print(f"Loading results from: {final_file}")
             self.all_results = pd.read_csv(final_file)
-            
+
             # Get the maximum batch number (which equals the last completed round)
-            if 'batch' in self.all_results.columns:
-                max_batch = self.all_results['batch'].max()
+            if "batch" in self.all_results.columns:
+                max_batch = self.all_results["batch"].max()
                 print(f"Loaded {len(self.all_results)} existing experiments")
                 print(f"Last completed round: {max_batch}")
                 return max_batch
@@ -282,7 +282,7 @@ class LLMBenchmark:
                 if os.path.exists(intermediate_file):
                     max_existing_round = round_num
                     break
-            
+
             if max_existing_round > 0:
                 latest_file = os.path.join(self.output_dir, f"round_{max_existing_round}_results.csv")
                 print(f"Found existing results from round {max_existing_round}")
@@ -336,7 +336,7 @@ class LLMBenchmark:
 
         # Check for existing results to support resume
         start_round = self.load_existing_results()
-        
+
         if start_round > 0:
             print(f"\nResuming from round {start_round + 1}/{self.max_rounds}")
             print("=" * 80)
@@ -445,7 +445,7 @@ def main():
     # Configuration - Update these with your actual API credentials
     API_KEY = os.environ.get("OPENAI_API_KEY", "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78")
     API_URL = os.environ.get("OPENAI_API_URL", "https://aihubmix.com/v1/chat/completions")
-    MODEL = os.environ.get("OPENAI_MODEL", "glm-5")
+    MODEL = os.environ.get("OPENAI_MODEL", "claude-sonnet-4-6")
 
     # You can also use other LLM providers by changing the API_URL and format
     # For example, for a local LLaMA server:

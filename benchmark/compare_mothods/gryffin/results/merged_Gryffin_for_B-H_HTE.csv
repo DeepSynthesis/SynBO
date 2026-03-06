@@ -1,4 +1,4 @@
-batch_index,new_index,base,ligand,solvent,concentration,temperature,yield,cost,round_id,seed
+batch,new_index,base,ligand,solvent,concentration,temperature,yield,cost,round_id,seed
 0,1482,CsOPiv,P(fur)3,BuCN,0.153,90,44.4,0.132632916,1,1
 0,75,KOAc,PCy3 HBF4,p-Xylene,0.1,105,0.0,0.034486192,1,1
 0,1123,CsOPiv,PPh2Me,BuOAc,0.1,120,0.0,0.125440798,1,1

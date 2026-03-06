@@ -15,14 +15,14 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
     all_actual_records = []
 
     for df_idx, df in enumerate(dfs):
-        df = df.sort_values("batch_index").copy()
+        df = df.sort_values("batch").copy()
 
         for col, direction in zip(target_columns, direction_tags):
-            # Group by batch_index and find the best value for each batch
+            # Group by batch and find the best value for each batch
             if direction == "max":
-                batch_best = df.groupby("batch_index")[col].max()
+                batch_best = df.groupby("batch")[col].max()
             elif direction == "min":
-                batch_best = df.groupby("batch_index")[col].min()
+                batch_best = df.groupby("batch")[col].min()
             else:
                 raise ValueError(f"Unknown direction '{direction}' for column '{col}'. Use 'max' or 'min'.")
 
@@ -34,11 +34,11 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
 
             # Add cumulative best records (best value up to and including current batch)
             for batch_idx, best_value in cumulative_best.items():
-                all_best_records.append({"batch_index": batch_idx, "target": col, "value": best_value})
+                all_best_records.append({"batch": batch_idx, "target": col, "value": best_value})
 
             # Add batch best records (best value within each batch only)
             for batch_idx, best_value in batch_best.items():
-                all_actual_records.append({"batch_index": batch_idx, "target": col, "value": best_value})
+                all_actual_records.append({"batch": batch_idx, "target": col, "value": best_value})
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
@@ -57,11 +57,14 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
             col_best_data = best_df[best_df["target"] == col]
             col_actual_data = actual_df[actual_df["target"] == col]
         except:
-            from IPython import embed; embed(); exit()
+            from IPython import embed
+
+            embed()
+            exit()
 
         sns.lineplot(
             data=col_best_data,
-            x="batch_index",
+            x="batch",
             y="value",
             ax=ax,
             errorbar=("ci", 95),
@@ -74,7 +77,7 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
 
         sns.boxplot(
             data=col_actual_data,
-            x="batch_index",
+            x="batch",
             y="value",
             ax=ax,
             width=0.4,
@@ -136,7 +139,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     3. Reference point set to [1.1, 1.1, ...] (slightly above worst value 1.0).
 
     Args:
-        dfs: List of DataFrames containing experimental results with target_columns and 'batch_index'.
+        dfs: List of DataFrames containing experimental results with target_columns and 'batch'.
         target_columns: List of target column names.
         direction_tags: Optimization direction list, e.g., ['max', 'min', 'max'].
         range_tags: Theoretical range list, List[tuple(min, max)], for normalization.
@@ -202,17 +205,17 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     all_actual_records = []
 
     for df in dfs:
-        df = df.sort_values("batch_index").copy()
+        df = df.sort_values("batch").copy()
         round_data_raw = df[target_columns].values
         round_data_norm = normalize_and_transform(round_data_raw, range_tags, direction_tags)
 
         # Calculate HV for each batch (HV of all samples up to and including that batch)
         batch_hv_values = {}
-        batch_indices = sorted(df["batch_index"].unique())
+        batch_indices = sorted(df["batch"].unique())
 
         for batch_idx in batch_indices:
             # Get all samples up to and including this batch
-            batch_samples = df[df["batch_index"] <= batch_idx]
+            batch_samples = df[df["batch"] <= batch_idx]
             batch_data_raw = batch_samples[target_columns].values
             batch_data_norm = normalize_and_transform(batch_data_raw, range_tags, direction_tags)
 
@@ -230,11 +233,11 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
         # Add cumulative best records (best HV up to and including current batch)
         for batch_idx, hv_value in cumulative_best_hv.items():
-            all_best_records.append({"batch_index": batch_idx, "value": hv_value})
+            all_best_records.append({"batch": batch_idx, "value": hv_value})
 
         # Add batch HV records (HV at each batch)
         for batch_idx, hv_value in batch_hv_series.items():
-            all_actual_records.append({"batch_index": batch_idx, "value": hv_value})
+            all_actual_records.append({"batch": batch_idx, "value": hv_value})
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
@@ -248,7 +251,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     # Lineplot with errorbar for cumulative best HV
     sns.lineplot(
         data=best_df,
-        x="batch_index",
+        x="batch",
         y="value",
         errorbar=("ci", 95),
         linewidth=3.5,
@@ -263,7 +266,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     # Boxplot for batch HV distribution
     sns.boxplot(
         data=actual_df,
-        x="batch_index",
+        x="batch",
         y="value",
         width=0.4,
         color="lightgreen",

@@ -15,9 +15,9 @@ I will input the follow information with a `json` file format:
         {"opt_direct": "min", "opt_range": [0,100]}
     ],
     "condition_dict":[
-        {"condition_type": "catalyst", "condition_candidates": ["catalyst1", "catalyst2"]},
-        {"condition_type": "solvent", "condition_candidates": ["solvent1", "solvent2"]},
-        {"condition_type": "temperature", "condition_candidates": [100, 150, 200]}
+        {"condition_type": "reagent1", "condition_candidates": ["catalyst1", "catalyst2"]},
+        {"condition_type": "reagent2", "condition_candidates": ["solvent1", "solvent2"]},
+        {"condition_type": "reagent3", "condition_candidates": [100, 150, 200]}
     ],
 }
 ```
@@ -25,7 +25,7 @@ here, the `batch_size` means recommend how many condition combinations one time.
 
 Meanwhile, I will also provide the previous optimization results with a `csv` file format:
 ```csv
-batch,index,catalyst,solvent,temperature,metrics1,metrics2
+batch,index,reagent1,reagent2,reagent3,metrics1,metrics2
 0,1,catalyst1,solvent1,100,50,50
 0,2,catalyst1,solvent1,150,60,60
 0,3,catalyst2,solvent2,100,15,32
@@ -40,7 +40,7 @@ Attention: If there are no previous optimization results, the `batch` number sho
 Your output should be like this without any other messages:
 
 ```csv
-batch,index,catalyst,solvent,temperature,metrics1,metrics2
+batch,index,reagent1,reagent2,reagent3,metrics1,metrics2
 1,1,catalyst1,solvent1,100,,
 1,2,catalyst1,solvent1,150,,
 1,3,catalyst2,solvent2,100,,
@@ -51,4 +51,5 @@ batch,index,catalyst,solvent,temperature,metrics1,metrics2
 Attention: the batch number should be incremented by 1 from the previous optimization results. You Must add batch column  AND index column to the output！！！！
 Attention: you should only output the csv content, and do not output any other information.
 Attention: you should generate the full and complete csv content!!!
+Attention: you should generate DIFFERENT combinations of conditions for each batch (there should be NO SAME combinations with previous combinations in your output csv file)!!!. 
 

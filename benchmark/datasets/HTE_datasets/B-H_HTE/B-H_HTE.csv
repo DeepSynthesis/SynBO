@@ -1,4 +1,4 @@
-new_index,base,ligand,solvent,concentration,temperature,yield,cost
+index,base,ligand,solvent,concentration,temperature,yield,cost
 0,KOAc,BrettPhos,DMAc,0.1,105,5.47,0.14577548199999998
 1,KOAc,PPhtBu2,DMAc,0.1,105,0.0,0.04320091
 2,KOAc,tBPh-CPhos,DMAc,0.1,105,78.95,0.269139791

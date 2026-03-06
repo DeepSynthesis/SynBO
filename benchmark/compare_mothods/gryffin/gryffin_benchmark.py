@@ -26,8 +26,18 @@ def generate_desc_file(df_ground, desc_dfs, desc_columns):
     for col in existing_cols:
         desc_table = desc_dfs[col]
         desc_table = desc_table.select_dtypes(include=["float64", "float32", "int64"])
-        res_df = res_df.merge(desc_table, left_on=col, right_index=True, how="left")
-        res_df.drop([col], axis=1, inplace=True)
+        # Reset index to a column for merging
+        desc_table = desc_table.reset_index()
+        # Rename the index column to match the column name in df_ground
+        desc_table = desc_table.rename(columns={"index": col})
+        # Rename all descriptor columns with the prefix (including the col column itself temporarily)
+        desc_table = desc_table.rename(columns={c: f"{col}_{c}" for c in desc_table.columns})
+        # Now rename back the key column to its original name for merging
+        desc_table = desc_table.rename(columns={f"{col}_{col}": col})
+        # Merge - now all columns should be unique
+        res_df = res_df.merge(desc_table, on=col, how="left")
+        # Drop the original categorical column after merging
+        res_df.drop(col, axis=1, inplace=True)
     return res_df
 
 
@@ -90,7 +100,7 @@ def evaluate_experiment(df_origin, df_ground, params_dict):
     closest_idx = distances.argmin()
 
     # Return the objectives from the closest row
-    return df_origin.iloc[closest_idx]
+    return df_origin.iloc[closest_idx], df_ground.iloc[closest_idx][["yield", "cost"]]
 
 
 def run_gryffin_benchmark(df_origin, df_ground, config, budget=60, batch_size=5, seed=1):
@@ -98,13 +108,13 @@ def run_gryffin_benchmark(df_origin, df_ground, config, budget=60, batch_size=5,
     # Initialize Gryffin
     gryffin = Gryffin(config_dict=config)
 
+    observations = []
     results = []
     print(budget, batch_size, int(budget / batch_size))
     for iteration in range(int(budget / batch_size)):
         # Query Gryffin for new parameters
-        if len(results) == 0:
+        if len(observations) == 0:
             # First iteration: sample random point
-            # TODO: sampling batch_size points.
             params = []
             for _ in range(batch_size):
                 p = {}
@@ -121,11 +131,17 @@ def run_gryffin_benchmark(df_origin, df_ground, config, budget=60, batch_size=5,
         else:
             # Use Gryffin to recommend parameters
             print(111)
-            params = gryffin.recommend(observations=results)
+            params = gryffin.recommend(observations=observations)
 
         # Evaluate the proposed parameters
         for p in params:
-            results.append(evaluate_experiment(df_origin, df_ground, p))
+            result, obs = evaluate_experiment(df_origin, df_ground, p)
+            # Create observation dict for Gryffin
+            obs_dict = dict(p)
+            obs_dict["yield"] = obs["yield"]
+            obs_dict["cost"] = obs["cost"]
+            observations.append(obs_dict)
+            results.append(result)
 
     return pd.DataFrame(results)
 

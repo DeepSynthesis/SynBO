@@ -1,10 +1,10 @@
-
 import os
 from pymoo.mcdm.high_tradeoff import HighTradeoffPoints
 from sklearn.preprocessing import MinMaxScaler
 import pareto
 import pandas as pd
 from edbo.plus.optimizer_botorch import EDBOplus
+
 # from edbo.plus.optimizer import EDBOplus as EDBO
 import torch
 from botorch.utils.multi_objective.hypervolume import Hypervolume
@@ -31,24 +31,27 @@ def is_pareto(objectives):
     """
     is_efficient = np.ones(objectives.shape[0], dtype=bool)
     for i, c in enumerate(objectives):
-        is_efficient[i] = np.all(np.any(objectives[:i]>c, axis=1)) and np.all(np.any(objectives[i+1:]>c, axis=1))
+        is_efficient[i] = np.all(np.any(objectives[:i] > c, axis=1)) and np.all(np.any(objectives[i + 1 :] > c, axis=1))
     return is_efficient
 
 
-class Benchmark():
-
+class Benchmark:
     """
     Class for Benchmarking HTE datasets.
     """
 
-    def __init__(self,
-                 df_ground, index_column,
-                 objective_names, objective_modes,
-                 features_regression='all',
-                 objective_thresholds=None,
-                 filename='benchmark.csv',
-                 acquisition_function='EHVI',
-                 filename_results='benchmark_results.csv'):
+    def __init__(
+        self,
+        df_ground,
+        index_column,
+        objective_names,
+        objective_modes,
+        features_regression="all",
+        objective_thresholds=None,
+        filename="benchmark.csv",
+        acquisition_function="EHVI",
+        filename_results="benchmark_results.csv",
+    ):
         """
 
         Parameters
@@ -84,27 +87,24 @@ class Benchmark():
 
         # Safe check. Check whether there are no duplicates in the regression domain.
         df_check = self.df_ground[self.features_regressions]
-        msg = 'There are entries that are degenerate. Check your dataset.'
+        msg = "There are entries that are degenerate. Check your dataset."
         assert len(df_check) == len(df_check.drop_duplicates()), msg
 
         # Calculate data for the ground truth function.
         self.objective_values_ground = self.get_objective_values(df=self.df_ground)
         self.pareto_ground, self.idx_pareto_ground = self.get_pareto_points(objective_values=self.objective_values_ground)
-        self.tradeoff_ground = self.get_high_tradeoff_points(
-                pareto_points=self.pareto_ground)
-        print('High trade-off ground truth:', self.tradeoff_ground)
+        self.tradeoff_ground = self.get_high_tradeoff_points(pareto_points=self.pareto_ground)
+        print("High trade-off ground truth:", self.tradeoff_ground)
 
         # Fit scaler for a fair comparison between objectives.
         self.scaler_ground = MinMaxScaler()
         self.scaler_ground.fit(self.objective_values_ground)
 
         # Calculate Hypervolume using the ground scaler.
-        self.hypervolume_ground = self.get_hypervolume(
-                pareto_points=self.pareto_ground,
-                thresholds=self.objective_thresholds)
+        self.hypervolume_ground = self.get_hypervolume(pareto_points=self.pareto_ground, thresholds=self.objective_thresholds)
 
         # Instanciate EDBOplus.
-        if self.acquisition_function == 'EHVI':
+        if self.acquisition_function == "EHVI":
             self.edbo = EDBOplus()
         else:
             self.edbo = EDBO()
@@ -143,11 +143,11 @@ class Benchmark():
         return hypervolume
 
     def get_objective_values(self, df):  # Maximizing.
-        """ Get a list of objective values from a given dataframe (for instance yields and cost)."""
+        """Get a list of objective values from a given dataframe (for instance yields and cost)."""
         predata = []
         for obj in range(0, len(self.objective_names)):
             d = [float(i) for i in df[self.objective_names[obj]]]
-            if self.objective_modes[obj] == 'min':
+            if self.objective_modes[obj] == "min":
                 d = -np.array(d)
             else:
                 d = np.array(d)
@@ -158,10 +158,10 @@ class Benchmark():
         max_bounds = []
         min_bounds = []
         for i in range(0, len(self.objective_names)):
-            if self.objective_modes[i] == 'min':
+            if self.objective_modes[i] == "min":
                 max_bounds.append(-np.max(self.df_ground[self.objective_names[i]]))
                 min_bounds.append(-np.min(self.df_ground[self.objective_names[i]]))
-            if self.objective_modes[i] == 'max':
+            if self.objective_modes[i] == "max":
                 max_bounds.append(np.max(self.df_ground[self.objective_names[i]]))
                 min_bounds.append(np.min(self.df_ground[self.objective_names[i]]))
         self.max_bounds = max_bounds
@@ -170,17 +170,15 @@ class Benchmark():
         return objective_values
 
     def get_pareto_points(self, objective_values):
-        """ Get pareto for the ground truth function.
+        """Get pareto for the ground truth function.
         NOTE: Assumes maximization."""
-        pareto_ground = pareto.eps_sort(tables=objective_values,
-                                        objectives=np.arange(len(self.objective_names)),
-                                        maximize_all=True)
+        pareto_ground = pareto.eps_sort(tables=objective_values, objectives=np.arange(len(self.objective_names)), maximize_all=True)
         idx_pareto = is_pareto(objectives=-objective_values)
         return np.array(pareto_ground), idx_pareto
 
     def get_high_tradeoff_points(self, pareto_points):
-        """ Pass a numpy array with the pareto points and returns a numpy
-            array with the high tradeoff points."""
+        """Pass a numpy array with the pareto points and returns a numpy
+        array with the high tradeoff points."""
 
         scaler_pareto = MinMaxScaler()
         pareto_scaled = scaler_pareto.fit_transform(pareto_points)
@@ -215,7 +213,7 @@ class Benchmark():
                     d_ij.append(np.min(d_i))
             return np.max(d_ij)
         else:
-            return 'NA'
+            return "NA"
 
     def get_maximin_distance_pareto_to_ground(self, pareto_set):
         """
@@ -237,8 +235,8 @@ class Benchmark():
         dict_pred_errors = {}
         df_ground = self.df_ground.copy(deep=True)
 
-        if os.path.exists(f'pred_{self.filename}'):
-            df_preds = pd.read_csv(f'pred_{self.filename}')
+        if os.path.exists(f"pred_{self.filename}"):
+            df_preds = pd.read_csv(f"pred_{self.filename}")
             df_preds = df_preds.sort_values(by=self.index_column)
             df_ground = df_ground.sort_values(by=self.index_column)
 
@@ -248,43 +246,48 @@ class Benchmark():
                 y_pred = df_preds[f"{objective}_predicted_mean"].values
 
                 mae = (np.sum(np.abs(y_pred - y_true))) / len(y_pred)
-                rmse = np.sqrt((np.sum((y_pred - y_true)**2))/len(y_pred))
+                rmse = np.sqrt((np.sum((y_pred - y_true) ** 2)) / len(y_pred))
 
                 from sklearn.metrics import r2_score
 
                 r2 = r2_score(y_true=y_true, y_pred=y_pred)
 
-                dict_pred_errors.update({
-                    f"MAE_{objective}": mae,
-                    f"RMSE_{objective}": rmse,
-                    f"R2_{objective}": r2,
-                    })
+                dict_pred_errors.update(
+                    {
+                        f"MAE_{objective}": mae,
+                        f"RMSE_{objective}": rmse,
+                        f"R2_{objective}": r2,
+                    }
+                )
             print(dict_pred_errors)
         else:
             for objective in self.objective_names:
-                dict_pred_errors.update({
-                    f"MAE_{objective}": 'NaN',
-                    f"RMSE_{objective}": 'NaN',
-                    f"R2_{objective}": 'NaN',
-                })
+                dict_pred_errors.update(
+                    {
+                        f"MAE_{objective}": "NaN",
+                        f"RMSE_{objective}": "NaN",
+                        f"R2_{objective}": "NaN",
+                    }
+                )
 
         return dict_pred_errors
 
     def _store_benchmark(self):
         for bt in range(self.batch):
-            dict_i = {'step': self.step,
-                      'init_method': self.init_method,
-                      'init_sample': self.seed,
-                      'batch': self.batch,
-                      'n_experiments': self.n_experiments,
-                      'thresholds': self.objective_thresholds,
-                      'dmaximin_pareto': self.pareto_distance_ground_train,
-                      'acquisition': self.acquisition_function,
-                      'dmaximin_tradeoff': self.tradeoff_distance_ground_train,
-                      'hypervolume_ground': self.hypervolume_ground,
-                      'hypervolume_sampled': self.hypervolume_train,
-                      'hypervolume completed (%)': (self.hypervolume_train/self.hypervolume_ground) * 100,
-                      'sample_index': self.idx_next_samples[bt],
+            dict_i = {
+                "step": self.step,
+                "init_method": self.init_method,
+                "init_sample": self.seed,
+                "batch": self.batch,
+                "n_experiments": self.n_experiments,
+                "thresholds": self.objective_thresholds,
+                "dmaximin_pareto": self.pareto_distance_ground_train,
+                "acquisition": self.acquisition_function,
+                "dmaximin_tradeoff": self.tradeoff_distance_ground_train,
+                "hypervolume_ground": self.hypervolume_ground,
+                "hypervolume_sampled": self.hypervolume_train,
+                "hypervolume completed (%)": (self.hypervolume_train / self.hypervolume_ground) * 100,
+                "sample_index": self.idx_next_samples[bt],
             }
 
             dict_i.update(self.predicted_errors)
@@ -313,13 +316,20 @@ class Benchmark():
 
         return df_results
 
-    def run(self, steps, batch, seed=0,
-            init_method='seed',
-            run_folder='./results', plot_ground=True,
-            plot_train=False, plot_predictions=False,
-            random_sampling=False):
+    def run(
+        self,
+        steps,
+        batch,
+        seed=0,
+        init_method="seed",
+        run_folder="./results",
+        plot_ground=True,
+        plot_train=False,
+        plot_predictions=False,
+        random_sampling=False,
+    ):
 
-        self.init_method=init_method
+        self.init_method = init_method
         self.seed = seed
         self.batch = batch
         self.run_folder = run_folder
@@ -335,26 +345,27 @@ class Benchmark():
 
         for step in range(0, steps):
             self.step = step
-
+            print(f"Now in step: {step}")
             df_run = self.edbo.run(
-                    filename=self.filename,
-                    batch=batch,
-                    columns_features=self.features_regressions,
-                    objectives=self.objective_names,
-                    objective_mode=self.objective_modes,
-                    objective_thresholds=self.objective_thresholds,
-                    acquisition_function=self.acquisition_function,
-                    init_sampling_method=self.init_method,
-                    seed=seed)
+                filename=self.filename,
+                batch=batch,
+                columns_features=self.features_regressions,
+                objectives=self.objective_names,
+                objective_mode=self.objective_modes,
+                objective_thresholds=self.objective_thresholds,
+                acquisition_function=self.acquisition_function,
+                init_sampling_method=self.init_method,
+                seed=seed,
+            )
 
-            df_next = df_run[df_run['priority'] >= 0.5]
+            df_next = df_run[df_run["priority"] >= 0.5]
             idx_next = df_next[self.index_column].values
 
             if len(idx_next) < batch:  # Add random if not enough.
-                df_next = df_run[df_run['priority'] >= 0]
+                df_next = df_run[df_run["priority"] >= 0]
                 idx_next_2 = df_next[self.index_column].values
                 l_choice = np.arange(0, len(idx_next_2))
-                r_choices = np.random.choice(l_choice, size=(batch-len(idx_next)))
+                r_choices = np.random.choice(l_choice, size=(batch - len(idx_next)))
                 random_choice_idx = idx_next_2[r_choices]
                 idx_next = np.append(idx_next, random_choice_idx)
 
@@ -362,7 +373,7 @@ class Benchmark():
             # Test performance of the model with large training data.
             # idx_next = np.random.choice(len(df_run), int(len(df_run)*0.2))
             if random_sampling is True:
-                df_next = df_run[df_run['priority'] >= 0]
+                df_next = df_run[df_run["priority"] >= 0]
                 idx_next = df_next[self.index_column].values
                 choice_idx = idx_next[np.random.choice(np.arange(0, len(idx_next)), size=batch)]
                 idx_next = choice_idx
@@ -387,14 +398,14 @@ class Benchmark():
             cumulative_train_y = []
             self.best_values_found = []
             for i in range(0, len(self.objective_names)):
-                if self.objective_modes[i] == 'min':
-                    best_value = pd.to_numeric(new_df[self.objective_names[i]], 'coerce').min()
+                if self.objective_modes[i] == "min":
+                    best_value = pd.to_numeric(new_df[self.objective_names[i]], "coerce").min()
                 else:
-                    best_value = pd.to_numeric(new_df[self.objective_names[i]], 'coerce').max()
+                    best_value = pd.to_numeric(new_df[self.objective_names[i]], "coerce").max()
                 print(f"Best {self.objective_names[i]} found: {best_value}.")
                 self.best_values_found.append(best_value)
-                vals = pd.to_numeric(new_df[self.objective_names[i]], 'coerce').dropna().values
-                if self.objective_modes[i] == 'min':
+                vals = pd.to_numeric(new_df[self.objective_names[i]], "coerce").dropna().values
+                if self.objective_modes[i] == "min":
                     cumulative_train_y.append(-vals)
                 else:
                     cumulative_train_y.append(vals)
@@ -402,30 +413,22 @@ class Benchmark():
 
             self.pareto_train, self.idx_pareto_train = self.get_pareto_points(objective_values=cumulative_train_y)
             self.tradeoff_train = self.get_high_tradeoff_points(pareto_points=self.pareto_train)
-            self.hypervolume_train = self.get_hypervolume(pareto_points=self.pareto_train,
-                                                          thresholds=self.objective_thresholds)
+            self.hypervolume_train = self.get_hypervolume(pareto_points=self.pareto_train, thresholds=self.objective_thresholds)
 
-            self.tradeoff_distance_ground_train = \
-                self.get_distance_tradeoff_to_ground(
-                        set_of_points=cumulative_train_y)
-            self.pareto_distance_ground_train = \
-                    self.get_maximin_distance_pareto_to_ground(
-                            pareto_set=self.pareto_train)
+            self.tradeoff_distance_ground_train = self.get_distance_tradeoff_to_ground(set_of_points=cumulative_train_y)
+            self.pareto_distance_ground_train = self.get_maximin_distance_pareto_to_ground(pareto_set=self.pareto_train)
 
             self.n_experiments = len(cumulative_train_y)
 
-            print('Total number of experiments:', self.n_experiments)
+            print("Total number of experiments:", self.n_experiments)
 
             # Print collected samples.
-            print('Collected samples \n', df_run[df_run['priority'] < 0])
+            print("Collected samples \n", df_run[df_run["priority"] < 0])
 
-            print(f"Hypervolume train (w.r.t to ground truth in %): "
-                  f"{(self.hypervolume_train/self.hypervolume_ground) * 100}")
+            print(f"Hypervolume train (w.r.t to ground truth in %): " f"{(self.hypervolume_train/self.hypervolume_ground) * 100}")
 
-            print(f"Maximin distance any train to any ground truth "
-                  f"Pareto: {self.pareto_distance_ground_train}")
-            print(f"Maximin distance any train to ground truth "
-                  f"Tradeoff: {self.tradeoff_distance_ground_train}")
+            print(f"Maximin distance any train to any ground truth " f"Pareto: {self.pareto_distance_ground_train}")
+            print(f"Maximin distance any train to ground truth " f"Tradeoff: {self.tradeoff_distance_ground_train}")
 
             # Store all information.
 
@@ -447,7 +450,7 @@ class Benchmark():
 
     def _plot_predictions(self):
 
-        df_preds = pd.read_csv(f'pred_{self.filename}')
+        df_preds = pd.read_csv(f"pred_{self.filename}")
         df_ground = self.df_ground.copy(deep=True)
         df_preds = df_preds.sort_values(by=self.index_column)
         df_ground = df_ground.sort_values(by=self.index_column)
@@ -470,41 +473,48 @@ class Benchmark():
             min_threshold = np.min(df_ground[i].values)
             max_threshold = np.max(df_ground[i].values)
 
-            f, (ax1, ax2, ax3) = plt.subplots(
-                1, 3,
-                figsize=(n_columns, n_rows),
-                gridspec_kw={
-                  'width_ratios': [1, 1, 1]
-                }
-            )
+            f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(n_columns, n_rows), gridspec_kw={"width_ratios": [1, 1, 1]})
 
             g1 = sns.heatmap(
-                ground, cmap='Spectral_r', square=True,
-                xticklabels=[], yticklabels=[],
-                linewidths=0.7, cbar=False,
+                ground,
+                cmap="Spectral_r",
+                square=True,
+                xticklabels=[],
+                yticklabels=[],
+                linewidths=0.7,
+                cbar=False,
                 cbar_kws=dict(use_gridspec=False, location="bottom"),
-                vmin=min_threshold, vmax=max_threshold,
-                ax=ax1
+                vmin=min_threshold,
+                vmax=max_threshold,
+                ax=ax1,
             )
 
             g2 = sns.heatmap(
-                pred_mean, cmap='Spectral_r', square=True,
-                xticklabels=[], yticklabels=[],
-                linewidths=0.7, cbar=False,
+                pred_mean,
+                cmap="Spectral_r",
+                square=True,
+                xticklabels=[],
+                yticklabels=[],
+                linewidths=0.7,
+                cbar=False,
                 cbar_kws=dict(use_gridspec=False, location="bottom"),
-                vmin=min_threshold, vmax=max_threshold,
-                ax=ax2
+                vmin=min_threshold,
+                vmax=max_threshold,
+                ax=ax2,
             )
 
             g3 = sns.heatmap(
                 ei,
-                cmap='Blues', square=True,
-                xticklabels=[], yticklabels=[],
-                linewidths=0.7, cbar=False,
+                cmap="Blues",
+                square=True,
+                xticklabels=[],
+                yticklabels=[],
+                linewidths=0.7,
+                cbar=False,
                 cbar_kws=dict(use_gridspec=False, location="bottom"),
                 vmin=np.min(df_preds[f"{i}_expected_improvement"].values),
                 vmax=np.max(df_preds[f"{i}_expected_improvement"].values),
-                ax=ax3
+                ax=ax3,
             )
 
             ax1.set_title(f"Ground truth ({i})")
@@ -516,31 +526,22 @@ class Benchmark():
     def _plot_ground_2d(self):
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.scatter(self.objective_values_ground[:, 0],
-                   self.objective_values_ground[:, 1], s=30, lw=1.,
-                   edgecolors='black')
-        ax.scatter(self.pareto_ground[:, 0], self.pareto_ground[:, 1],
-                   s=100, c='orange', lw=1., edgecolors='black')
+        ax.scatter(self.objective_values_ground[:, 0], self.objective_values_ground[:, 1], s=30, lw=1.0, edgecolors="black")
+        ax.scatter(self.pareto_ground[:, 0], self.pareto_ground[:, 1], s=100, c="orange", lw=1.0, edgecolors="black")
 
         import matplotlib.patches as patches
-        ax.add_patch(
-            patches.Rectangle(
-                tuple(self.min_bounds),
-                self.max_bounds[0],
-                self.max_bounds[1],
-                facecolor="red",
-                alpha=0.1
-            )
-        )
+
+        ax.add_patch(patches.Rectangle(tuple(self.min_bounds), self.max_bounds[0], self.max_bounds[1], facecolor="red", alpha=0.1))
 
         idx_pareto = np.argwhere(self.idx_pareto_ground)
-        print('Indices pareto front (ground truth):', idx_pareto)
+        print("Indices pareto front (ground truth):", idx_pareto)
         for i in range(0, len(idx_pareto)):
             idxi = idx_pareto[i][0]
-            ax.text(x=self.objective_values_ground[idxi][0] +0.,
-                    y=self.objective_values_ground[idxi][1] +0.,
-                    s=str(idxi),
-                    )
+            ax.text(
+                x=self.objective_values_ground[idxi][0] + 0.0,
+                y=self.objective_values_ground[idxi][1] + 0.0,
+                s=str(idxi),
+            )
 
         ax.set_xlabel(f"{self.objective_names[0]} ({self.objective_modes[0]})")
         ax.set_ylabel(f"{self.objective_names[1]} ({self.objective_modes[1]})")
@@ -553,36 +554,42 @@ class Benchmark():
 
     def _plot_ground_3d(self):
 
-        plt.rcParams['grid.color'] = "lightgray"
-        plt.rcParams['grid.linestyle'] = [6., 2., 6., 2.]
-        plt.rcParams['grid.linewidth'] = 1.5
+        plt.rcParams["grid.color"] = "lightgray"
+        plt.rcParams["grid.linestyle"] = [6.0, 2.0, 6.0, 2.0]
+        plt.rcParams["grid.linewidth"] = 1.5
 
         # Scatter plots 3d.
         fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(projection='3d')
+        ax = fig.add_subplot(projection="3d")
 
         # Plot properties.
         ax.view_init(elev=25, azim=290)
-        fig.set_facecolor('white')
-        ax.set_facecolor('white')
+        fig.set_facecolor("white")
+        ax.set_facecolor("white")
 
-        ax.scatter(self.objective_values_ground[:, 0],
-                   self.objective_values_ground[:, 1],
-                   self.objective_values_ground[:, 2],
-                   s=100, lw=1.,
-                   color='C0',
-                   zorder=1.,
-                   edgecolors='gray'
-                   )
+        ax.scatter(
+            self.objective_values_ground[:, 0],
+            self.objective_values_ground[:, 1],
+            self.objective_values_ground[:, 2],
+            s=100,
+            lw=1.0,
+            color="C0",
+            zorder=1.0,
+            edgecolors="gray",
+        )
 
-        ax.scatter(self.pareto_ground[:, 0],
-                   self.pareto_ground[:, 1],
-                   self.pareto_ground[:, 2],
-                   marker='o', s=100, c='C1', lw=1.,
-                   alpha=0.8,
-                   zorder=10.,
-                   edgecolors='gray',
-                   )
+        ax.scatter(
+            self.pareto_ground[:, 0],
+            self.pareto_ground[:, 1],
+            self.pareto_ground[:, 2],
+            marker="o",
+            s=100,
+            c="C1",
+            lw=1.0,
+            alpha=0.8,
+            zorder=10.0,
+            edgecolors="gray",
+        )
 
         xmin = np.min(self.objective_values_ground[:, 0])
         xmax = np.max(self.objective_values_ground[:, 0])
@@ -609,13 +616,9 @@ class Benchmark():
     def _plot_train_pareto_2d(self):
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.scatter(self.cumulative_train_y[:, 0],
-                   self.cumulative_train_y[:, 1], s=30, lw=1.,
-                   edgecolors='black')
-        ax.scatter(self.pareto_train[:, 0], self.pareto_train[:, 1],
-                   s=100, c='orange', lw=1., edgecolors='black')
-        ax.scatter(self.pareto_ground[:, 0], self.pareto_ground[:, 1],
-                   marker='x', s=100, c='black', lw=1.)
+        ax.scatter(self.cumulative_train_y[:, 0], self.cumulative_train_y[:, 1], s=30, lw=1.0, edgecolors="black")
+        ax.scatter(self.pareto_train[:, 0], self.pareto_train[:, 1], s=100, c="orange", lw=1.0, edgecolors="black")
+        ax.scatter(self.pareto_ground[:, 0], self.pareto_ground[:, 1], marker="x", s=100, c="black", lw=1.0)
 
         ax.set_xlabel(f"{self.objective_names[0]} ({self.objective_modes[0]})")
         ax.set_ylabel(f"{self.objective_names[1]} ({self.objective_modes[1]})")
@@ -629,36 +632,42 @@ class Benchmark():
 
     def _plot_train_pareto_3d(self):
 
-        plt.rcParams['grid.color'] = "lightgray"
-        plt.rcParams['grid.linestyle'] = [6., 2., 6., 2.]
-        plt.rcParams['grid.linewidth'] = 1.5
+        plt.rcParams["grid.color"] = "lightgray"
+        plt.rcParams["grid.linestyle"] = [6.0, 2.0, 6.0, 2.0]
+        plt.rcParams["grid.linewidth"] = 1.5
 
         # Scatter plots 3d.
         fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(projection='3d')
+        ax = fig.add_subplot(projection="3d")
 
         # Plot properties.
         ax.view_init(elev=25, azim=290)
-        fig.set_facecolor('white')
-        ax.set_facecolor('white')
+        fig.set_facecolor("white")
+        ax.set_facecolor("white")
 
-        ax.scatter(self.cumulative_train_y[:, 0],
-                   self.cumulative_train_y[:, 1],
-                   self.cumulative_train_y[:, 2],
-                   s=100, lw=1.,
-                   color='C0',
-                   zorder=1.,
-                   edgecolors='gray'
-                   )
+        ax.scatter(
+            self.cumulative_train_y[:, 0],
+            self.cumulative_train_y[:, 1],
+            self.cumulative_train_y[:, 2],
+            s=100,
+            lw=1.0,
+            color="C0",
+            zorder=1.0,
+            edgecolors="gray",
+        )
 
-        ax.scatter(self.pareto_ground[:, 0],
-                   self.pareto_ground[:, 1],
-                   self.pareto_ground[:, 2],
-                   marker='o', s=100, c='C1', lw=1.,
-                   alpha=0.8,
-                   zorder=10.,
-                   edgecolors='gray',
-                   )
+        ax.scatter(
+            self.pareto_ground[:, 0],
+            self.pareto_ground[:, 1],
+            self.pareto_ground[:, 2],
+            marker="o",
+            s=100,
+            c="C1",
+            lw=1.0,
+            alpha=0.8,
+            zorder=10.0,
+            edgecolors="gray",
+        )
 
         xmin = np.min(self.objective_values_ground[:, 0])
         xmax = np.max(self.objective_values_ground[:, 0])
@@ -681,5 +690,3 @@ class Benchmark():
         plt.savefig(f"{self.run_folder}_plots/{self.filename_results}_train_{self.step}.svg")
 
         plt.show()
-
-

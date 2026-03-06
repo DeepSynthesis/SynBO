@@ -250,6 +250,50 @@ class LLMBenchmark:
 
         return selected_rows
 
+    def load_existing_results(self) -> int:
+        """
+        Load existing results from output directory to support resume functionality.
+        Checks the 'batch' column in results to determine the last completed round.
+
+        Returns:
+            The round number to start from (0 if no existing results)
+        """
+        # Check for final_results.csv first
+        final_file = os.path.join(self.output_dir, "final_results.csv")
+        if os.path.exists(final_file):
+            print(f"Found existing final results")
+            print(f"Loading results from: {final_file}")
+            self.all_results = pd.read_csv(final_file)
+            
+            # Get the maximum batch number (which equals the last completed round)
+            if 'batch' in self.all_results.columns:
+                max_batch = self.all_results['batch'].max()
+                print(f"Loaded {len(self.all_results)} existing experiments")
+                print(f"Last completed round: {max_batch}")
+                return max_batch
+            else:
+                print("Warning: No 'batch' column found in results, starting fresh")
+                return 0
+        else:
+            # Check for intermediate files
+            max_existing_round = -1
+            for round_num in range(self.max_rounds, 0, -1):  # Check from highest to lowest
+                intermediate_file = os.path.join(self.output_dir, f"round_{round_num}_results.csv")
+                if os.path.exists(intermediate_file):
+                    max_existing_round = round_num
+                    break
+            
+            if max_existing_round > 0:
+                latest_file = os.path.join(self.output_dir, f"round_{max_existing_round}_results.csv")
+                print(f"Found existing results from round {max_existing_round}")
+                print(f"Loading results from: {latest_file}")
+                self.all_results = pd.read_csv(latest_file)
+                print(f"Loaded {len(self.all_results)} existing experiments")
+                return max_existing_round
+            else:
+                print("No existing results found, starting fresh")
+                return 0
+
     def construct_user_message(self, round_num: int) -> str:
         """
         Construct the user message for the current round.
@@ -280,6 +324,7 @@ class LLMBenchmark:
     def run_benchmark(self) -> pd.DataFrame:
         """
         Run the complete benchmark for the specified number of rounds.
+        Supports resume functionality by checking for existing results.
 
         Returns:
             DataFrame containing all results from all rounds
@@ -289,7 +334,17 @@ class LLMBenchmark:
         print(f"Model: {self.model}")
         print("-" * 80)
 
-        for round_num in range(self.max_rounds):
+        # Check for existing results to support resume
+        start_round = self.load_existing_results()
+        
+        if start_round > 0:
+            print(f"\nResuming from round {start_round + 1}/{self.max_rounds}")
+            print("=" * 80)
+        elif start_round == 0:
+            print(f"\nStarting fresh benchmark")
+            print("=" * 80)
+
+        for round_num in range(start_round, self.max_rounds):
             print(f"\n=== Round {round_num + 1}/{self.max_rounds} ===")
 
             # Check if this is the first round (round_num == 0)

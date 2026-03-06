@@ -1,4 +1,4 @@
-batch,index,base,ligand,solvent,concentration,temperature,yield,cost
+batch_index,index,base,ligand,solvent,concentration,temperature,yield,cost
 1,1,CsOAc,BrettPhos,DMAc,0.1,105,4.74,0.191273824
 1,2,KOAc,X-Phos,BuOAc,0.057,120,61.86,0.065111574
 1,3,CsOPiv,PCy3 HBF4,p-Xylene,0.153,90,0.0,0.115455983

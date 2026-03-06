@@ -142,6 +142,24 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.5]],
         },
+        "LLM (Gemini3-pro)": {
+            "results_path": "compare_mothods/LLM/results/final_results-gemini-3-pro.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+            "range_tags": [[0, 100], [0, 0.5]],
+        },
+        "LLM (Gemini3-flash)": {
+            "results_path": "compare_mothods/LLM/results/final_results-gemini-3-flash.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+            "range_tags": [[0, 100], [0, 0.5]],
+        },
+        "LLM (glm-5)": {
+            "results_path": "compare_mothods/LLM/results/final_results-glm5.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+            "range_tags": [[0, 100], [0, 0.5]],
+        },
     }
 
     full_space_file = "datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"

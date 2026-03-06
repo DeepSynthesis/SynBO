@@ -105,7 +105,7 @@ class LLMBenchmark:
         """
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
 
-        payload = {"model": self.model, "messages": messages, "temperature": 0.7, "max_tokens": 2000}
+        payload = {"model": self.model, "messages": messages, "temperature": 0.7, "max_tokens": 10000}
 
         for attempt in range(max_retries):
             try:
@@ -300,7 +300,7 @@ class LLMBenchmark:
 
             # Fill metrics from reference dataset
             print(f"Looking up yield and cost values...")
-            
+
             new_experiments = self.fill_metrics(new_experiments)
 
             # Check for missing values
@@ -343,7 +343,7 @@ def main():
     # Configuration - Update these with your actual API credentials
     API_KEY = os.environ.get("OPENAI_API_KEY", "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78")
     API_URL = os.environ.get("OPENAI_API_URL", "https://aihubmix.com/v1/chat/completions")
-    MODEL = os.environ.get("OPENAI_MODEL", "claude-sonnet-4-6")
+    MODEL = os.environ.get("OPENAI_MODEL", "gemini-3-pro-preview")
 
     # You can also use other LLM providers by changing the API_URL and format
     # For example, for a local LLaMA server:

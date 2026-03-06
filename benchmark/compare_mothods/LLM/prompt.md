@@ -29,6 +29,8 @@ batch,index,catalyst,solvent,temperature,metrics1,metrics2
 0,1,catalyst1,solvent1,100,50,50
 0,2,catalyst1,solvent1,150,60,60
 0,3,catalyst2,solvent2,100,15,32
+0,4,catalyst2,solvent1,100,12,45
+0,5,catalyst1,solvent2,100,0,2
 ```
 Attention: the reagent types (catalyst, solvent and temperature) could be different in real situation. It is determined by `condition_dict`. the metrics also could be different. It is determined by `opt_metrics`.
 
@@ -42,8 +44,11 @@ batch,index,catalyst,solvent,temperature,metrics1,metrics2
 1,1,catalyst1,solvent1,100,,
 1,2,catalyst1,solvent1,150,,
 1,3,catalyst2,solvent2,100,,
+1,4,catalyst2,solvent2,200,,
+1,5,catalyst1,solvent1,150,,
 ```
 
 Attention: the batch number should be incremented by 1 from the previous optimization results. You Must add batch column  AND index column to the output！！！！
 Attention: you should only output the csv content, and do not output any other information.
+Attention: you should generate the full and complete csv content!!!
 

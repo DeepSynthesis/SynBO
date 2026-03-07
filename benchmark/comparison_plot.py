@@ -121,40 +121,40 @@ if __name__ == "__main__":
     # 示例：比较rxnopt, EDBOplus和Gryffin的结果
     model_results = {
         "rxnopt": {
-            "results_path": "results/single_20260306_162144/all_batches_final_round_0.csv",
+            "results_path": "results/single_20260307_114309/all_batches_final_round_0.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE-with-cvt.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "Gryffin": {
             "results_path": "compare_mothods/gryffin/results/merged_Gryffin_for_B-H_HTE.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "LLM (Gemini3-pro)": {
             "results_path": "compare_mothods/LLM/results/final_results-gemini-3-pro.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "LLM (Claude-sonnet-4.6)": {
             "results_path": "compare_mothods/LLM/results/final_results-claude-sonnet-4.6.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "LLM (glm-5)": {
             "results_path": "compare_mothods/LLM/results/final_results-glm5.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
     }
 

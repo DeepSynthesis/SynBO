@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from datetime import datetime
@@ -162,6 +163,13 @@ def find_existing_experiment(base_dir_str, current_config):
     return None
 
 
+def load_start_points(start_point_path):
+    """Load start points from JSON file"""
+    with open(start_point_path, "r", encoding="utf-8") as f:
+        start_points = json.load(f)
+    return start_points
+
+
 def run_simulation(experiment_dir, desc_dict, condition_dict):
     """执行主要的优化计算循环"""
     base_seed = CONFIG["base_seed"]
@@ -171,6 +179,11 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
         json.dump(CONFIG, f, indent=4, ensure_ascii=False)
 
     print(f"Experiment Directory: {experiment_dir}")
+
+    # 加载 start_point.json
+    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/B-H_HTE/start_point.json"
+    start_points = load_start_points(start_point_path)
+    print(f"Loaded start points from: {start_point_path}")
 
     for round_idx in range(CONFIG["num_rounds"]):
         current_seed = base_seed + round_idx
@@ -195,12 +208,43 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxns)
 
             if i == 0:
-                rxn_opt.initialize(
-                    batch_size=CONFIG["batch_size"],
-                    desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                    sampling_method=CONFIG["optimization_settings"]["sampling_method"],
-                    refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                )
+                # Use start points from JSON file for initial batch
+                round_key = f"round{round_idx + 1}"
+
+                if round_key in start_points:
+                    start_indices = start_points[round_key]
+                    print(f"Using start points for {round_key}: indices {start_indices}")
+
+                    # Load dataset and select rows by indices
+                    dataset_df = pd.read_csv(CONFIG["data_paths"]["dataset_file"])
+                    selected_rows = dataset_df.iloc[start_indices]
+
+                    # Create prev_rxn_info DataFrame with required columns
+                    prev_rxn_info = selected_rows[
+                        CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]
+                    ].copy()
+                    prev_rxn_info["batch"] = -1  # Set batch to 0 for initial batch
+
+                    # Load selected reactions as previous reactions
+                    rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
+
+                    # Set selected_conditions from prev_rxn_info
+                    rxn_opt.selected_conditions = prev_rxn_info[rxn_opt.condition_types].values
+                    rxn_opt.recommend_type = ["explore"] * len(start_indices)
+                    rxn_opt.pred_mean = None
+                    rxn_opt.pred_std = None
+
+                    print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
+                else:
+                    # Fallback to default initialization if round not found
+                    raise Exception()
+                    print(f"Warning: {round_key} not found in start_points, using default initialization")
+                    rxn_opt.initialize(
+                        batch_size=CONFIG["batch_size"],
+                        desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
+                        sampling_method=CONFIG["optimization_settings"]["sampling_method"],
+                        refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                    )
             else:
                 rxn_opt.optimize(
                     batch_size=CONFIG["batch_size"],
@@ -396,7 +440,7 @@ def main():
 
     # 3. 执行绘图部分 (Plotting)
     # 无论是复用旧数据还是新计算的数据，都运行绘图，以防旧数据的图被误删或需要更新绘图样式
-    run_plotting(experiment_dir)
+    # run_plotting(experiment_dir)
 
     # 4. 执行指标计算部分 (Metrics)
     run_metrics(experiment_dir)

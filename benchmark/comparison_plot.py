@@ -27,7 +27,7 @@ def plot_comparison(
                     "results_path": "path/to/results.csv",  # results.csv文件路径
                     "target_columns": ["yield", "cost"],    # 需要评估的目标值列名
                     "direction_tags": ["max", "min"],       # 优化方向: "max" 或 "min"
-                    "range_tags": [[0, 100], [0, 0.5]],     # 目标值的范围
+                    "range_tags": [[0, 100], [0, 0.1]],     # 目标值的范围
                 },
                 ...
             }
@@ -124,37 +124,37 @@ if __name__ == "__main__":
             "results_path": "results/single_20260307_114309/all_batches_final_round_0.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE-with-cvt.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "Gryffin": {
             "results_path": "compare_mothods/gryffin/results/merged_Gryffin_for_B-H_HTE.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "LLM (Gemini3-pro)": {
             "results_path": "compare_mothods/LLM/results/final_results-gemini-3-pro.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "LLM (Claude-sonnet-4.6)": {
             "results_path": "compare_mothods/LLM/results/final_results-claude-sonnet-4.6.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "LLM (glm-5)": {
             "results_path": "compare_mothods/LLM/results/final_results-glm5.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
     }
 

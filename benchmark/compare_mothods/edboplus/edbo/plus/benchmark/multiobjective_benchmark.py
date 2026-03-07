@@ -327,12 +327,14 @@ class Benchmark:
         plot_train=False,
         plot_predictions=False,
         random_sampling=False,
+        init_indices=None,
     ):
 
         self.init_method = init_method
         self.seed = seed
         self.batch = batch
         self.run_folder = run_folder
+        self.init_indices = init_indices
 
         if not os.path.exists(run_folder):
             os.mkdir(run_folder)
@@ -356,6 +358,7 @@ class Benchmark:
                 acquisition_function=self.acquisition_function,
                 init_sampling_method=self.init_method,
                 seed=seed,
+                init_indices=self.init_indices,
             )
 
             df_next = df_run[df_run["priority"] >= 0.5]

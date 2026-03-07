@@ -7,16 +7,40 @@ Number of seeds: 10
 Budget per seed: 60 experiments
 Total experiments: 600
 Acquisition function: EHVI
-Sampling method: cvtsampling
+Sampling method: with_index
 Start points loaded from: /home/tzz/AIChem/reactionopt/benchmark/compare_mothods/edboplus/../../datasets/HTE_datasets/B-H_HTE/start_point.json
 
 --------------------------------------------------------------------------------
 Timing Information:
 --------------------------------------------------------------------------------
-Start time: 2026-03-07 12:11:23
-End time: 2026-03-07 12:11:23
-Total time: 0.37 seconds (0.01 minutes)
-Average time per seed: 0.04 seconds
+Start time: 2026-03-07 16:26:01
+End time: 2026-03-07 17:56:20
+Total time: 5418.60 seconds (90.31 minutes)
+Average time per seed: 541.86 seconds
 
+--------------------------------------------------------------------------------
+Performance Summary:
+--------------------------------------------------------------------------------
+Final Hypervolume (%):
+  Mean: 94.62%
+  Std:  6.07%
+  Min:  84.51%
+  Max:  99.83%
+
+--------------------------------------------------------------------------------
+Performance per Round:
+--------------------------------------------------------------------------------
+Round    Seed     Final HV (%)    Time Est (s)   
+--------------------------------------------------------------------------------
+1        1        88.45           541.86         
+2        2        99.83           541.86         
+3        3        85.26           541.86         
+4        4        98.24           541.86         
+5        5        84.51           541.86         
+6        6        98.43           541.86         
+7        7        99.65           541.86         
+8        8        96.20           541.86         
+9        9        97.27           541.86         
+10       10       98.37           541.86         
 
 ================================================================================

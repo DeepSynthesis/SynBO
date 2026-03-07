@@ -44,7 +44,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     df_exp = pd.read_csv(dataset_path)
 
     # Setup parameters
-    sort_column = "new_index"
+    sort_column = "index"
 
     objectives = ["yield", "cost"]
     objective_modes = ["max", "min"]
@@ -64,7 +64,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     columns_regression.remove("cost")
 
     # Define configurations to test
-    config = {"batch": batch_size, "acq": "EHVI", "sampling": "cvtsampling", "steps": int(budget / batch_size)}
+    config = {"batch": batch_size, "acq": "EHVI", "sampling": "with_index", "steps": int(budget / batch_size)}
 
     print(f"EDBO+ Benchmark with {num_seeds} Random Seeds")
     print(f"Dataset: {dataset}")
@@ -95,38 +95,22 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
             if os.path.exists(filename):
                 os.remove(filename)
 
-        # Initialize benchmark file with start points from start_point.json
+        # Initialize benchmark file WITHOUT objective values (only features)
+        # This allows the 'with_index' init method to work properly
+        df_init = df_ground.copy()
+        df_init = df_init.drop(columns=objectives)
+        df_init.to_csv(label_benchmark, index=False)
+        print(f"Initialized benchmark file with features only (will use 'with_index' initialization)")
+
+        # Get start indices for this round
         start_key = f"round{round_id}"
         if start_key in start_points:
             start_indices = start_points[start_key]
-            print(f"Using start points from {start_key}: {start_indices}")
-            
-            # Create a copy of the full ground truth dataframe
-            df_init = df_ground.copy()
-            
-            # Initialize priority column to 0 for all points (not yet collected)
-            df_init['priority'] = 0.0
-            
-            # Set priority to -1 and keep objective values for start points (already collected)
-            mask_start = df_init[sort_column].isin(start_indices)
-            df_init.loc[mask_start, 'priority'] = -1.0
-            
-            # For non-start points, set objectives to PENDING
-            mask_pending = ~mask_start
-            for obj in objectives:
-                df_init.loc[mask_pending, obj] = 'PENDING'
-            
-            # Save as initial benchmark file
-            df_init.to_csv(label_benchmark, index=False)
-            print(f"Initialized benchmark file with {len(df_init[mask_start])} collected start points and {len(df_init[mask_pending])} pending points")
+            print(f"Using start indices from {start_key}: {start_indices}")
         else:
-            print(f"Warning: No start points found for {start_key}, using random initialization")
-            # Initialize with all points as pending
-            df_init = df_ground.copy()
-            df_init['priority'] = 0.0
-            for obj in objectives:
-                df_init[obj] = 'PENDING'
-            df_init.to_csv(label_benchmark, index=False)
+            print(f"Warning: No start indices found for {start_key}, using random initialization")
+            start_indices = None
+            config["sampling"] = "cvtsampling"
 
         # Initialize and run benchmark
         bench = Benchmark(
@@ -149,6 +133,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
             plot_predictions=False,
             plot_train=False,
             init_method=config["sampling"],
+            init_indices=start_indices,
         )
 
         # Load and store results
@@ -248,7 +233,6 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
             f.write("-" * 80 + "\n")
             avg_time_per_step = total_time / (num_seeds * config["steps"])
             for round_id in range(1, num_seeds + 1):
-                hv = final_hvs[round_id]
                 hv = final_hvs[round_id]
                 f.write(f"{round_id:<8} {round_id:<8} {hv:<15.2f} {avg_time_per_step*config['steps']:<15.2f}\n")
 

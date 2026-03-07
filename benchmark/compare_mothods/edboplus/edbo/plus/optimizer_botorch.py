@@ -52,7 +52,7 @@ class EDBOplus:
         return df
 
     @staticmethod
-    def _init_sampling(df, batch, sampling_method, seed):
+    def _init_sampling(df, batch, sampling_method, seed, init_indices=None):
 
         np.random.seed(seed)
         random.seed(seed)
@@ -79,7 +79,10 @@ class EDBOplus:
             idaes = None
             samples = None  # Initialize samples variable
             
-            if sampling_method == 'random':
+            if sampling_method == 'with_index' and init_indices is not None:
+                # Use provided indices for initialization
+                samples = df_sampling.iloc[init_indices]
+            elif sampling_method == 'random':
                 samples = df_sampling.sample(n=batch, random_state=seed)
             elif sampling_method.lower() == 'lhs':
                 idaes = LatinHypercubeSampling(df_sampling, batch, sampling_type="selection")
@@ -96,16 +99,17 @@ class EDBOplus:
                     samples = pd.DataFrame(samples)
             
             # Sometimes of LHS or CVT sampling methods return less samples than requested. Add random samples in this case.
-            additional_samples = None
-            if len(samples) < batch:
+            if sampling_method != 'with_index' and len(samples) < batch:
+                additional_samples = None
                 additional_samples = df.sample(n=batch-len(samples), random_state=seed, replace=True)
                 additional_samples = additional_samples.reset_index(drop=True)
             # Add to additional samples to the samples dataframe. If some of the additional_samples are already in samples, generate new ones until batch size is reached.
             extra_seed = 1
-            while len(samples) < batch:
-                samples = pd.concat([samples,additional_samples]).drop_duplicates(ignore_index=True)
-                additional_samples = df.sample(n=batch-len(samples), random_state=seed+extra_seed, replace=True)
-                extra_seed +=1
+            if sampling_method != 'with_index':
+                while len(samples) < batch:
+                    samples = pd.concat([samples,additional_samples]).drop_duplicates(ignore_index=True)
+                    additional_samples = df.sample(n=batch-len(samples), random_state=seed+extra_seed, replace=True)
+                    extra_seed +=1
 
         # Get index of the best samples according to the random sampling method.
         df_sampling_matrix = df_sampling.to_numpy()
@@ -117,7 +121,10 @@ class EDBOplus:
             priority_list[a] = 1.
         df['priority'] = priority_list
 
-        print(f"Generated {len(samples)} initial samples using {sampling_method} sampling (seed = {seed}). Run finished!")
+        if sampling_method == 'with_index' and init_indices is not None:
+            print(f"Initialized with {len(init_indices)} provided indices")
+        else:
+            print(f"Generated {len(samples)} initial samples using {sampling_method} sampling (seed = {seed}). Run finished!")
 
         return df
     
@@ -130,7 +137,8 @@ class EDBOplus:
             scaler_features=MinMaxScaler(),
             scaler_objectives=EDBOStandardScaler(),
             acquisition_function='NoisyEHVI',
-            acquisition_function_sampler='SobolQMCNormalSampler'):
+            acquisition_function_sampler='SobolQMCNormalSampler',
+            init_indices=None):
 
         """
         Parameters
@@ -180,6 +188,7 @@ class EDBOplus:
             - 'random' : Random seed (as implemented in Pandas).
             - 'lhs' : LatinHypercube sampling.
             - 'cvt' : CVT sampling.
+            - 'with_index' : Use provided init_indices for initialization.
 
         scaler_features: sklearn class
             sklearn.preprocessing class for transforming the features.
@@ -198,6 +207,9 @@ class EDBOplus:
 
         acquisition_function_sampler: string
             Options are: 'SobolQMCNormalSampler' or 'IIDNormalSampler'.
+
+        init_indices: list (optional)
+            List of indices to use when init_sampling_method='with_index'.
 
         """
 
@@ -258,7 +270,8 @@ class EDBOplus:
         if len(obj_in_df) == 0:
             print("There are no experimental observations yet. Random samples will be drawn.")
             df = self._init_sampling(df=df, batch=batch, seed=seed,
-                                     sampling_method=init_sampling_method)
+                                     sampling_method=init_sampling_method,
+                                     init_indices=init_indices)
             original_df['priority'] = df['priority']
             # Append objectives.
             for objective in objectives:

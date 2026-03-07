@@ -7,44 +7,55 @@ from pathlib import Path
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
-def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, experiment_dir):
+def plot_optimization_curves(model_data, target_columns, direction_tags, range_tags, experiment_dir):
+    """
+    Plot optimization curves for multiple models.
+    
+    Args:
+        model_data: Dictionary with model names as keys and list of DataFrames as values
+        target_columns: List of target column names
+        direction_tags: Optimization direction list
+        range_tags: Theoretical range list
+        experiment_dir: Image save directory
+    """
     if not (len(target_columns) == len(direction_tags) == len(range_tags)):
         raise ValueError("target_columns, direction_tags, and range_tags must have same length.")
 
     all_best_records = []
     all_actual_records = []
 
-    for df_idx, df in enumerate(dfs):
-        df = df.sort_values("batch").copy()
+    for model_name, dfs in model_data.items():
+        for df_idx, df in enumerate(dfs):
+            df = df.sort_values("batch").copy()
 
-        for col, direction in zip(target_columns, direction_tags):
-            # Group by batch and find the best value for each batch
-            if direction == "max":
-                batch_best = df.groupby("batch")[col].max()
-            elif direction == "min":
-                batch_best = df.groupby("batch")[col].min()
-            else:
-                raise ValueError(f"Unknown direction '{direction}' for column '{col}'. Use 'max' or 'min'.")
+            for col, direction in zip(target_columns, direction_tags):
+                # Group by batch and find the best value for each batch
+                if direction == "max":
+                    batch_best = df.groupby("batch")[col].max()
+                elif direction == "min":
+                    batch_best = df.groupby("batch")[col].min()
+                else:
+                    raise ValueError(f"Unknown direction '{direction}' for column '{col}'. Use 'max' or 'min'.")
 
-            # Calculate cumulative best across batches (current and all previous batches)
-            if direction == "max":
-                cumulative_best = batch_best.cummax()
-            elif direction == "min":
-                cumulative_best = batch_best.cummin()
+                # Calculate cumulative best across batches (current and all previous batches)
+                if direction == "max":
+                    cumulative_best = batch_best.cummax()
+                elif direction == "min":
+                    cumulative_best = batch_best.cummin()
 
-            # Add cumulative best records (best value up to and including current batch)
-            for batch_idx, best_value in cumulative_best.items():
-                all_best_records.append({"batch": batch_idx, "target": col, "value": best_value})
+                # Add cumulative best records (best value up to and including current batch)
+                for batch_idx, best_value in cumulative_best.items():
+                    all_best_records.append({"batch": batch_idx, "target": col, "value": best_value, "model": model_name})
 
-            # Add batch best records (best value within each batch only)
-            for batch_idx, best_value in batch_best.items():
-                all_actual_records.append({"batch": batch_idx, "target": col, "value": best_value})
+                # Add batch best records (best value within each batch only)
+                for batch_idx, best_value in batch_best.items():
+                    all_actual_records.append({"batch": batch_idx, "target": col, "value": best_value, "model": model_name})
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
 
     n_cols = len(target_columns)
-    fig, axes = plt.subplots(1, n_cols, figsize=(6 * n_cols, 5), constrained_layout=True)
+    fig, axes = plt.subplots(1, n_cols, figsize=(7 * n_cols, 5), constrained_layout=True)
 
     if n_cols == 1:
         axes = [axes]
@@ -62,31 +73,32 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
             embed()
             exit()
 
+        # Lineplot with model hue for cumulative best values
         sns.lineplot(
             data=col_best_data,
             x="batch",
             y="value",
+            hue="model",
             ax=ax,
             errorbar=("ci", 95),
-            linewidth=3.5,
+            linewidth=2.5,
             marker="o",
-            markersize=8,
-            label=f"Cumulative Best {col}",
+            markersize=6,
+            legend="full",
             zorder=10,
         )
 
+        # Boxplot with model hue for batch best distribution
         sns.boxplot(
             data=col_actual_data,
             x="batch",
             y="value",
+            hue="model",
             ax=ax,
-            width=0.4,
-            color="lightblue",
-            fliersize=3,
-            linewidth=1.5,
-            boxprops=dict(alpha=0.6, edgecolor="gray"),
-            medianprops=dict(color="#08519C", linewidth=2),
-            label="Batch Best Distribution",
+            width=0.6,
+            fliersize=0,
+            linewidth=1.0,
+            legend=False,
             zorder=5,
         )
 
@@ -123,9 +135,9 @@ def plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, ex
     print(f"Plot 1 saved: {save_path}")
 
 
-def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
+def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
-    Plot hypervolume coverage percentage across all runs.
+    Plot hypervolume coverage percentage across all models and runs.
 
     Similar to plot_optimization_curves:
     1. Boxplot: HV distribution for each batch (across multiple rounds)
@@ -139,7 +151,7 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     3. Reference point set to [1.1, 1.1, ...] (slightly above worst value 1.0).
 
     Args:
-        dfs: List of DataFrames containing experimental results with target_columns and 'batch'.
+        model_data: Dictionary with model names as keys and list of DataFrames as values
         target_columns: List of target column names.
         direction_tags: Optimization direction list, e.g., ['max', 'min', 'max'].
         range_tags: Theoretical range list, List[tuple(min, max)], for normalization.
@@ -204,40 +216,41 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     all_best_records = []
     all_actual_records = []
 
-    for df in dfs:
-        df = df.sort_values("batch").copy()
-        round_data_raw = df[target_columns].values
-        round_data_norm = normalize_and_transform(round_data_raw, range_tags, direction_tags)
+    for model_name, dfs in model_data.items():
+        for df in dfs:
+            df = df.sort_values("batch").copy()
+            round_data_raw = df[target_columns].values
+            round_data_norm = normalize_and_transform(round_data_raw, range_tags, direction_tags)
 
-        # Calculate HV for each batch (HV of all samples up to and including that batch)
-        batch_hv_values = {}
-        batch_indices = sorted(df["batch"].unique())
+            # Calculate HV for each batch (HV of all samples up to and including that batch)
+            batch_hv_values = {}
+            batch_indices = sorted(df["batch"].unique())
 
-        for batch_idx in batch_indices:
-            # Get all samples up to and including this batch
-            batch_samples = df[df["batch"] <= batch_idx]
-            batch_data_raw = batch_samples[target_columns].values
-            batch_data_norm = normalize_and_transform(batch_data_raw, range_tags, direction_tags)
+            for batch_idx in batch_indices:
+                # Get all samples up to and including this batch
+                batch_samples = df[df["batch"] <= batch_idx]
+                batch_data_raw = batch_samples[target_columns].values
+                batch_data_norm = normalize_and_transform(batch_data_raw, range_tags, direction_tags)
 
-            # Calculate HV for this batch
-            current_hv = ind(batch_data_norm)
-            hv_percentage = (current_hv / total_hv) * 100
+                # Calculate HV for this batch
+                current_hv = ind(batch_data_norm)
+                hv_percentage = (current_hv / total_hv) * 100
 
-            batch_hv_values[batch_idx] = hv_percentage
+                batch_hv_values[batch_idx] = hv_percentage
 
-        # Convert to series for cummax and groupby
-        batch_hv_series = pd.Series(batch_hv_values)
+            # Convert to series for cummax and groupby
+            batch_hv_series = pd.Series(batch_hv_values)
 
-        # Calculate cumulative best HV (hypervolume should be maximized)
-        cumulative_best_hv = batch_hv_series.cummax()
+            # Calculate cumulative best HV (hypervolume should be maximized)
+            cumulative_best_hv = batch_hv_series.cummax()
 
-        # Add cumulative best records (best HV up to and including current batch)
-        for batch_idx, hv_value in cumulative_best_hv.items():
-            all_best_records.append({"batch": batch_idx, "value": hv_value})
+            # Add cumulative best records (best HV up to and including current batch)
+            for batch_idx, hv_value in cumulative_best_hv.items():
+                all_best_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
 
-        # Add batch HV records (HV at each batch)
-        for batch_idx, hv_value in batch_hv_series.items():
-            all_actual_records.append({"batch": batch_idx, "value": hv_value})
+            # Add batch HV records (HV at each batch)
+            for batch_idx, hv_value in batch_hv_series.items():
+                all_actual_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
@@ -248,33 +261,30 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
 
     plt.figure(figsize=(10, 6))
 
-    # Lineplot with errorbar for cumulative best HV
+    # Lineplot with model hue for cumulative best HV
     sns.lineplot(
         data=best_df,
         x="batch",
         y="value",
+        hue="model",
         errorbar=("ci", 95),
-        linewidth=3.5,
-        color="#2ca02c",
+        linewidth=2.5,
         marker="o",
-        markersize=8,
-        markevery=max(1, len(best_df) // 20),
-        label="Cumulative Best HV",
+        markersize=6,
+        legend="full",
         zorder=10,
     )
 
-    # Boxplot for batch HV distribution
+    # Boxplot with model hue for batch HV distribution
     sns.boxplot(
         data=actual_df,
         x="batch",
         y="value",
-        width=0.4,
-        color="lightgreen",
-        fliersize=3,
-        linewidth=1.5,
-        boxprops=dict(alpha=0.6, edgecolor="gray"),
-        medianprops=dict(color="#006400", linewidth=2),
-        label="Batch HV Distribution",
+        hue="model",
+        width=0.6,
+        fliersize=0,
+        linewidth=1.0,
+        legend=False,
         zorder=5,
     )
 
@@ -309,12 +319,12 @@ def plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, f
     print(f"Plot 2 saved: {save_path}")
 
 
-def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_tags, experiment_dir):
+def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, range_tags, experiment_dir):
     """
-    绘制美化版箱型图：所有 df 最后优化到的最佳值分布。
+    绘制美化版箱型图：所有模型最后优化到的最佳值分布。
 
     Args:
-        dfs: List of DataFrames containing experimental results
+        model_data: Dictionary with model names as keys and list of DataFrames as values
         target_columns: List of target column names
         direction_tags: Optimization direction list
         range_tags: Theoretical range list
@@ -325,27 +335,28 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
     dir_map = dict(zip(target_columns, direction_tags))
     range_map = dict(zip(target_columns, range_tags))
 
-    for df_idx, df in enumerate(dfs):
-        record = {"run_index": df_idx}
-        for col in target_columns:
-            direction = dir_map[col]
-            if direction == "max":
-                best_val = df[col].max()
-            elif direction == "min":
-                best_val = df[col].min()
-            else:
-                raise Exception(f"Unknown direction: {direction}")
-            record[col] = best_val
-        final_best_records.append(record)
+    for model_name, dfs in model_data.items():
+        for df_idx, df in enumerate(dfs):
+            record = {"run_index": df_idx, "model": model_name}
+            for col in target_columns:
+                direction = dir_map[col]
+                if direction == "max":
+                    best_val = df[col].max()
+                elif direction == "min":
+                    best_val = df[col].min()
+                else:
+                    raise Exception(f"Unknown direction: {direction}")
+                record[col] = best_val
+            final_best_records.append(record)
 
     best_df = pd.DataFrame(final_best_records)
 
     # 2. 转换数据格式
-    melted_df = best_df.melt(id_vars=["run_index"], value_vars=target_columns, var_name="Target", value_name="Best Value")
+    melted_df = best_df.melt(id_vars=["run_index", "model"], value_vars=target_columns, var_name="Target", value_name="Best Value")
 
     # 3. 绘图初始化
     n_cols = len(target_columns)
-    fig, axes = plt.subplots(1, n_cols, figsize=(3 * n_cols, 5), constrained_layout=True)
+    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), constrained_layout=True)
 
     if n_cols == 1:
         axes = [axes]
@@ -359,28 +370,23 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
 
         sns.boxplot(
             data=col_data,
-            x="Target",
+            x="model",
             y="Best Value",
             ax=ax,
-            width=0.4,
-            color="#FFCCCC",
+            width=0.6,
             fliersize=0,
-            linewidth=1.5,
-            boxprops=dict(alpha=0.6, edgecolor="gray"),
-            medianprops=dict(color="#8B0000", linewidth=2),
-            label="Distribution",
+            linewidth=1.0,
             zorder=5,
         )
 
         sns.stripplot(
             data=col_data,
-            x="Target",
+            x="model",
             y="Best Value",
             ax=ax,
-            color="#C44E52",
             size=6,
             jitter=0.2,
-            alpha=0.9,
+            alpha=0.7,
             edgecolor="white",
             linewidth=1,
             zorder=10,
@@ -419,11 +425,11 @@ def plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_t
     print(f"Plot 3 saved: {save_path}")
 
 
-def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
+def plot_optimization_process_scatter(model_data, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
     """
     绘制优化过程散点图：
     1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，连线+绘制节点
-    2. 前景：绘制每个df的帕累托前沿（不用绘制节点，颜色淡一点），所有前沿画在一张图上
+    2. 前景：绘制每个模型的帕累托前沿（不用绘制节点，颜色淡一点），所有前沿画在一张图上
     """
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
@@ -456,26 +462,35 @@ def plot_optimization_process_scatter(dfs, target_columns, direction_tags, range
     true_pf_data_sorted = true_pf_data[sorted_indices]
 
     # ==========================================
-    # 2. 处理所有df的帕累托前沿
+    # 2. 处理所有模型的帕累托前沿
     # ==========================================
     all_empirical_pfs = []
+    model_names = []
 
-    for df_idx, df in enumerate(dfs):
-        exp_data_raw = df[target_columns].values
+    for model_name, dfs in model_data.items():
+        # For each model, combine all its dataframes
+        combined_data = None
+        for df in dfs:
+            if combined_data is None:
+                combined_data = df[target_columns].values
+            else:
+                combined_data = np.vstack([combined_data, df[target_columns].values])
+        
+        if combined_data is not None:
+            # 准备实验数据的排序 (同样处理 max/min)
+            exp_sorting_data = combined_data.copy()
+            for i, direction in enumerate(direction_tags):
+                if direction == "max":
+                    exp_sorting_data[:, i] *= -1
 
-        # 准备实验数据的排序 (同样处理 max/min)
-        exp_sorting_data = exp_data_raw.copy()
-        for i, direction in enumerate(direction_tags):
-            if direction == "max":
-                exp_sorting_data[:, i] *= -1
+            # 实验数据非支配排序
+            exp_fronts = nds.do(exp_sorting_data)
+            empirical_pf_indices = exp_fronts[0]  # 获取实验数据中的 Rank 0 (非支配解)
 
-        # 实验数据非支配排序
-        exp_fronts = nds.do(exp_sorting_data)
-        empirical_pf_indices = exp_fronts[0]  # 获取实验数据中的 Rank 0 (非支配解)
-
-        # 筛选出要绘制的前景数据
-        empirical_pf_data = exp_data_raw[empirical_pf_indices]
-        all_empirical_pfs.append((df_idx, empirical_pf_data))
+            # 筛选出要绘制的前景数据
+            empirical_pf_data = combined_data[empirical_pf_indices]
+            all_empirical_pfs.append((model_name, empirical_pf_data))
+            model_names.append(model_name)
 
     # ==========================================
     # 3. 开始绘图（所有前沿在同一张图上）
@@ -501,29 +516,30 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
     内部辅助函数：绘制 2D 图（所有前沿在同一张图上）
     Args:
         true_pf_sorted: 已按X轴排序的全空间真实帕累托前沿点
-        all_empirical_pfs: 所有实验中找到的非支配点列表，每个元素是(df_idx, pf_data)
+        all_empirical_pfs: 所有实验中找到的非支配点列表，每个元素是(model_name, pf_data)
         targets: 目标列名列表
         ranges: 目标范围列表
         directions: 优化方向列表
         save_dir: 保存目录
     """
-    plt.figure(figsize=(6, 5))
+    plt.figure(figsize=(8, 6))
 
     # Layer 2: 所有 Empirical Pareto Front (前景 - 仅线条，颜色淡一点)
-    for df_idx, emp_pf_data in all_empirical_pfs:
+    for model_idx, (model_name, emp_pf_data) in enumerate(all_empirical_pfs):
         # 为了画线，按照第一个维度排序
         emp_sorted_indices = np.argsort(emp_pf_data[:, 0])
         emp_pf_data_sorted = emp_pf_data[emp_sorted_indices]
 
-        # 使用不同的颜色绘制每个df的前沿，颜色较淡（不添加label，不显示在图例中）
-        color = plt.cm.tab10(df_idx % 10)
+        # 使用不同的颜色绘制每个模型的前沿
+        color = plt.cm.tab10(model_idx % 10)
         plt.plot(
             emp_pf_data_sorted[:, 0],
             emp_pf_data_sorted[:, 1],
             c=color,
             linestyle="-",
-            linewidth=1,
-            alpha=0.6,
+            linewidth=2,
+            alpha=0.8,
+            label=model_name,
             zorder=5,
         )
     # Layer 1: True Pareto Front (背景 - 线条 + 节点)

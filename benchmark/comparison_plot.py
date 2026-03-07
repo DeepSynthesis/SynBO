@@ -86,34 +86,31 @@ def plot_comparison(
     # 设置Seaborn风格
     sns.set_theme(style="whitegrid")
 
-    # 为每个模型生成对比图
-    for model_name, dfs in all_model_data.items():
-        model_config = model_results[model_name]
-        target_columns = model_config["target_columns"]
-        direction_tags = model_config["direction_tags"]
-        range_tags = model_config["range_tags"]
+    # 获取配置信息（所有模型应该有相同的配置）
+    first_model = list(all_model_data.keys())[0]
+    model_config = model_results[first_model]
+    target_columns = model_config["target_columns"]
+    direction_tags = model_config["direction_tags"]
+    range_tags = model_config["range_tags"]
 
-        model_output_dir = output_dir / model_name
-        model_output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"\n{'-'*20} Generating combined comparison plots {'-'*20}")
 
-        print(f"\n{'-'*20} Plotting for {model_name} {'-'*20}")
+    # 1. 绘制优化曲线（所有模型在同一张图上）
+    if "curves" in plot_types:
+        plot_optimization_curves(all_model_data, target_columns, direction_tags, range_tags, output_dir)
 
-        # 1. 绘制优化曲线
-        if "curves" in plot_types:
-            plot_optimization_curves(dfs, target_columns, direction_tags, range_tags, model_output_dir)
+    # 2. 绘制超体积占比（所有模型在同一张图上）
+    if "hv" in plot_types and full_space_file and Path(full_space_file).exists():
+        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags, range_tags, Path(full_space_file), output_dir)
 
-        # 2. 绘制超体积占比
-        if "hv" in plot_types and full_space_file and Path(full_space_file).exists():
-            plot_hypervolume_coverage(dfs, target_columns, direction_tags, range_tags, Path(full_space_file), model_output_dir)
+    # 3. 绘制最终最佳值分布（所有模型在同一张图上）
+    if "boxplot" in plot_types:
+        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags, range_tags, output_dir)
 
-        # 3. 绘制最终最佳值分布
-        if "boxplot" in plot_types:
-            plot_final_distribution_boxplot(dfs, target_columns, direction_tags, range_tags, model_output_dir)
-
-        # 4. 绘制优化过程散点图(Pareto前沿比较)
-        assert Path(full_space_file).exists(), Path(full_space_file)
-        if "scatter" in plot_types and full_space_file and Path(full_space_file).exists():
-            plot_optimization_process_scatter(dfs, target_columns, direction_tags, range_tags, Path(full_space_file), model_output_dir)
+    # 4. 绘制优化过程散点图(Pareto前沿比较)（所有模型在同一张图上）
+    assert Path(full_space_file).exists(), Path(full_space_file)
+    if "scatter" in plot_types and full_space_file and Path(full_space_file).exists():
+        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags, range_tags, Path(full_space_file), output_dir)
 
     print(f"\n{'='*20} All comparison plots completed {'='*20}")
     print(f"Results saved to: {output_dir}")
@@ -127,37 +124,37 @@ if __name__ == "__main__":
             "results_path": "results/single_20260306_162144/all_batches_final_round_0.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE-with-cvt.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "Gryffin": {
             "results_path": "compare_mothods/gryffin/results/merged_Gryffin_for_B-H_HTE.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "LLM (Gemini3-pro)": {
             "results_path": "compare_mothods/LLM/results/final_results-gemini-3-pro.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "LLM (Claude-sonnet-4.6)": {
             "results_path": "compare_mothods/LLM/results/final_results-claude-sonnet-4.6.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "LLM (glm-5)": {
             "results_path": "compare_mothods/LLM/results/final_results-glm5.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
     }
 

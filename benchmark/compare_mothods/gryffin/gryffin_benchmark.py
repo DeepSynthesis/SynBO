@@ -5,8 +5,6 @@ This script runs Gryffin benchmarks with multiple random seeds for the B-H_HTE d
 Usage:
     conda activate gryffin_env
     python benchmark/compare_mothods/gryffin/gryffin_benchmark.py
-
-Reference: Based on Gryffin optimization workflow and EDBO+ benchmark structure.
 """
 
 from pathlib import Path
@@ -14,13 +12,15 @@ import pandas as pd
 import time
 from datetime import datetime
 import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from gryffin import Gryffin
 
 
-def build_category_descriptors(desc_dfs, desc_columns):
+def build_category_descriptors(desc_dfs, desc_columns, n_components=None, variance_threshold=0.95):
     """
-    从描述符CSV文件中构建类别->描述符映射。
+    从描述符CSV文件中构建类别->描述符映射，并用PCA降维。
 
     Parameters:
     -----------
@@ -28,11 +28,10 @@ def build_category_descriptors(desc_dfs, desc_columns):
         {列名: DataFrame}，每个DataFrame的index为类别名，列为描述符
     desc_columns : list
         需要构建描述符的列名列表
-
-    Returns:
-    --------
-    category_descriptors : dict
-        {参数名: {类别名: 描述符列表}}
+    n_components : int or None
+        PCA保留的维度数。None时自动根据variance_threshold确定。
+    variance_threshold : float
+        自动确定PCA维度时保留的方差比例（默认95%）
     """
     category_descriptors = {}
 
@@ -42,40 +41,54 @@ def build_category_descriptors(desc_dfs, desc_columns):
         # 删除方差为0的描述符列
         desc_table = desc_table.loc[:, desc_table.std() > 0]
 
+        n_cats = len(desc_table)
+        n_desc = desc_table.shape[1]
+
+        # 标准化
+        scaler = StandardScaler()
+        desc_scaled = scaler.fit_transform(desc_table.values)
+
+        # PCA降维：保留维度不超过 min(类别数-1, 描述符数)
+        max_components = min(n_cats - 1, n_desc)
+
+        if n_components is not None:
+            n_comp = min(n_components, max_components)
+        else:
+            pca_full = PCA(n_components=max_components)
+            pca_full.fit(desc_scaled)
+            cumvar = np.cumsum(pca_full.explained_variance_ratio_)
+            n_comp = int(np.searchsorted(cumvar, variance_threshold) + 1)
+            n_comp = min(n_comp, max_components)
+
+        pca = PCA(n_components=n_comp)
+        desc_reduced = pca.fit_transform(desc_scaled)
+
+        explained = pca.explained_variance_ratio_.sum()
+        print(
+            f"  [{col}] {n_cats} categories: " f"{n_desc} descriptors → {n_comp} PCA components " f"(explained variance: {explained:.3f})"
+        )
+
         category_details = {}
-        for cat_name, row in desc_table.iterrows():
-            category_details[str(cat_name)] = row.tolist()
+        for i, cat_name in enumerate(desc_table.index):
+            category_details[str(cat_name)] = desc_reduced[i].tolist()
 
         category_descriptors[col] = category_details
-        print(f"  [{col}] {len(category_details)} categories, {desc_table.shape[1]} descriptors each")
 
     return category_descriptors
 
 
 def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_size, random_seed):
     """
-    Create Gryffin configuration using categorical parameters with descriptors
-    and continuous parameters without descriptors.
+    Create Gryffin configuration.
 
-    Parameters:
-    -----------
-    df_ground : pd.DataFrame
-        实验数据，包含类别标签列和目标列
-    category_descriptors : dict
-        {参数名: {类别名: 描述符列表}}
-    desc_columns : list
-        使用描述符的类别参数列名
-    batch_size : int
-        每次推荐的参数数量
-    random_seed : int
-        随机种子
+    关键：sampling_strategies = batch_size，使 recommend() 返回 batch_size 个不同候选点。
     """
     config = {
         "general": {
             "num_cpus": 24,
             "auto_desc_gen": False,
             "batches": 1,
-            "sampling_strategies": batch_size,
+            "sampling_strategies": batch_size,  # ✅ 决定返回候选点的数量
             "boosted": False,
             "caching": True,
             "random_seed": random_seed,
@@ -93,7 +106,6 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
 
     for col in param_columns:
         if col in desc_columns:
-            # ✅ 类别变量 + 描述符
             category_details = category_descriptors[col]
 
             desc_matrix = np.array(list(category_details.values()))
@@ -108,10 +120,12 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
                     "category_details": category_details,
                 }
             )
-            print(f"  [{col}] -> categorical with descriptors ({len(category_details)} categories)")
-
+            print(
+                f"  [{col}] -> categorical with descriptors "
+                f"({len(category_details)} categories, "
+                f"{len(list(category_details.values())[0])} dims)"
+            )
         else:
-            # ✅ 连续变量（如 concentration, temperature）
             min_val = df_ground[col].min()
             max_val = df_ground[col].max()
 
@@ -134,13 +148,11 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
 
 def evaluate_experiment(df_origin, df_ground, params_dict, category_descriptors, desc_columns):
     """
-    Evaluate experiment by finding the closest match in the dataset.
-    对类别变量直接精确匹配，对连续变量使用欧式距离。
+    对类别变量精确匹配，对连续变量最近邻匹配。
     """
     cat_cols = [col for col in params_dict.keys() if col in desc_columns]
     cont_cols = [col for col in params_dict.keys() if col not in desc_columns]
 
-    # 先按类别变量精确过滤
     mask = pd.Series([True] * len(df_origin), index=df_origin.index)
     for col in cat_cols:
         mask &= df_origin[col] == params_dict[col]
@@ -149,12 +161,11 @@ def evaluate_experiment(df_origin, df_ground, params_dict, category_descriptors,
     df_filtered_ground = df_ground[mask]
 
     if len(df_filtered_origin) == 0:
-        # 若无精确匹配，回退到全数据集最近邻
+        print(f"  Warning: No exact match found, falling back to nearest neighbor.")
         df_filtered_origin = df_origin
         df_filtered_ground = df_ground
 
     if cont_cols:
-        # 在过滤后的数据中，对连续变量计算最近邻
         cont_vals = np.array([params_dict[c] for c in cont_cols])
         distances = np.sqrt(((df_filtered_ground[cont_cols].values - cont_vals) ** 2).sum(axis=1))
         closest_idx = distances.argmin()
@@ -167,21 +178,32 @@ def evaluate_experiment(df_origin, df_ground, params_dict, category_descriptors,
     )
 
 
-def run_gryffin_benchmark(df_origin, df_ground, config, category_descriptors, desc_columns, budget=60, batch_size=5, seed=1):
+def run_gryffin_benchmark(
+    df_origin,
+    df_ground,
+    config,
+    category_descriptors,
+    desc_columns,
+    budget=60,
+    batch_size=5,
+    seed=1,
+):
     """Run a single Gryffin optimization run."""
     gryffin = Gryffin(config_dict=config)
 
     observations = []
     results = []
-
     num_iterations = int(budget / batch_size)
-    print(f"  Total iterations: {num_iterations} (budget={budget}, batch_size={batch_size})")
+
+    print(f"  Total iterations: {num_iterations} " f"(budget={budget}, batch_size={batch_size})")
 
     for iteration in range(num_iterations):
-        print(f"\n  --- Iteration {iteration + 1}/{num_iterations} ---")
+        print(f"\n  {'='*50}")
+        print(f"  Iteration {iteration + 1}/{num_iterations}")
+        print(f"  {'='*50}")
 
         if len(observations) == 0:
-            # 第一次迭代：随机采样
+            print("  [Random initialization]")
             params = []
             for _ in range(batch_size):
                 p = {}
@@ -190,30 +212,31 @@ def run_gryffin_benchmark(df_origin, df_ground, config, category_descriptors, de
                         cat_names = list(single_p["category_details"].keys())
                         p[single_p["name"]] = np.random.choice(cat_names)
                     else:
-                        low = single_p["low"]
-                        high = single_p["high"]
-                        p[single_p["name"]] = np.random.uniform(low, high)
+                        p[single_p["name"]] = np.random.uniform(single_p["low"], single_p["high"])
                 params.append(p)
         else:
-            # Gryffin 推荐参数
+            print(f"  [Gryffin recommend]")
             params = gryffin.recommend(observations=observations)
 
-        # 评估每组参数
+        # 打印并评估每组参数
         for batch_idx, p in enumerate(params):
-            print(f"\n  [Batch {batch_idx + 1}/{batch_size}] Proposed parameters:")
+            print(f"\n  [Batch {batch_idx + 1}/{batch_size}] Proposed conditions:")
             for k, v in p.items():
-                print(f"    {k}: {v}")
+                print(f"    {k:20s}: {v}")
 
-            result, obs = evaluate_experiment(df_origin, df_ground, p, category_descriptors, desc_columns)
+            result, obs = evaluate_experiment(
+                df_origin,
+                df_ground,
+                p,
+                category_descriptors,
+                desc_columns,
+            )
 
-            print(f"  → Matched experiment:")
-            for k, v in result.items():
-                print(f"    {k}: {v}")
             print(f"  → yield={obs['yield']:.4f}, cost={obs['cost']:.6f}")
 
             obs_dict = dict(p)
-            obs_dict["yield"] = obs["yield"]
-            obs_dict["cost"] = obs["cost"]
+            obs_dict["yield"] = float(obs["yield"])
+            obs_dict["cost"] = float(obs["cost"])
             observations.append(obs_dict)
             results.append(result)
 
@@ -235,31 +258,25 @@ def demo_multiple_configs(
     budget = 50
     batch_size = 5
 
-    # 加载描述符文件
     desc_file = dataset_path.parent / Path("descriptors")
     desc_dfs = {col: pd.read_csv(desc_file / Path(f"{col}_dft.csv"), index_col=0) for col in desc_columns}
 
-    # 构建类别->描述符映射
-    print("\nBuilding category descriptors...")
-    category_descriptors = build_category_descriptors(desc_dfs, desc_columns)
+    print("\nBuilding category descriptors (with PCA)...")
+    category_descriptors = build_category_descriptors(
+        desc_dfs,
+        desc_columns,
+        n_components=None,  # 自动确定
+        variance_threshold=0.95,
+    )
 
-    # df_ground 保留原始类别列（供 Gryffin 使用）+ 连续变量
     df_ground = df_exp.copy()
 
-    # 确保连续变量存在
-    for cont_col in ["concentration", "temperature"]:
-        if cont_col not in df_ground.columns and cont_col in df_exp.columns:
-            df_ground[cont_col] = df_exp[cont_col].values
-
     print(f"\nGryffin Benchmark with {num_seeds} Random Seeds")
-    print(f"Dataset:        {dataset}")
-    print(f"Budget:         {budget} experiments")
-    print(f"Batch size:     {batch_size}")
-    print(f"Number of seeds:{num_seeds}")
-    print(f"Desc columns:   {desc_columns}")
-
-    # 创建 Gryffin 配置（使用第一个 seed，后续每轮重新创建）
-    print("\nCreating Gryffin configuration...")
+    print(f"Dataset:         {dataset}")
+    print(f"Budget:          {budget} experiments")
+    print(f"Batch size:      {batch_size}")
+    print(f"Number of seeds: {num_seeds}")
+    print(f"Desc columns:    {desc_columns}")
 
     label_benchmark = f"Gryffin_for_{dataset_path.name}"
     all_results = []
@@ -272,8 +289,8 @@ def demo_multiple_configs(
         print(f"[Round {round_id}/{num_seeds}]  Seed = {seed}")
         print(f"{'='*60}")
 
-        # 每轮使用对应 seed 重新创建 config
-        config = create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_size, random_seed=seed)
+        print("\nCreating Gryffin configuration...")
+        config = create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_size=batch_size, random_seed=seed)
 
         df_round = run_gryffin_benchmark(
             df_exp,
@@ -307,24 +324,21 @@ def demo_multiple_configs(
         f.write("=" * 80 + "\n")
         f.write("Gryffin Benchmark Timing Information\n")
         f.write("=" * 80 + "\n\n")
-        f.write(f"Dataset:              {dataset}\n")
-        f.write(f"Number of seeds:      {num_seeds}\n")
-        f.write(f"Budget per seed:      {budget} experiments\n")
-        f.write(f"Total experiments:    {num_seeds * budget}\n")
-        f.write(f"Descriptor columns:   {desc_columns}\n\n")
+        f.write(f"Dataset:           {dataset}\n")
+        f.write(f"Number of seeds:   {num_seeds}\n")
+        f.write(f"Budget per seed:   {budget} experiments\n")
+        f.write(f"Total experiments: {num_seeds * budget}\n")
+        f.write(f"Desc columns:      {desc_columns}\n\n")
         f.write("-" * 80 + "\n")
         f.write("Timing Information:\n")
         f.write("-" * 80 + "\n")
-        f.write(f"Start time:           {start_datetime}\n")
-        f.write(f"End time:             {end_datetime}\n")
-        f.write(f"Total time:           {total_time:.2f} seconds ({total_time/60:.2f} minutes)\n")
-        f.write(f"Average time/seed:    {total_time/num_seeds:.2f} seconds\n")
+        f.write(f"Start time:        {start_datetime}\n")
+        f.write(f"End time:          {end_datetime}\n")
+        f.write(f"Total time:        {total_time:.2f} s " f"({total_time/60:.2f} min)\n")
+        f.write(f"Avg time/seed:     {total_time/num_seeds:.2f} s\n")
 
-    print(f"\nTiming information saved to: {timing_filename}")
-    print(f"\n{'='*80}")
-    print("Benchmark completed successfully!")
-    print(f"{'='*80}")
-    print(f"Total time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)")
+    print(f"\nTiming saved to: {timing_filename}")
+    print(f"Total time: {total_time:.2f} s ({total_time/60:.2f} min)\n")
 
 
 if __name__ == "__main__":

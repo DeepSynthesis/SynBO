@@ -6,7 +6,7 @@ Usage:
     conda activate env_edbo  (or edbo_env)
     python benchmark/compare_mothods/edboplus/edbo_benchmark.py
 
-Reference: Based on the benchmark workflow from the original EDBO+ implementation.
+Reference: Based on benchmark workflow from original EDBO+ implementation.
 """
 
 from pathlib import Path
@@ -16,6 +16,7 @@ import shutil
 import pandas as pd
 import time
 from datetime import datetime
+import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -29,9 +30,7 @@ def generate_desc_file(df_ground, desc_dfs, desc_columns):
         desc_table = desc_dfs[col]
         desc_table = desc_table.select_dtypes(include=["float64", "float32"])
         res_df = res_df.merge(desc_table, left_on=col, right_index=True, how="left")
-
         res_df.drop([col], axis=1, inplace=True)
-
     return res_df
 
 
@@ -40,7 +39,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     start_time = time.time()
     start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Load the dataset
+    # Load dataset
     dataset_path = Path(__file__).parent / Path(f"../../datasets/{dataset}")
     df_exp = pd.read_csv(dataset_path)
 
@@ -77,6 +76,11 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     # Create benchmark filename
     label_benchmark = f"EDBOplus_for_{dataset_path.name}"
 
+    # Load start_point.json
+    start_point_path = dataset_path.parent / "start_point.json"
+    with open(start_point_path, "r") as f:
+        start_points = json.load(f)
+
     # List to store all results
     all_results = []
 
@@ -90,6 +94,39 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         for filename in [label_benchmark, f"pred_{label_benchmark}", f"results_{label_benchmark}"]:
             if os.path.exists(filename):
                 os.remove(filename)
+
+        # Initialize benchmark file with start points from start_point.json
+        start_key = f"round{round_id}"
+        if start_key in start_points:
+            start_indices = start_points[start_key]
+            print(f"Using start points from {start_key}: {start_indices}")
+            
+            # Create a copy of the full ground truth dataframe
+            df_init = df_ground.copy()
+            
+            # Initialize priority column to 0 for all points (not yet collected)
+            df_init['priority'] = 0.0
+            
+            # Set priority to -1 and keep objective values for start points (already collected)
+            mask_start = df_init[sort_column].isin(start_indices)
+            df_init.loc[mask_start, 'priority'] = -1.0
+            
+            # For non-start points, set objectives to PENDING
+            mask_pending = ~mask_start
+            for obj in objectives:
+                df_init.loc[mask_pending, obj] = 'PENDING'
+            
+            # Save as initial benchmark file
+            df_init.to_csv(label_benchmark, index=False)
+            print(f"Initialized benchmark file with {len(df_init[mask_start])} collected start points and {len(df_init[mask_pending])} pending points")
+        else:
+            print(f"Warning: No start points found for {start_key}, using random initialization")
+            # Initialize with all points as pending
+            df_init = df_ground.copy()
+            df_init['priority'] = 0.0
+            for obj in objectives:
+                df_init[obj] = 'PENDING'
+            df_init.to_csv(label_benchmark, index=False)
 
         # Initialize and run benchmark
         bench = Benchmark(
@@ -172,7 +209,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
 
     # Save timing information to txt file
     timing_filename = f"results/timing_{dataset_path.name.replace('.csv', '')}.txt"
-    with open(timing_filename, "w") as f:
+    with open(timing_filename, 'w') as f:
         f.write("=" * 80 + "\n")
         f.write("EDBO+ Benchmark Timing Information\n")
         f.write("=" * 80 + "\n\n")
@@ -181,7 +218,8 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         f.write(f"Budget per seed: {budget} experiments\n")
         f.write(f"Total experiments: {num_seeds * budget}\n")
         f.write(f"Acquisition function: {config['acq']}\n")
-        f.write(f"Sampling method: {config['sampling']}\n\n")
+        f.write(f"Sampling method: {config['sampling']}\n")
+        f.write(f"Start points loaded from: {start_point_path}\n\n")
         f.write("-" * 80 + "\n")
         f.write("Timing Information:\n")
         f.write("-" * 80 + "\n")
@@ -210,6 +248,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
             f.write("-" * 80 + "\n")
             avg_time_per_step = total_time / (num_seeds * config["steps"])
             for round_id in range(1, num_seeds + 1):
+                hv = final_hvs[round_id]
                 hv = final_hvs[round_id]
                 f.write(f"{round_id:<8} {round_id:<8} {hv:<15.2f} {avg_time_per_step*config['steps']:<15.2f}\n")
 

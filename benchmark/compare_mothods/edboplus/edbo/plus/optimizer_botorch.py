@@ -9,7 +9,7 @@ from botorch.acquisition.multi_objective.monte_carlo import \
     qExpectedHypervolumeImprovement, qNoisyExpectedHypervolumeImprovement
 from botorch.models import SingleTaskGP, ModelListGP
 from botorch.optim import optimize_acqf_discrete
-from botorch.sampling.samplers import SobolQMCNormalSampler, IIDNormalSampler
+from botorch.sampling import SobolQMCNormalSampler, IIDNormalSampler
 from botorch.utils.multi_objective.box_decompositions import \
     NondominatedPartitioning
 from idaes.surrogate.pysmo.sampling import LatinHypercubeSampling, CVTSampling

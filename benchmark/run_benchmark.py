@@ -26,7 +26,7 @@ RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，
 
 CONFIG = {
     "experiment_name": "B-H_Optimization",
-    "base_seed": 1,
+    "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
@@ -43,11 +43,11 @@ CONFIG = {
         "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 0.5},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "lhs",
+        "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},

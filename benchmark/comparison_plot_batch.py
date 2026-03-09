@@ -72,7 +72,6 @@ def plot_comparison(
             print(f"Warning: No valid data loaded for {model_name}")
             continue
 
-
         # 将该模型的所有runs存储到all_model_data
         all_model_data[model_name] = model_runs
         print(f"Loaded {len(model_runs)} runs for {model_name}")
@@ -121,7 +120,7 @@ if __name__ == "__main__":
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
         "rxnopt": {
-            "results_path": "results/multiple_20260307_180539/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260307_194656/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.5]],

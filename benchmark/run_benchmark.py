@@ -50,7 +50,7 @@ CONFIG = {
         "sampling_method": "lhs",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "kwargs": {"surrogate_model": "GP", "acq_func": "UCB"},
+        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
 }
 

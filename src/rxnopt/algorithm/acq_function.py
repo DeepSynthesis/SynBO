@@ -37,7 +37,7 @@ class BaseAcquisitionFunction:
                 acq_values_list.append(acq_values)
         return torch.cat(acq_values_list, dim=0)
 
-    def optimize_discrete_greedy(
+    def optimize_discrete(
         self,
         acq_func,
         q: int,
@@ -48,6 +48,7 @@ class BaseAcquisitionFunction:
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
         """
         通用的离散空间贪婪序列优化逻辑。
@@ -97,8 +98,15 @@ class BaseAcquisitionFunction:
                         X=choices_batched,
                         max_batch_size=max_batch_size,
                     )
-            # 选择最佳点
-            best_idx_in_batch = torch.argmax(acq_values)
+
+            # define the exploration and exploitation trade-off
+            if temperature > 0.0:
+                acq_shifted = acq_values - torch.max(acq_values)
+                probs = torch.softmax(acq_shifted / temperature, dim=0)
+                best_idx_in_batch = torch.multinomial(probs, 1).item()
+            else:
+                best_idx_in_batch = torch.argmax(acq_values)
+
             best_acq_val = acq_values[best_idx_in_batch]
             # 映射回全局索引
             best_global_idx = valid_indices[best_idx_in_batch]
@@ -109,15 +117,13 @@ class BaseAcquisitionFunction:
             candidate_list.append(selected_candidate)
             acq_value_list.append(best_acq_val)
 
-            # 更新 Pending Points
-            # 形状变为 (1, current_q, D)
             current_candidates = torch.cat(candidate_list, dim=-2)
             torch.cuda.empty_cache()
 
-            # 关键步骤：告诉采集函数这些点已经被选了，寻找下一个点时要基于这些点的条件分布
-            # set_X_pending 需要 (current_q, D) 形状，所以需要 squeeze(0)
+            # Key step: Inform the acquisition function that these points have been selected.
+            # When looking for the next point, it should be based on the conditional distribution of these points
             acq_func.set_X_pending(current_candidates.squeeze(0))
-            # 如果要求唯一，更新掩码排除掉刚刚选中的点
+            # If uniqueness is required, update the mask to exclude the point just selected
             if unique:
                 # 计算剩余点到最新选中点的距离
                 dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
@@ -126,8 +132,8 @@ class BaseAcquisitionFunction:
             if progress:
                 progress.update(task, advance=1)
 
-        # 4. 清理与返回
-        acq_func.set_X_pending(None)  # 防止副作用
+        # clean up
+        acq_func.set_X_pending(None)
 
         if not candidate_list:
             return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
@@ -177,7 +183,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
 
         # 直接调用基类的通用逻辑
         # 注意：这里需要传入全局的 console 对象，假设你的环境中有一个名为 console 的变量
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -228,7 +234,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -299,7 +305,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -374,7 +380,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,

@@ -51,8 +51,7 @@ class BaseAcquisitionFunction:
         temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
         """
-        通用的离散空间贪婪序列优化逻辑。
-        适用于 qUCB, qEHVI, qNEHVI 等支持 set_X_pending 的采集函数。
+        General discrete space greedy sequence optimization
         """
         acq_func.set_X_pending(None)
 
@@ -63,23 +62,20 @@ class BaseAcquisitionFunction:
                 style="yellow",
             )
             q = len_choices
-        # 2. 构建初始可用掩码 (Available Mask)
+        # Build the initial Available Mask
         available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
 
-        # 排除指定的点 (exclude_points)
+        # Exclude the specified points
         if unique and exclude_points is not None and len(exclude_points) > 0:
-            # 计算 choices 到 exclude_points 的距离矩阵
             dists = torch.cdist(choices, exclude_points)
-            # 如果某点到任意 exclude_point 的距离小于阈值，则该点不可用
             distinct_check = (dists > min_distance).all(dim=1)
             available_mask = available_mask & distinct_check
         candidate_list = []
         acq_value_list = []
-        # 当前迭代的掩码
+
         current_mask = available_mask.clone()
-        # 3. 贪婪循环
+        # greedy get loop
         for q_i in range(q):
-            # 获取当前有效索引
             valid_indices = torch.nonzero(current_mask, as_tuple=True)[0]
             if len(valid_indices) == 0:
                 self.console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
@@ -87,11 +83,11 @@ class BaseAcquisitionFunction:
 
             if progress:
                 progress.log(f"Choosing candidate {q_i+1} of {q}", style="yellow")
-            # 准备当前批次的数据 (Num_Valid, 1, D) - q-batch 维度设为 1 用于当前评估
+
             choices_batched = choices[valid_indices].unsqueeze(-2)
-            # 计算采集函数值
+
             with torch.no_grad():
-                # 使用 cholesky_jitter 增加数值稳定性
+
                 with gpytorch.settings.cholesky_jitter(1e-3):
                     acq_values = self._split_batch_eval_acqf(
                         acq_func=acq_func,
@@ -101,8 +97,12 @@ class BaseAcquisitionFunction:
 
             # define the exploration and exploitation trade-off
             if temperature > 0.0:
-                acq_shifted = acq_values - torch.max(acq_values)
-                probs = torch.softmax(acq_shifted / temperature, dim=0)
+                range_val = (torch.max(acq_values) - torch.min(acq_values)).clamp(min=1e-8)
+                acq_norm = (acq_values - torch.min(acq_values)) / range_val  # 此时值域严格在 [0, 1]
+
+                logits = (acq_norm - 1.0) / temperature
+                probs = torch.softmax(logits, dim=0)
+
                 best_idx_in_batch = torch.multinomial(probs, 1).item()
             else:
                 best_idx_in_batch = torch.argmax(acq_values)
@@ -179,6 +179,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
 
         # 直接调用基类的通用逻辑
@@ -193,6 +194,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
         )
 
 
@@ -232,6 +234,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
         return self.optimize_discrete(
@@ -244,6 +247,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
         )
 
 
@@ -303,6 +307,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
         return self.optimize_discrete(
@@ -315,6 +320,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
         )
 
     @staticmethod
@@ -378,6 +384,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
         return self.optimize_discrete(
@@ -390,6 +397,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
         )
 
 

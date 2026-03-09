@@ -50,6 +50,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
+        "temperature": 0.3,
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
 }
@@ -211,46 +212,37 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 # Use start points from JSON file for initial batch
                 round_key = f"round{round_idx + 1}"
 
-                if round_key in start_points:
-                    start_indices = start_points[round_key]
-                    print(f"Using start points for {round_key}: indices {start_indices}")
+                start_indices = start_points[round_key]
+                print(f"Using start points for {round_key}: indices {start_indices}")
 
-                    # Load dataset and select rows by indices
-                    dataset_df = pd.read_csv(CONFIG["data_paths"]["dataset_file"])
-                    selected_rows = dataset_df.iloc[start_indices]
+                # Load dataset and select rows by indices
+                dataset_df = pd.read_csv(CONFIG["data_paths"]["dataset_file"])
+                selected_rows = dataset_df.iloc[start_indices]
 
-                    # Create prev_rxn_info DataFrame with required columns
-                    prev_rxn_info = selected_rows[
-                        CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]
-                    ].copy()
-                    prev_rxn_info["batch"] = -1  # Set batch to 0 for initial batch
+                # Create prev_rxn_info DataFrame with required columns
+                prev_rxn_info = selected_rows[
+                    CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]
+                ].copy()
+                prev_rxn_info["batch"] = -1  # Set batch to 0 for initial batch
 
-                    # Load selected reactions as previous reactions
-                    rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
+                # Load selected reactions as previous reactions
+                rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
 
-                    # Set selected_conditions from prev_rxn_info
-                    rxn_opt.selected_conditions = prev_rxn_info[rxn_opt.condition_types].values
-                    rxn_opt.recommend_type = ["explore"] * len(start_indices)
-                    rxn_opt.pred_mean = None
-                    rxn_opt.pred_std = None
+                # Set selected_conditions from prev_rxn_info
+                rxn_opt.selected_conditions = prev_rxn_info[rxn_opt.condition_types].values
+                rxn_opt.recommend_type = ["explore"] * len(start_indices)
+                rxn_opt.pred_mean = None
+                rxn_opt.pred_std = None
 
-                    print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
-                else:
-                    # Fallback to default initialization if round not found
-                    raise Exception()
-                    print(f"Warning: {round_key} not found in start_points, using default initialization")
-                    rxn_opt.initialize(
-                        batch_size=CONFIG["batch_size"],
-                        desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                        sampling_method=CONFIG["optimization_settings"]["sampling_method"],
-                        refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                    )
+                print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
+
             else:
                 rxn_opt.optimize(
                     batch_size=CONFIG["batch_size"],
                     optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                     desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                     refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                    temperature=CONFIG["optimization_settings"]["temperature"],
                     **CONFIG["optimization_settings"]["kwargs"],
                 )
 

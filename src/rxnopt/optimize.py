@@ -39,6 +39,7 @@ class Optimizer:
         candidate_X: np.ndarray,
         opt_metric_settings: List[dict],
         batch_size: int = 5,
+        temperature: float = 0.0,
     ) -> List[int]:
         for k, d in zip(training_y.keys(), opt_metric_settings):
             if d["opt_direct"] == "min":
@@ -48,7 +49,7 @@ class Optimizer:
         if isinstance(training_y, dict):
             training_y = np.array(list(training_y.values())).T
 
-        if self.method in ["default_BO", "random_select", "evolution", "particle_swarm"]:
+        if self.method in ["default_BO"]:  # , "random_select", "evolution", "particle_swarm"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
                 training_y=training_y,
@@ -56,6 +57,7 @@ class Optimizer:
                 opt_metric_settings=opt_metric_settings,
                 batch_size=batch_size,
                 training_y_dict=training_y_dict,
+                temperature=temperature,
             )
 
             selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]

@@ -78,6 +78,7 @@ class DefaultBO:
         opt_metric_settings: List[dict],
         batch_size: int,
         training_y_dict: dict,
+        temperature: float = 0.0,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
@@ -167,6 +168,7 @@ class DefaultBO:
                 min_distance=1e-6,
                 progress=progress,
                 task=task_acq_opt,
+                temperature=temperature,
             )
 
         if self.device.type == "cuda":

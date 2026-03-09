@@ -295,6 +295,7 @@ class ReactionOptimizer:
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
         optimize_method: str = "default_BO",
+        temperature: float = 0.0,
         **optimization_kwargs: Any,
     ) -> None:
         """Optimize reaction conditions using Bayesian Optimization.
@@ -303,6 +304,7 @@ class ReactionOptimizer:
             batch_size: Number of conditions to recommend
             desc_normalize: Descriptor normalization method
             optimized_method: Optimization algorithm to use
+            temperature: Temperature parameter for exploration-exploitation trade-off (0.0 = pure exploitation, higher = more exploration)
             opt_weights: Weights for multi-objective optimization
             mc_num_samples: Monte Carlo samples for acquisition function
             max_batch_size: Maximum batch size for acquisition optimization
@@ -345,6 +347,7 @@ class ReactionOptimizer:
             candidate_X=self.total_desc_arr,
             opt_metric_settings=self.opt_metric_settings,
             batch_size=batch_size,
+            temperature=temperature,
         )
 
         # Denormalize prediction values using the same scalers

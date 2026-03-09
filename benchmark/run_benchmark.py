@@ -43,7 +43,7 @@ CONFIG = {
         "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 0.5},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",

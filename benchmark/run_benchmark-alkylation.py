@@ -217,6 +217,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
                 # Load dataset and select rows by indices
                 dataset_df = pd.read_csv(CONFIG["data_paths"]["dataset_file"])
+                # from IPython import embed; embed(); exit()
                 selected_rows = dataset_df.iloc[start_indices]
 
                 # Create prev_rxn_info DataFrame with required columns

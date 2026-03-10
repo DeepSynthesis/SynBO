@@ -21,7 +21,7 @@ class BaseAcquisitionFunction:
     def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler):
         self.model = model
         self.sampler = sampler
-        self.acquisition_function = None  # 子类应实例化此对象
+        self.acquisition_function = None
         self.console = console
 
     @property
@@ -98,8 +98,7 @@ class BaseAcquisitionFunction:
             # define the exploration and exploitation trade-off
             if temperature > 0.0:
                 range_val = (torch.max(acq_values) - torch.min(acq_values)).clamp(min=1e-8)
-                acq_norm = (acq_values - torch.min(acq_values)) / range_val  # 此时值域严格在 [0, 1]
-
+                acq_norm = (acq_values - torch.min(acq_values)) / range_val
                 logits = (acq_norm - 1.0) / temperature
                 probs = torch.softmax(logits, dim=0)
 
@@ -108,7 +107,7 @@ class BaseAcquisitionFunction:
                 best_idx_in_batch = torch.argmax(acq_values)
 
             best_acq_val = acq_values[best_idx_in_batch]
-            # 映射回全局索引
+
             best_global_idx = valid_indices[best_idx_in_batch]
 
             # (1, 1, D)
@@ -125,7 +124,6 @@ class BaseAcquisitionFunction:
             acq_func.set_X_pending(current_candidates.squeeze(0))
             # If uniqueness is required, update the mask to exclude the point just selected
             if unique:
-                # 计算剩余点到最新选中点的距离
                 dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
                 is_far_enough = dist_to_new > min_distance
                 current_mask = current_mask & is_far_enough
@@ -174,7 +172,6 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         choices: Tensor,
         max_batch_size: int = 128,
         unique: bool = True,
-        maximum_metrics: bool = True,  # EHVI 可能会用到这个参数来决定方向，但在 discrete 逻辑里不影响循环结构
         progress: object = None,
         task: object = None,
         min_distance: float = 1e-6,
@@ -182,8 +179,6 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
 
-        # 直接调用基类的通用逻辑
-        # 注意：这里需要传入全局的 console 对象，假设你的环境中有一个名为 console 的变量
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
@@ -251,44 +246,34 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         )
 
 
-# ---------------------------------------------------------------------------
-# 2. qParEGO (通过随机标量化解决多目标问题)
-# ---------------------------------------------------------------------------
 class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
     """
-    ParEGO: 使用随机切比雪夫标量化将多目标转化为单目标，
-    然后应用 Expected Improvement (EI)。
+    Convert multiple objectives into single objectives using random Chebyshev scaling, and then apply EI.
     """
 
     def __init__(
         self,
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
-        X_baseline: Tensor,  # 训练数据的输入特征
+        X_baseline: Tensor,
         num_objectives: int,
     ):
         super().__init__(model, sampler)
 
-        # 1. 随机生成权重
         weights = torch.randn(num_objectives).abs()
         weights /= weights.sum()
 
-        # 2. 获取当前训练集的模型预测值用于标量化参考
         with torch.no_grad():
             posterior = model.posterior(X_baseline)
             Y_baseline = posterior.mean
 
-        # 3. 确保 weights 与 Y_baseline 在同一设备上
         weights = weights.to(Y_baseline.device)
 
-        # 3. 构建切比雪夫标量化目标
         objective = self._get_chebyshev_objective(weights=weights, Y=Y_baseline)
 
-        # 4. 计算当前最佳标量化值
         scalarized_Y = objective(Y_baseline)
         best_f = scalarized_Y.max()
 
-        # 5. 初始化采集函数
         self.acquisition_function = qExpectedImprovement(
             model=model,
             best_f=best_f,
@@ -309,7 +294,6 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
         temperature: float = 0.0,
     ) -> tuple[Tensor, Tensor]:
-        # 直接调用基类的通用逻辑
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,

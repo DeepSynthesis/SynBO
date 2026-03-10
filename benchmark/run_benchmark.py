@@ -248,7 +248,6 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
             rxn_opt.save_results(save_dir=str(experiment_dir))
 
-            # 填充真实数据并记录文件路径
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path
 

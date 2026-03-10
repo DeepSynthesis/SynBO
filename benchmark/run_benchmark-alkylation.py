@@ -25,7 +25,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "asym_alkylation",
+    "experiment_name": "asym_alkylation (dynamic)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -50,7 +50,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "temperature": 0.0,
+        "temperature": 0.1,
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
 }
@@ -242,7 +242,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                     desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                     refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                    temperature=CONFIG["optimization_settings"]["temperature"],
+                    temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
                     **CONFIG["optimization_settings"]["kwargs"],
                 )
 

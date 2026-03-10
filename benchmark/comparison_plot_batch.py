@@ -119,29 +119,29 @@ if __name__ == "__main__":
     # 示例：比较rxnopt和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
-        "rxnopt(0.3)": {
-            "results_path": "results/multiple_20260309_204546/all_batches_final_round_*.csv",
+        "rxnopt(dynamic)": {
+            "results_path": "results/multiple_20260310_174034/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "rxnopt(0.2)": {
             "results_path": "results/multiple_20260309_200135/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "rxnopt(0.1)": {
             "results_path": "results/multiple_20260309_194409/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.5]],
+            "range_tags": [[0, 100], [0, 0.1]],
         },
     }
 

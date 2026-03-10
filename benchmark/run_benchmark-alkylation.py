@@ -50,7 +50,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "temperature": 0.15,
+        "temperature": 0.0,
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
 }

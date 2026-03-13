@@ -7,7 +7,7 @@ from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from rxnopt.utils.util_func import compute_hvi
+from rxnopt.utils.util_func import compute_hvi, generate_constraint_mask
 from rxnopt.utils.logger import console
 from rxnopt.algorithm.sg_model import (
     BNNEnsembleSurrogateModel,
@@ -79,6 +79,9 @@ class DefaultBO:
         batch_size: int,
         training_y_dict: dict,
         temperature: float = 0.0,
+        constraints: dict = None,
+        total_name_arr: np.ndarray = None,
+        condition_types: List[str] = None,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
@@ -158,6 +161,17 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
+            # Generate constraint mask if constraints are provided
+            constraint_mask_t = None
+            if constraints is not None and total_name_arr is not None and condition_types is not None:
+                constraint_mask = generate_constraint_mask(
+                    total_name_arr=total_name_arr,
+                    condition_types=condition_types,
+                    constraints=constraints,
+                )
+                constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
+                progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
                 q=batch_size,
@@ -169,6 +183,7 @@ class DefaultBO:
                 progress=progress,
                 task=task_acq_opt,
                 temperature=temperature,
+                constraint_mask=constraint_mask_t,
             )
 
         if self.device.type == "cuda":

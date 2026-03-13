@@ -40,6 +40,9 @@ class Optimizer:
         opt_metric_settings: List[dict],
         batch_size: int = 5,
         temperature: float = 0.0,
+        constraints: dict = None,
+        total_name_arr: np.ndarray = None,
+        condition_types: List[str] = None,
     ) -> List[int]:
         for k, d in zip(training_y.keys(), opt_metric_settings):
             if d["opt_direct"] == "min":
@@ -58,6 +61,9 @@ class Optimizer:
                 batch_size=batch_size,
                 training_y_dict=training_y_dict,
                 temperature=temperature,
+                constraints=constraints,
+                total_name_arr=total_name_arr,
+                condition_types=condition_types,
             )
 
             selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]

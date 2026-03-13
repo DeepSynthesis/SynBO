@@ -49,9 +49,23 @@ class BaseAcquisitionFunction:
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
         temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         """
         General discrete space greedy sequence optimization
+
+        Args:
+            acq_func: Acquisition function to optimize
+            q: Number of candidates to select
+            choices: Candidate points tensor
+            max_batch_size: Maximum batch size for evaluation
+            unique: Whether to ensure unique selections
+            progress: Progress bar object
+            task: Progress task object
+            min_distance: Minimum distance for uniqueness check
+            exclude_points: Points to exclude from selection
+            temperature: Temperature for exploration-exploitation trade-off
+            constraint_mask: Boolean mask indicating which points satisfy constraints
         """
         acq_func.set_X_pending(None)
 
@@ -62,8 +76,19 @@ class BaseAcquisitionFunction:
                 style="yellow",
             )
             q = len_choices
+        
         # Build the initial Available Mask
         available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
+
+        # Apply constraint mask if provided
+        if constraint_mask is not None:
+            available_mask = available_mask & constraint_mask
+            constrained_count = constraint_mask.sum().item()
+            total_count = len(constraint_mask)
+            self.console.print(
+                f"Constraint applied: {constrained_count}/{total_count} candidates available",
+                style="cyan"
+            )
 
         # Exclude the specified points
         if unique and exclude_points is not None and len(exclude_points) > 0:
@@ -177,6 +202,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
         temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
 
         return self.optimize_discrete(
@@ -190,6 +216,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             min_distance=min_distance,
             exclude_points=exclude_points,
             temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
 
@@ -230,6 +257,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
         temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
         return self.optimize_discrete(
@@ -243,6 +271,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
             min_distance=min_distance,
             exclude_points=exclude_points,
             temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
 
@@ -293,6 +322,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
         temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
@@ -305,6 +335,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
             min_distance=min_distance,
             exclude_points=exclude_points,
             temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
     @staticmethod
@@ -369,6 +400,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
         temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
         return self.optimize_discrete(
@@ -382,6 +414,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
             min_distance=min_distance,
             exclude_points=exclude_points,
             temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
 

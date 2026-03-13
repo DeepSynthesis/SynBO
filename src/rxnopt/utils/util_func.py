@@ -6,8 +6,10 @@ Modern utility functions with rich progress bars and improved error handling.
 from __future__ import annotations
 
 from functools import wraps
+from typing import List
 
 
+import numpy as np
 import pandas as pd
 import torch
 from pathlib import Path
@@ -91,6 +93,44 @@ def get_opt_type(opt: str) -> str:
         return "Optimization"
     elif opt == "init":
         return "Initialization"
+
+
+def generate_constraint_mask(
+    total_name_arr: np.ndarray,
+    condition_types: List[str],
+    constraints: dict,
+) -> np.ndarray:
+    """Generate constraint mask based on condition restrictions.
+
+    Args:
+        total_name_arr: Array of all condition combinations (shape: [n_combinations, n_conditions])
+        condition_types: List of condition type names
+        constraints: Dictionary of constraints {condition_type: [allowed_values]}
+
+    Returns:
+        Boolean mask array where True indicates the combination satisfies constraints
+    """
+    if not constraints:
+        return np.ones(len(total_name_arr), dtype=bool)
+
+    mask = np.ones(len(total_name_arr), dtype=bool)
+
+    for condition_type, allowed_values in constraints.items():
+        if condition_type not in condition_types:
+            continue  # Skip invalid condition types
+
+        # Get index of this condition type in the name array
+        condition_idx = condition_types.index(condition_type)
+
+        # Check which combinations have allowed values for this condition
+        allowed_set = set(allowed_values)
+        condition_values = total_name_arr[:, condition_idx]
+        condition_mask = np.array([val in allowed_set for val in condition_values])
+
+        # Update overall mask
+        mask = mask & condition_mask
+
+    return mask
 
 
 def sanitize_filename(filename: str) -> str:

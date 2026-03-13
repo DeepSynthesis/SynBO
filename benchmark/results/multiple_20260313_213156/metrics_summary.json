@@ -1,0 +1,42 @@
+{
+    "average_optimal_targets": {
+        "yield": {
+            "average": 96.77000000000001,
+            "average_normalized": 0.9677,
+            "std": 5.565734452882207,
+            "std_normalized": 0.05565734452882206
+        },
+        "cost": {
+            "average": 0.024021308800000002,
+            "average_normalized": 0.9519573824,
+            "std": 0.0040090505597029525,
+            "std_normalized": 0.00801810111940591
+        },
+        "hypervolume": {
+            "average_normalized": 0.9570786597214453,
+            "std_normalized": 0.0499656514814186,
+            "total_hv": 1.1566615574040002
+        }
+    },
+    "auc_of_optimization": {
+        "yield": {
+            "average": 753.0284999999999,
+            "average_normalized": 0.7530285,
+            "std": 75.19513980471075,
+            "std_normalized": 0.07519513980471076
+        },
+        "cost": {
+            "average": 4.243310555999999,
+            "average_normalized": 0.8486621112,
+            "std": 0.04956150801130877,
+            "std_normalized": 0.00991230160226176
+        },
+        "hypervolume": {
+            "average": 8.500267115772562,
+            "average_normalized": 0.734896656793062,
+            "std": 0.8583435801262957,
+            "std_normalized": 0.07420870648219291,
+            "total_hv": 1.1566615574040002
+        }
+    }
+}

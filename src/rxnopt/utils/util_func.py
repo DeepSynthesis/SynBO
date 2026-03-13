@@ -105,7 +105,7 @@ def generate_constraint_mask(
     Args:
         total_name_arr: Array of all condition combinations (shape: [n_combinations, n_conditions])
         condition_types: List of condition type names
-        constraints: Dictionary of constraints {condition_type: [allowed_values]}
+        constraints: Dictionary of constraints {condition_type: [prohibited_values]}
 
     Returns:
         Boolean mask array where True indicates the combination satisfies constraints
@@ -115,7 +115,7 @@ def generate_constraint_mask(
 
     mask = np.ones(len(total_name_arr), dtype=bool)
 
-    for condition_type, allowed_values in constraints.items():
+    for condition_type, prohibited_values in constraints.items():
         if condition_type not in condition_types:
             continue  # Skip invalid condition types
 
@@ -123,12 +123,14 @@ def generate_constraint_mask(
         condition_idx = condition_types.index(condition_type)
 
         # Check which combinations have allowed values for this condition
-        allowed_set = set(allowed_values)
+        prohibited_values = set(prohibited_values)
         condition_values = total_name_arr[:, condition_idx]
-        condition_mask = np.array([val in allowed_set for val in condition_values])
+        condition_mask = np.array([val not in prohibited_values for val in condition_values])
 
         # Update overall mask
         mask = mask & condition_mask
+
+    assert sum(mask) > 0, "No valid combinations found with given constraints"
 
     return mask
 

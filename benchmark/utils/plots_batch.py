@@ -10,7 +10,7 @@ from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 def plot_optimization_curves(model_data, target_columns, direction_tags, range_tags, experiment_dir):
     """
     Plot optimization curves for multiple models with confidence intervals.
-    
+
     Args:
         model_data: Dictionary with model names as keys and list of DataFrames as values
                     Each DataFrame represents one independent run
@@ -27,7 +27,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
 
     for model_name, dfs in model_data.items():
         print(f"Processing {len(dfs)} runs for model: {model_name}")
-        
+
         for run_idx, df in enumerate(dfs):
             df = df.sort_values("batch").copy()
 
@@ -49,27 +49,19 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
                 # Add cumulative best records (best value up to and including current batch)
                 # Include run_idx to distinguish between different runs
                 for batch_idx, best_value in cumulative_best.items():
-                    all_best_records.append({
-                        "batch": batch_idx, 
-                        "target": col, 
-                        "value": best_value, 
-                        "model": model_name,
-                        "run_idx": run_idx
-                    })
+                    all_best_records.append(
+                        {"batch": batch_idx, "target": col, "value": best_value, "model": model_name, "run_idx": run_idx}
+                    )
 
                 # Add batch best records (best value within each batch only)
                 for batch_idx, best_value in batch_best.items():
-                    all_actual_records.append({
-                        "batch": batch_idx, 
-                        "target": col, 
-                        "value": best_value, 
-                        "model": model_name,
-                        "run_idx": run_idx
-                    })
+                    all_actual_records.append(
+                        {"batch": batch_idx, "target": col, "value": best_value, "model": model_name, "run_idx": run_idx}
+                    )
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
-    
+
     print(f"Total records for plotting - Cumulative best: {len(best_df)}, Batch best: {len(actual_df)}")
 
     n_cols = len(target_columns)
@@ -82,14 +74,9 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
         ax = axes[i]
         direction = direction_tags[i]
         y_range = range_tags[i]
-        try:
-            col_best_data = best_df[best_df["target"] == col]
-            col_actual_data = actual_df[actual_df["target"] == col]
-        except:
-            from IPython import embed
 
-            embed()
-            exit()
+        col_best_data = best_df[best_df["target"] == col]
+        col_actual_data = actual_df[actual_df["target"] == col]
 
         # Lineplot with model hue for cumulative best values
         sns.lineplot(
@@ -493,7 +480,7 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
                 combined_data = df[target_columns].values
             else:
                 combined_data = np.vstack([combined_data, df[target_columns].values])
-        
+
         if combined_data is not None:
             # 准备实验数据的排序 (同样处理 max/min)
             exp_sorting_data = combined_data.copy()

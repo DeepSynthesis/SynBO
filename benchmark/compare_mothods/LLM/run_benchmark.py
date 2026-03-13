@@ -205,7 +205,6 @@ class LLMBenchmark:
         # Parse CSV
         csv_content = "\n".join(csv_lines)
         df = pd.read_csv(StringIO(csv_content), index_col=None)
-        # from IPython import embed; embed()
         return df
 
     def fill_metrics(self, df: pd.DataFrame) -> pd.DataFrame:

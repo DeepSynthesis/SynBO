@@ -6,7 +6,6 @@ and generate constraints for optimization using LLM-based analysis.
 
 from typing import Any, Dict, List, Optional
 import pandas as pd
-import numpy as np
 import json
 from openai import OpenAI
 
@@ -19,11 +18,14 @@ class LLMAnalyzer:
     optimization rounds using LLM.
     """
 
-    def __init__(self):
+    def __init__(self, opt_metrics: List, opt_metric_settings: List[Dict], prev_rxn: pd.DataFrame, condition_dict: Dict[str, List[Any]]):
         """Initialize the LLMAnalyzer."""
-        self.analysis_results = {}
+        self.opt_metrics = opt_metrics
+        self.opt_metric_settings = opt_metric_settings
+        self.prev_rxn = prev_rxn
+        self.condition_dict = condition_dict
 
-    def analyze(self, prev_rxn: pd.DataFrame, condition_dict: Dict[str, List[Any]], **kwargs) -> Optional[Dict[str, List[Any]]]:
+    def analyze(self, **kwargs) -> Optional[Dict[str, List[Any]]]:
         """Analyze previous reactions and generate constraints using LLM.
 
         This method uses LLM to analyze the previous reaction data and determine
@@ -40,18 +42,9 @@ class LLMAnalyzer:
                 - temperature: Temperature for LLM generation (default: 0.7)
 
         Returns:
-            Dictionary of constraints in format {condition_type: [allowed_values]}
+            Dictionary of constraints in format {condition_type: [prohibited_values]}
             Returns None if no constraints are needed
 
-        Example:
-            >>> analyzer = LLMAnalyzer()
-            >>> constraints = analyzer.analyze(
-            ...     prev_rxn=prev_data,
-            ...     condition_dict=condition_dict,
-            ...     reduce_ratio=0.3,
-            ...     api_key="your-api-key",
-            ...     model="gpt-4"
-            ... )
         """
         # Extract parameters
         reduce_ratio = kwargs.get("reduce_ratio", 0.1)
@@ -64,13 +57,11 @@ class LLMAnalyzer:
         if api_key is None:
             raise ValueError("api_key is required for LLM analysis")
 
-        print(f"Analyzing {len(prev_rxn)} reactions using LLM: {model}")
+        print(f"Analyzing {len(self.prev_rxn)} reactions using LLM: {model}")
         print(f"Target reduction ratio: {reduce_ratio}")
 
         # Generate constraints using LLM
         constraints = self._llm_analysis(
-            prev_rxn=prev_rxn,
-            condition_dict=condition_dict,
             reduce_ratio=reduce_ratio,
             api_key=api_key,
             base_url=base_url,
@@ -80,25 +71,18 @@ class LLMAnalyzer:
 
         if constraints:
             print(f"\nGenerated constraints:")
-            for condition_type, allowed_values in constraints.items():
-                total_values = len(condition_dict[condition_type])
-                removed = total_values - len(allowed_values)
+            for condition_type, prohibited_values in constraints.items():
+                total_values = len(self.condition_dict[condition_type])
+                removed = len(prohibited_values)
                 removal_ratio = removed / total_values
-                print(f"  {condition_type}: {len(allowed_values)}/{total_values} values " f"({removal_ratio:.1%} removed)")
+                print(f"  {condition_type}: {len(prohibited_values)}/{total_values} values " f"({removal_ratio:.1%} removed)")
         else:
             print("\nNo constraints generated - keeping all values")
 
         return constraints
 
     def _llm_analysis(
-        self,
-        prev_rxn: pd.DataFrame,
-        condition_dict: Dict[str, List[Any]],
-        reduce_ratio: float,
-        api_key: str,
-        base_url: Optional[str] = None,
-        model: str = "gpt-4",
-        temperature: float = 0.7,
+        self, reduce_ratio: float, api_key: str, base_url: Optional[str] = None, model: str = "gpt-4", temperature: float = 0.7
     ) -> Optional[Dict[str, List[Any]]]:
         """Perform LLM-based analysis for constraint generation.
 
@@ -121,13 +105,13 @@ class LLMAnalyzer:
             Dictionary of constraints or None
         """
         # Prepare data summary for LLM
-        data_summary = self._prepare_data_summary(prev_rxn, condition_dict)
+        data_summary = self._prepare_data_summary()
 
         # Prepare reaction space summary
-        space_summary = self._prepare_space_summary(condition_dict, reduce_ratio)
+        space_summary = self._prepare_space_summary()
 
         # Create the prompt
-        prompt = self._create_prompt(data_summary, space_summary, condition_dict, reduce_ratio)
+        prompt = self._create_prompt(data_summary, space_summary, reduce_ratio)
         print(prompt)
         # Call LLM API
         try:
@@ -149,13 +133,11 @@ class LLMAnalyzer:
 
             # Extract response content
             response_text = response.choices[0].message.content
-            from IPython import embed
 
-            embed()
             print(f"Received response from LLM")
 
             # Parse the response
-            constraints = self._parse_llm_response(response_text, condition_dict)
+            constraints = self._parse_llm_response(response_text)
 
             return constraints
 
@@ -163,7 +145,7 @@ class LLMAnalyzer:
             print(f"Error calling LLM API: {e}")
             return None
 
-    def _prepare_data_summary(self, prev_rxn: pd.DataFrame, condition_dict: Dict[str, List[Any]]) -> str:
+    def _prepare_data_summary(self) -> str:
         """Prepare a summary of the reaction data for the LLM.
 
         Args:
@@ -173,29 +155,17 @@ class LLMAnalyzer:
         Returns:
             String summary of the data
         """
-        # Find metric columns (columns that are not condition types)
-        metric_columns = [col for col in prev_rxn.columns if col not in condition_dict and col != "batch"]
+        summary = f"### Previous Reaction Data Summary:\n"
+        summary += f"- Optimization metrics: {', '.join(self.opt_metrics)}\n"
+        summary += f"- Condition types: {', '.join(self.condition_dict.keys())}\n"
 
-        summary = f"Previous Reaction Data Summary:\n"
-        summary += f"- Total reactions: {len(prev_rxn)}\n"
-        summary += f"- Condition types: {', '.join(condition_dict.keys())}\n"
-
-        if metric_columns:
-            summary += f"- Optimization metrics: {', '.join(metric_columns)}\n"  # TODO: this one is wrong.
-
-        # Show top 5 reactions by first metric
-        if metric_columns and pd.api.types.is_numeric_dtype(prev_rxn[metric_columns[0]]):
-            top_reactions = prev_rxn.nlargest(5, metric_columns[0])
-            summary += "\nTop 5 performing reactions:\n"
-            for idx, row in top_reactions.iterrows():
-                summary += f"  - {metric_columns[0]}: {row[metric_columns[0]]:.2f}, "
-                for cond in list(condition_dict.keys())[:3]:  # Show first 3 conditions
-                    summary += f"{cond}={row[cond]}, "
-                summary = summary.rstrip(", ") + "\n"
+        prev_rxn_df = self.prev_rxn[["batch", "index"] + list(self.condition_dict.keys()) + self.opt_metrics]
+        summary += f"### Previous Reaction Optimization Results:"
+        summary += prev_rxn_df.to_markdown(index=False)
 
         return summary
 
-    def _prepare_space_summary(self, condition_dict: Dict[str, List[Any]], reduce_ratio: float) -> str:
+    def _prepare_space_summary(self) -> str:
         """Prepare a summary of the reaction space for the LLM.
 
         Args:
@@ -205,23 +175,17 @@ class LLMAnalyzer:
         Returns:
             String summary of the reaction space
         """
-        summary = f"\nReaction Space Summary:\n"
-        summary += f"- Goal: Eliminate approximately {reduce_ratio*100:.0%} of reagents per condition type\n"
+        summary = f"\n### Reaction Space Summary:\n"
         summary += f"- Condition types and their options:\n\n"
 
-        for cond_type, values in condition_dict.items():
-            num_to_keep = int(len(values) * (1 - reduce_ratio))
-            summary += f"{cond_type}:\n"
-            summary += f"  - Total options: {len(values)}\n"
-            summary += f"  - Target to keep: ~{num_to_keep}\n"
-            summary += f"  - All options: {', '.join(map(str, values[:10]))}"
-            if len(values) > 10:
-                summary += f" ... and {len(values)-10} more"
+        for cond_type, values in self.condition_dict.items():
+            summary += f"  - {cond_type} ({len(values)} options):\n"
+            summary += f"  - All options: {', '.join(map(str, values))}"
             summary += "\n\n"
 
         return summary
 
-    def _create_prompt(self, data_summary: str, space_summary: str, condition_dict: Dict[str, List[Any]], reduce_ratio: float) -> str:
+    def _create_prompt(self, data_summary: str, space_summary: str, reduce_ratio: float) -> str:
         """Create the prompt for the LLM.
 
         Args:
@@ -233,6 +197,9 @@ class LLMAnalyzer:
         Returns:
             String prompt
         """
+
+        reduce_reagents_num = int(sum(len(values) for values in self.condition_dict.values()) * reduce_ratio)
+
         prompt = f"""Based on the following reaction optimization data, please identify which reagents/conditions should be eliminated from the reaction space.
 
 {data_summary}
@@ -240,27 +207,27 @@ class LLMAnalyzer:
 {space_summary}
 
 Your task:
-1. For each condition type, analyze the data to identify reagents that are performing poorly or are unlikely to lead to optimal reactions
-2. Select approximately {reduce_ratio*100:.0%} of reagents to eliminate from each condition type
+1. For each condition type, analyze the data to identify reagents that are performing poorly or are unlikely to lead to optimal reactions.
+2. Select approximately {reduce_ratio:.0%} of reagents to eliminate. That is, reduce totally {reduce_reagents_num} reagents from the reaction space.
 3. Focus on eliminating the least promising reagents based on:
    - Poor performance in the existing data
    - Chemical incompatibility
-   - Unlikely combinations
-4. Return your answer in the following JSON format:
+   But DO NOT remove reagents that are not present in the data. They are likely to be tests for future rounds.
+4. Return your answer in the following `JSON` format like:
 
 {{
-    "base": ["base_value_1", "base_value_2"],
-    "ligand": ["ligand_value_1", "ligand_value_2"],
-    "solvent": ["solvent_value_1", "solvent_value_2"]
+    "reagent1": ["reagent1_value1", "reagent1_value2"],
+    "reagent2": ["reagent2_value1", "reagent2_value2"],
+    ...
 }}
 
-The keys should be the condition types, and the values should be lists of reagents to KEEP (not eliminate).
+The keys should be the condition types, and the values should be lists of reagents to ELIMINATE (NOT KEEP).
 
 Please provide only the JSON response, no additional text."""
 
         return prompt
 
-    def _parse_llm_response(self, response_text: str, condition_dict: Dict[str, List[Any]]) -> Optional[Dict[str, List[Any]]]:
+    def _parse_llm_response(self, response_text: str) -> Optional[Dict[str, List[Any]]]:
         """Parse the LLM response to extract constraints.
 
         Args:
@@ -282,28 +249,7 @@ Please provide only the JSON response, no additional text."""
                 return None
 
             json_str = response_text[start_idx:end_idx]
-            constraints_data = json.loads(json_str)
-
-            # Validate and format constraints
-            constraints = {}
-            for cond_type in condition_dict.keys():
-                if cond_type in constraints_data:
-                    keep_values = constraints_data[cond_type]
-
-                    # Validate that the values exist in condition_dict
-                    valid_values = []
-                    for value in keep_values:
-                        if value in condition_dict.get(cond_type, []):
-                            valid_values.append(value)
-
-                    # Only add constraint if we're removing some values
-                    if valid_values and len(valid_values) < len(condition_dict[cond_type]):
-                        constraints[cond_type] = valid_values
-                        print(f"  {cond_type}: {len(valid_values)}/{len(condition_dict[cond_type])} values kept")
-
-            if not constraints:
-                print("Warning: No valid constraints generated from LLM response")
-                return None
+            constraints = json.loads(json_str)
 
             return constraints
 
@@ -314,11 +260,3 @@ Please provide only the JSON response, no additional text."""
         except Exception as e:
             print(f"Error processing LLM response: {e}")
             return None
-
-    def get_analysis_summary(self) -> Dict[str, Any]:
-        """Get a summary of the last analysis performed.
-
-        Returns:
-            Dictionary containing analysis statistics and results
-        """
-        return self.analysis_results

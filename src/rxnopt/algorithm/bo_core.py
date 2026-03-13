@@ -163,6 +163,7 @@ class DefaultBO:
 
             # Generate constraint mask if constraints are provided
             constraint_mask_t = None
+            assert constraints is not None
             if constraints is not None and total_name_arr is not None and condition_types is not None:
                 constraint_mask = generate_constraint_mask(
                     total_name_arr=total_name_arr,

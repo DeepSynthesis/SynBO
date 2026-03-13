@@ -306,7 +306,7 @@ class ReactionOptimizer:
             desc_normalize: Descriptor normalization method
             optimized_method: Optimization algorithm to use
             temperature: Temperature parameter for exploration-exploitation trade-off (0.0 = pure exploitation, higher = more exploration)
-            constraints: Dictionary of constraints to apply to the search space. Format: {condition_type: [allowed_values]}
+            constraints: Dictionary of constraints to apply to the search space. Format: {condition_type: [prohibited_values]}
                         Example: {"base": ["base1", "base2"], "solvent": ["toluene"]}
                         If a condition type is not in the dictionary, all values are allowed.
             opt_weights: Weights for multi-objective optimization
@@ -319,6 +319,7 @@ class ReactionOptimizer:
         except:
             self.opt_console.print("Must load previous reaction information before optimization.", style="red")
             raise Exception("No previous reaction information was loaded.")
+
         check_desc_completeness(self.desc_dict, self.condition_dict)
         self.total_name_arr, self.total_desc_arr = array_process(
             self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
@@ -458,7 +459,7 @@ class ReactionOptimizer:
             **kwargs: Additional parameters for the analysis method
 
         Returns:
-            Dictionary of constraints in format {condition_type: [allowed_values]}
+            Dictionary of constraints in format {condition_type: [prohibited_values]}
             Returns None if no constraints are needed
 
         Raises:
@@ -470,8 +471,13 @@ class ReactionOptimizer:
             if self.prev_rxn_info is None:
                 raise ValueError("Previous reaction information must be loaded before getting constraints")
 
-            analyzer = LLMAnalyzer()
-            constraints = analyzer.analyze(prev_rxn=self.prev_rxn_info, condition_dict=self.condition_dict, **kwargs)
+            analyzer = LLMAnalyzer(
+                opt_metrics=self.opt_metrics,
+                opt_metric_settings=self.opt_metric_settings,
+                prev_rxn=self.prev_rxn_info,
+                condition_dict=self.condition_dict,
+            )
+            constraints = analyzer.analyze(**kwargs)
             return constraints
         else:
             raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")

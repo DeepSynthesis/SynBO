@@ -64,14 +64,8 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
         ax = axes[i]
         direction = direction_tags[i]
         y_range = range_tags[i]
-        try:
-            col_best_data = best_df[best_df["target"] == col]
-            col_actual_data = actual_df[actual_df["target"] == col]
-        except:
-            from IPython import embed
-
-            embed()
-            exit()
+        col_best_data = best_df[best_df["target"] == col]
+        col_actual_data = actual_df[actual_df["target"] == col]
 
         # Lineplot with model hue for cumulative best values
         sns.lineplot(

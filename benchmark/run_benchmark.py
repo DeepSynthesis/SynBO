@@ -1,4 +1,5 @@
 import json
+from os import unlink
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -57,7 +58,7 @@ CONFIG = {
         "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
         "space_reduction_frequency": 3,  # Perform space reduction every N iterations (adjustable parameter)
-        "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
+        "reduce_ratio": 0.25,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
         "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
         "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
@@ -97,12 +98,13 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
 
 
 def cleanup_temp_files(run_dir):
-    """删除所有的 batch-*.csv 文件"""
+    """删除所有的 batch-*.csv 文件和json文件"""
     for temp_file in run_dir.glob("batch-*.csv"):
-        try:
-            temp_file.unlink()
-        except OSError as e:
-            print(f"Error deleting {temp_file}: {e}")
+        temp_file.unlink()
+
+    json_file = run_dir / "prohibited_reagent.json"
+    if json_file.exists():
+        json_file.unlink()
 
 
 def setup_experiment_dir(base_dir, num_rounds):
@@ -231,6 +233,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
                 quiet=True,
+                save_dir=str(experiment_dir),
             )
 
             rxn_opt.load_rxn_space(condition_dict=condition_dict)
@@ -307,7 +310,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     **CONFIG["optimization_settings"]["kwargs"],
                 )
 
-            rxn_opt.save_results(save_dir=str(experiment_dir))
+            rxn_opt.save_results()
 
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path

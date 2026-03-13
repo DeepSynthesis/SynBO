@@ -51,6 +51,7 @@ class ReactionOptimizer:
         opt_type: Literal["init", "opt", "auto"] = "auto",
         random_seed: int = 42,
         quiet: bool = False,
+        save_dir: str = None,
     ) -> None:
         if isinstance(opt_metrics, str):
             opt_metrics = [opt_metrics]
@@ -71,15 +72,18 @@ class ReactionOptimizer:
 
         _logger_default._set_quiet(quiet)
 
-        self.condition_dict: Dict[str, List[Any]] = {}
-        self.desc_dict: Dict[str, Any] = {}
+        self.condition_dict = {}
+        self.desc_dict = {}
         self.opt_metrics = opt_metrics
         self.opt_metric_settings = opt_metric_settings
         self.opt_type = opt_type
-        self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
         self.random_seed = random_seed
         self.quiet = quiet
+
+        self.save_dir = Path(save_dir) if save_dir else Path.cwd()
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
         self.opt_console = console
 
         self.opt_console.print(
@@ -320,6 +324,19 @@ class ReactionOptimizer:
             self.opt_console.print("Must load previous reaction information before optimization.", style="red")
             raise Exception("No previous reaction information was loaded.")
 
+        # Function 3: Load prohibited reagents from file if they exist
+        if self.save_dir:
+            from rxnopt.utils.constraints_io import load_prohibited_reagents, merge_constraints
+
+            file_prohibited = load_prohibited_reagents(self.save_dir)
+            if file_prohibited:
+                self.opt_console.print("📋 Loading prohibited reagents from file...", style="cyan")
+                # Merge with provided constraints
+                constraints = merge_constraints(constraints, file_prohibited)
+                if constraints:
+                    total_prohibited = sum(len(v) for v in constraints.values())
+                    self.opt_console.print(f"  Total constraints loaded: {total_prohibited} prohibited reagents", style="cyan")
+
         check_desc_completeness(self.desc_dict, self.condition_dict)
         self.total_name_arr, self.total_desc_arr = array_process(
             self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
@@ -389,7 +406,6 @@ class ReactionOptimizer:
 
     def save_results(
         self,
-        save_dir: Union[str, Path],
         filetype: Literal["csv", "excel", "json"] = "csv",
         figure_output: List[str] = None,
         figure_path: Optional[Union[str, Path]] = None,
@@ -413,7 +429,7 @@ class ReactionOptimizer:
                 pred_info[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
 
         save_df(
-            save_path=save_dir,
+            save_path=self.save_dir,
             filetype=filetype,
             selected_conditions=self.selected_conditions,
             condition_dict=self.condition_dict,
@@ -467,17 +483,29 @@ class ReactionOptimizer:
         """
         if method == "llm":
             from rxnopt.analysis.llm_analyzer import LLMAnalyzer
+            from rxnopt.utils.constraints_io import load_prohibited_reagents, save_prohibited_reagents
 
             if self.prev_rxn_info is None:
                 raise ValueError("Previous reaction information must be loaded before getting constraints")
+
+            # Function 2: Load existing prohibited reagents before LLM recommendation
+            existing_prohibited = None
+            if self.save_dir:
+                existing_prohibited = load_prohibited_reagents(self.save_dir)
 
             analyzer = LLMAnalyzer(
                 opt_metrics=self.opt_metrics,
                 opt_metric_settings=self.opt_metric_settings,
                 prev_rxn=self.prev_rxn_info,
                 condition_dict=self.condition_dict,
+                existing_prohibited=existing_prohibited,  # Pass existing prohibited to LLM
             )
             constraints = analyzer.analyze(**kwargs)
+
+            # Function 1: Save prohibited reagents after LLM recommendation
+            if constraints and self.save_dir:
+                save_prohibited_reagents(save_dir=self.save_dir, new_prohibited=constraints, existing_prohibited=existing_prohibited)
+
             return constraints
         else:
             raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")

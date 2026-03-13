@@ -18,12 +18,21 @@ class LLMAnalyzer:
     optimization rounds using LLM.
     """
 
-    def __init__(self, opt_metrics: List, opt_metric_settings: List[Dict], prev_rxn: pd.DataFrame, condition_dict: Dict[str, List[Any]]):
-        """Initialize the LLMAnalyzer."""
+    def __init__(self, opt_metrics: List, opt_metric_settings: List[Dict], prev_rxn: pd.DataFrame, condition_dict: Dict[str, List[Any]], existing_prohibited: Optional[Dict[str, List[Any]]] = None):
+        """Initialize the LLMAnalyzer.
+
+        Args:
+            opt_metrics: List of optimization metric names
+            opt_metric_settings: List of optimization metric settings
+            prev_rxn: DataFrame containing previous reaction data
+            condition_dict: Dictionary of condition types and their possible values
+            existing_prohibited: Optional dictionary of already prohibited reagents
+        """
         self.opt_metrics = opt_metrics
         self.opt_metric_settings = opt_metric_settings
         self.prev_rxn = prev_rxn
         self.condition_dict = condition_dict
+        self.existing_prohibited = existing_prohibited
 
     def analyze(self, **kwargs) -> Optional[Dict[str, List[Any]]]:
         """Analyze previous reactions and generate constraints using LLM.
@@ -171,7 +180,7 @@ class LLMAnalyzer:
         return summary
 
     def _prepare_space_summary(self) -> str:
-        """Prepare a summary of the reaction space for the LLM.
+        """Prepare a summary of reaction space for the LLM.
 
         Args:
             condition_dict: Dictionary of condition types and their possible values
@@ -187,6 +196,15 @@ class LLMAnalyzer:
             summary += f"  - {cond_type} ({len(values)} options):\n"
             summary += f"  - All options: {', '.join(map(str, values))}"
             summary += "\n\n"
+
+        # Add existing prohibited reagents information
+        if self.existing_prohibited:
+            summary += f"\n### Previously Prohibited Reagents:\n"
+            summary += f"NOTE: The following reagents have already been eliminated in previous rounds. DO NOT recommend them again.\n\n"
+            for cond_type, prohibited_values in self.existing_prohibited.items():
+                if prohibited_values:
+                    summary += f"  - {cond_type}: {', '.join(map(str, prohibited_values))}\n"
+            summary += "\n"
 
         return summary
 
@@ -205,11 +223,15 @@ class LLMAnalyzer:
 
         reduce_reagents_num = int(sum(len(values) for values in self.condition_dict.values()) * reduce_ratio)
 
+        prohibited_note = ""
+        if self.existing_prohibited:
+            prohibited_note = f"\nIMPORTANT: Some reagents have already been prohibited in previous rounds (see 'Previously Prohibited Reagents' section above). DO NOT include these in your response - only recommend NEW reagents to prohibit."
+
         prompt = f"""Based on the following reaction optimization data, please identify which reagents/conditions should be eliminated from the reaction space.
 
 {data_summary}
 
-{space_summary}
+{space_summary}{prohibited_note}
 
 Your task:
 1. For each condition type, analyze the data to identify reagents that are performing poorly or are unlikely to lead to optimal reactions.

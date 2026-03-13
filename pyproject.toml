@@ -36,6 +36,7 @@ dependencies = [
   "epam.indigo>=1.36.1",
   "xgboost>=2.0.0",
   "hyperopt>=0.2.7",
+  "openai>=2.20.0",
 ]
 description = "A multi-objective reaction optimization framework based on Bayesian Optimization"
 keywords = ["chemistry", "reaction optimization", "bayesian optimization", "machine learning", "catalysis"]

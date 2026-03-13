@@ -449,3 +449,29 @@ class ReactionOptimizer:
         for desc_df in self.desc_dict.values():
             total_shape += desc_df.shape[1]
         return total_shape
+
+    def get_constrains(self, method: str = "llm", **kwargs) -> Optional[Dict[str, List[Any]]]:
+        """Get constraints for optimization based on analysis method.
+
+        Args:
+            method: Analysis method to use ("llm" or others)
+            **kwargs: Additional parameters for the analysis method
+
+        Returns:
+            Dictionary of constraints in format {condition_type: [allowed_values]}
+            Returns None if no constraints are needed
+
+        Raises:
+            ValueError: If method is not supported or required data is not loaded
+        """
+        if method == "llm":
+            from rxnopt.analysis.llm_analyzer import LLMAnalyzer
+
+            if self.prev_rxn_info is None:
+                raise ValueError("Previous reaction information must be loaded before getting constraints")
+
+            analyzer = LLMAnalyzer()
+            constraints = analyzer.analyze(prev_rxn=self.prev_rxn_info, condition_dict=self.condition_dict, **kwargs)
+            return constraints
+        else:
+            raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")

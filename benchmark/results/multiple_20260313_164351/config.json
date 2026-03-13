@@ -1,7 +1,7 @@
 {
-    "experiment_name": "B-H_Optimization",
+    "experiment_name": "B-H_Optimization (dynamic)",
     "base_seed": 199,
-    "num_rounds": 1,
+    "num_rounds": 10,
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
@@ -57,12 +57,23 @@
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "lhs",
+        "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
+        "temperature": 0.2,
         "kwargs": {
-            "surrogate_model": "GP",
-            "acq_func": "UCB"
+            "surrogate_model": "RF",
+            "acq_func": "EHVI"
         }
+    },
+    "constraint_settings": {
+        "enable_constraints": true,
+        "constraint_method": "llm",
+        "space_reduction_frequency": 3,
+        "reduce_ratio": 0.1,
+        "llm_model": "gemini-3-flash-preview",
+        "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",
+        "llm_base_url": "https://aihubmix.com/v1",
+        "llm_temperature": 0.0
     }
 }

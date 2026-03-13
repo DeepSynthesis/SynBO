@@ -128,7 +128,7 @@ class LLMAnalyzer:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=temperature,
-                max_tokens=10000,
+                max_tokens=40000,
             )
 
             # Extract response content
@@ -155,7 +155,12 @@ class LLMAnalyzer:
             String summary of the data
         """
         summary = f"### Previous Reaction Data Summary:\n"
-        summary += f"- Optimization metrics: {', '.join(self.opt_metrics)}\n"
+
+        opt_info = []
+        for i in zip(self.opt_metrics, self.opt_metric_settings):
+            opt_info.append(f"{i[0]}({i[1]['opt_direct']}imum)")
+
+        summary += f"- Optimization metrics: {', '.join(opt_info)}\n"
         summary += f"- Condition types: {', '.join(self.condition_dict.keys())}\n"
 
         prev_rxn_df = self.prev_rxn[["batch", "index"] + list(self.condition_dict.keys()) + self.opt_metrics]

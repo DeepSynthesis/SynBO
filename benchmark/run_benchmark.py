@@ -54,14 +54,14 @@ CONFIG = {
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
     "constraint_settings": {
-        "enable_constraints": True,  # Enable/disable constraint-based space reduction
+        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
-        "space_reduction_frequency": 3,  # Perform space reduction every N iterations
-        "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0)
+        "space_reduction_frequency": 3,  # Perform space reduction every N iterations (adjustable parameter)
+        "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
-        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis
+        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
         "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
-        "llm_base_url": "https://aihubmix.com/v1/chat/completions",
+        "llm_base_url": "https://aihubmix.com/v1",
         "llm_temperature": 0.0,  # Temperature parameter for LLM generation
     },
 }
@@ -273,20 +273,29 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 if enable_constraints and i % space_reduction_frequency == 0:
                     print(f"\n{'='*10} Generating constraints at iteration {i} {'='*10}")
 
-                    constraints = rxn_opt.get_constrains(
-                        method=constraint_method,
-                        reduce_ratio=reduce_ratio,
-                        model=llm_model,
-                        api_key=llm_api_key,
-                        base_url=llm_base_url,
-                        temperature=llm_temperature,
-                    )
+                    try:
+                        constraints = rxn_opt.get_constrains(
+                            method=constraint_method,
+                            reduce_ratio=reduce_ratio,
+                            model=llm_model,
+                            api_key=llm_api_key,
+                            base_url=llm_base_url,
+                            temperature=llm_temperature,
+                        )
 
-                    total_eliminated = sum(len(vals) for vals in constraints.values())
-                    print(f"✓ Constraints generated successfully")
-                    print(f"  - Eliminated {total_eliminated} reagents total")
-                    for ctype, vals in constraints.items():
-                        print(f"  - {ctype}: {len(vals)} reagents eliminated")
+                        if constraints is not None:
+                            total_eliminated = sum(len(vals) for vals in constraints.values())
+                            print(f"✓ Constraints generated successfully")
+                            print(f"  - Eliminated {total_eliminated} reagents total")
+                            for ctype, vals in constraints.items():
+                                print(f"  - {ctype}: {len(vals)} reagents eliminated")
+                        else:
+                            print(f"⚠ Constraints generation returned None - using full reaction space")
+                            constraints = None
+                    except Exception as e:
+                        print(f"⚠ Error generating constraints: {e}")
+                        print(f"  Continuing with full reaction space")
+                        constraints = None
 
                 rxn_opt.optimize(
                     batch_size=CONFIG["batch_size"],

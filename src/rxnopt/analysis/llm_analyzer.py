@@ -142,8 +142,7 @@ class LLMAnalyzer:
             return constraints
 
         except Exception as e:
-            print(f"Error calling LLM API: {e}")
-            return None
+            raise Exception(f"Error calling LLM API: {e}")
 
     def _prepare_data_summary(self) -> str:
         """Prepare a summary of the reaction data for the LLM.
@@ -160,6 +159,7 @@ class LLMAnalyzer:
         summary += f"- Condition types: {', '.join(self.condition_dict.keys())}\n"
 
         prev_rxn_df = self.prev_rxn[["batch", "index"] + list(self.condition_dict.keys()) + self.opt_metrics]
+        prev_rxn_df.sort_values(by=["batch", "index"], inplace=True)
         summary += f"### Previous Reaction Optimization Results:"
         summary += prev_rxn_df.to_markdown(index=False)
 

@@ -53,17 +53,6 @@ CONFIG = {
         "temperature": 0.2,
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
-    "constraint_settings": {
-        "enable_constraints": True,  # Enable/disable constraint-based space reduction
-        "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
-        "space_reduction_frequency": 3,  # Perform space reduction every N iterations
-        "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0)
-        # Additional LLM parameters
-        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis
-        "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
-        "llm_base_url": "https://aihubmix.com/v1/chat/completions",
-        "llm_temperature": 0.0,  # Temperature parameter for LLM generation
-    },
 }
 
 CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
@@ -197,32 +186,11 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     start_points = load_start_points(start_point_path)
     print(f"Loaded start points from: {start_point_path}")
 
-    # Initialize constraint settings
-    constraint_settings = CONFIG.get("constraint_settings", {})
-    enable_constraints = constraint_settings.get("enable_constraints", False)
-    constraint_method = constraint_settings.get("constraint_method", "llm")
-    space_reduction_frequency = constraint_settings.get("space_reduction_frequency", 3)
-    reduce_ratio = constraint_settings.get("reduce_ratio", 0.3)
-
-    # LLM parameters
-    llm_model = constraint_settings.get("llm_model", "gpt-4")
-    llm_api_key = constraint_settings.get("llm_api_key", None)
-    llm_base_url = constraint_settings.get("llm_base_url", None)
-    llm_temperature = constraint_settings.get("llm_temperature", 0.7)
-
-    if enable_constraints:
-        print(f"\n[Constraints Enabled]")
-        print(f"  - Method: {constraint_method}")
-        print(f"  - Space reduction frequency: every {space_reduction_frequency} iterations")
-        print(f"  - Reduce ratio: {reduce_ratio:.1%}")
-        print(f"  - LLM model: {llm_model}")
-
     for round_idx in range(CONFIG["num_rounds"]):
         current_seed = base_seed + round_idx
         print(f"\n{'='*20} Starting Round {round_idx + 1}/{CONFIG['num_rounds']} (Seed: {current_seed}) {'='*20}")
 
         batch_files_map = {}  # 存储 batch_id -> file_path，用于最后合并
-        constraints = None  # Initialize constraints as None
 
         for i in tqdm(range(CONFIG["iterations"]), desc=f"Round {round_idx+1} Calc"):
             rxn_opt = ReactionOptimizer(
@@ -269,32 +237,12 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
 
             else:
-                # Generate constraints if enabled and it's the right iteration
-                if enable_constraints and i % space_reduction_frequency == 0:
-                    print(f"\n{'='*10} Generating constraints at iteration {i} {'='*10}")
-
-                    constraints = rxn_opt.get_constrains(
-                        method=constraint_method,
-                        reduce_ratio=reduce_ratio,
-                        model=llm_model,
-                        api_key=llm_api_key,
-                        base_url=llm_base_url,
-                        temperature=llm_temperature,
-                    )
-
-                    total_eliminated = sum(len(vals) for vals in constraints.values())
-                    print(f"✓ Constraints generated successfully")
-                    print(f"  - Eliminated {total_eliminated} reagents total")
-                    for ctype, vals in constraints.items():
-                        print(f"  - {ctype}: {len(vals)} reagents eliminated")
-
                 rxn_opt.optimize(
                     batch_size=CONFIG["batch_size"],
                     optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                     desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                     refine_desc=CONFIG["optimization_settings"]["refine_desc"],
                     temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
-                    constraints=constraints,
                     **CONFIG["optimization_settings"]["kwargs"],
                 )
 

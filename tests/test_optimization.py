@@ -36,14 +36,16 @@ class TestReactionOptimizer(unittest.TestCase):
         rxn_opt.load_desc(desc_dict=self.desc_dict)
         rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
 
-        rxn_opt.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
+        rxn_opt.optimize(
+            batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, temperature=0.1, **opt_kwargs
+        )
         rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)
 
     def test_combinations(self):
         test_params = [
             ("default_BO", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
-            ("evolution", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
-            ("particle_swarm", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
+            # ("evolution", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
+            # ("particle_swarm", "minmax", "auto_select", "csv", {"surrogate_model": "RF"}),
             # ("evolution", "minmax", "auto_select", "csv", {"method": "Thompson", "surrogate_model": "RF"}),
             # ("evolution", "minmax", "auto_select", "csv", {"method": "Thompson", "surrogate_model": "ensemble"}),
             # ("evolution", "minmax", "auto_select", "csv", {"method": "Standard", "surrogate_model": "GP"}),

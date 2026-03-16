@@ -1,0 +1,17 @@
+================================================================================
+Gryffin Benchmark Timing Information
+================================================================================
+
+Dataset:           HTE_datasets/B-H_HTE/B-H_HTE.csv
+Number of seeds:   1
+Budget per seed:   50 experiments
+Total experiments: 50
+Desc columns:      ['base', 'ligand', 'solvent']
+
+--------------------------------------------------------------------------------
+Timing Information:
+--------------------------------------------------------------------------------
+Start time:        2026-03-07 10:51:59
+End time:          2026-03-07 10:55:05
+Total time:        186.35 s (3.11 min)
+Avg time/seed:     186.35 s

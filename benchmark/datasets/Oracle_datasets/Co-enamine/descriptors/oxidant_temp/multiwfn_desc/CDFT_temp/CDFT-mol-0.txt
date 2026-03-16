@@ -1,0 +1,48 @@
+ Note: the E(HOMO) of TCE used for evaluating nucleophilicity index is the value evaluated at B3LYP/6-31G* level
+ 
+ Hirshfeld charges, condensed Fukui functions and condensed dual descriptors
+ Units used below are "e" (elementary charge)
+     Atom     q(N)    q(N+1)   q(N-1)     f-       f+       f0      CDD
+     1(O )  -0.6122  -0.7175  -0.4219   0.1904   0.1052   0.1478  -0.0851
+     2(S )   1.2086   1.0007   1.3461   0.1375   0.2079   0.1727   0.0704
+     3(O )  -0.6124  -0.7177  -0.4221   0.1903   0.1053   0.1478  -0.0850
+     4(O )  -0.5785  -0.6356  -0.4583   0.1202   0.0571   0.0887  -0.0632
+     5(O )  -0.3060  -0.5312  -0.1633   0.1427   0.2252   0.1840   0.0825
+     6(O )  -0.2892  -0.5460  -0.1016   0.1877   0.2567   0.2222   0.0690
+     7(H )   0.1901   0.1478   0.2214   0.0313   0.0423   0.0368   0.0109
+ 
+ Condensed local electrophilicity/nucleophilicity index (e*eV)
+     Atom              Electrophilicity          Nucleophilicity
+     1(O )                  0.03539                  0.41678
+     2(S )                  0.06988                  0.30098
+     3(O )                  0.03540                  0.41674
+     4(O )                  0.01919                  0.26325
+     5(O )                  0.07572                  0.31247
+     6(O )                  0.08631                  0.41090
+     7(H )                  0.01421                  0.06859
+ 
+ Condensed local softness (e/Hartree), relative electrophilicity/nucleophilicity (dimensionless) and condensed local hyper-softness (e/Hartree^2)
+     Atom         s-          s+          s0        s+/s-       s-/s+       s(2)
+     1(O )      0.3540      0.1958      0.2749      0.5529      1.8086     -0.2944
+     2(S )      0.2557      0.3866      0.3211      1.5120      0.6614      0.2435
+     3(O )      0.3540      0.1959      0.2749      0.5532      1.8076     -0.2942
+     4(O )      0.2236      0.1061      0.1649      0.4746      2.1068     -0.2185
+     5(O )      0.2654      0.4189      0.3422      1.5781      0.6337      0.2854
+     6(O )      0.3490      0.4775      0.4133      1.3679      0.7310      0.2389
+     7(H )      0.0583      0.0786      0.0684      1.3490      0.7413      0.0378
+ 
+ E(N):      -24.299784 Hartree
+ E(N+1):      -24.146222 Hartree
+ E(N-1):      -23.915687 Hartree
+ E_HOMO(N):     -0.254736 Hartree,   -6.9317 eV
+ E_HOMO(N+1):    0.025586 Hartree,    0.6962 eV
+ E_HOMO(N-1):   -0.513091 Hartree,  -13.9619 eV
+ First vertical IP:     0.384096 Hartree,   10.4518 eV
+ First vertical EA:    -0.153562 Hartree,   -4.1786 eV
+ Mulliken electronegativity:     0.115267 Hartree,    3.1366 eV
+ Chemical potential:            -0.115267 Hartree,   -3.1366 eV
+ Hardness (=fundamental gap):    0.537658 Hartree,   14.6304 eV
+ Softness:      1.859918 Hartree^-1,    0.0684 eV^-1
+ Softness^2:    3.459295 Hartree^-2,    0.0047 eV^-2
+ Electrophilicity index:    0.012356 Hartree,    0.3362 eV
+ Nucleophilicity index:     0.080462 Hartree,    2.1895 eV

@@ -19,8 +19,8 @@ class ExcelWriter:
     PX_TO_COL_WIDTH = 1 / 7.5  # Approx: 1 unit width ≈ 7.5 px
     PX_TO_ROW_HEIGHT = 0.75  # Approx: 1 px ≈ 0.75 points
 
-    def __init__(self, condition_types, opt_metrics):
-        self.condition_types = condition_types
+    def __init__(self, condition_dict, opt_metrics):
+        self.condition_dict = condition_dict
         self.opt_metrics = opt_metrics
 
     def write_to_excel(self, output_df, batch_id, figure_output=[], figure_path=None, save_path=None, filetype="xlsx", transpose=False):
@@ -30,8 +30,6 @@ class ExcelWriter:
 
             self._add_data_to_worksheet(ws, output_df, transpose)
 
-            # 2. Auto-adjust dimensions
-            # Pass figure_output to prevent text-based resizing for image columns
             self._auto_adjust_dimensions(ws, output_df, figure_output, transpose)
 
             if figure_output and figure_path:
@@ -42,15 +40,8 @@ class ExcelWriter:
 
                     col_idx_in_df = output_df.columns.get_loc(figure_type)
 
-                    if figure_type in self.condition_types:
-                        self._process_figure(
-                            ws,
-                            figure_type,
-                            output_df,
-                            figure_path,
-                            col_idx_in_df,
-                            transpose,
-                        )
+                    if figure_type in self.condition_dict.keys():
+                        self._process_figure(ws, figure_type, output_df, figure_path, col_idx_in_df, transpose)
                     else:
                         console.log(
                             f"Figure output '{figure_type}' not in condition types, skipping...",
@@ -83,22 +74,16 @@ class ExcelWriter:
             for col_idx, col_cells in enumerate(ws.columns, 1):
                 column_letter = get_column_letter(col_idx)
 
-                # Get the column name from the dataframe (col_idx is 1-based, df is 0-based)
-                # Note: output_df columns align with Excel columns because index=False in dataframe_to_rows
                 try:
                     col_name = output_df.columns[col_idx - 1]
                 except IndexError:
                     col_name = None
 
-                # Optimization: If this column is destined for an image, fix the width directly.
-                # Do not calculate text length (SMILES can be huge), otherwise the cell becomes too wide.
                 if col_name and col_name in figure_cols:
-                    # Set width to accommodate the image display size
                     final_width = self.IMG_DISPLAY_SIZE * self.PX_TO_COL_WIDTH
                     ws.column_dimensions[column_letter].width = final_width
                     continue
 
-                # Standard text length calculation
                 max_length = 0
                 for cell in col_cells:
                     try:
@@ -112,29 +97,20 @@ class ExcelWriter:
                 adjusted_width = (max_length + 2) * FONT_FACTOR
                 final_width = min(adjusted_width, MAX_SIZE)
                 ws.column_dimensions[column_letter].width = final_width
-        else:
-            # --- Transposed Mode: Adjust Row Heights and First Column Width ---
+        else:  # --- Transposed Mode: Adjust Row Heights and First Column Width ---
 
-            # ws.rows returns a generator, convert to list for indexing if needed, or iterate directly
             for row_idx, row_cells in enumerate(ws.rows, 1):
-                # In transposed mode:
-                # Row 1 corresponds to output_df.columns[0]
-                # Row 2 corresponds to output_df.columns[1], etc.
-                # Since the first column in Excel is the Header (Metric Name), we check that.
 
                 try:
-                    # The value in the first cell (Column A) is the original column name
                     row_header = row_cells[0].value
                 except:
                     row_header = None
 
-                # If this row corresponds to a figure type, set a fixed height suitable for images
                 if row_header and row_header in figure_cols:
                     target_height = self.IMG_DISPLAY_SIZE * self.PX_TO_ROW_HEIGHT
                     ws.row_dimensions[row_idx].height = target_height
                     continue
 
-                # Normal text row height adjustment
                 max_length = 0
                 for cell in row_cells:
                     try:
@@ -145,16 +121,12 @@ class ExcelWriter:
                     except:
                         pass
 
-                # Default height
                 target_height = 25
-
-                # Slightly increase height for longer content, but keep it reasonable for reading
                 if max_length > 20:
                     target_height = 30
 
                 ws.row_dimensions[row_idx].height = target_height
 
-            # Extra handling: The first column (Column A, original Headers) needs to be wide enough
             max_header_len = 0
             for cell in ws["A"]:
                 try:
@@ -166,25 +138,16 @@ class ExcelWriter:
                     pass
             ws.column_dimensions["A"].width = (max_header_len + 2) * FONT_FACTOR
 
-            # In transposed mode, data columns (B, C, etc.) might contain images.
-            # If ANY row is an image row, we should probably ensure the columns are wide enough.
-            # However, since different rows (metrics) share the same column (batch),
-            # we need to set the column width to the max requirement.
-            # If there is at least one image metric, set data columns to image width.
             has_images = any(col in figure_cols for col in output_df.columns)
             if has_images:
                 img_col_width = self.IMG_DISPLAY_SIZE * self.PX_TO_COL_WIDTH
-                # Iterate data columns (Column B onwards)
                 for col_idx in range(2, ws.max_column + 1):
                     col_letter = get_column_letter(col_idx)
-                    # Only expand if current width is smaller
                     if ws.column_dimensions[col_letter].width < img_col_width:
                         ws.column_dimensions[col_letter].width = img_col_width
 
     def _add_data_to_worksheet(self, ws, output_df, transpose):
         # Basic Style Configuration
-        # HEADER corresponds to df.columns
-        # DATA corresponds to df content
 
         HEADER_HEIGHT = 35
         ROW_HEIGHT = 25
@@ -193,8 +156,6 @@ class ExcelWriter:
         data_font = Font(name="Arial", size=14, bold=False)
         alignment = Alignment(horizontal="center", vertical="center")
 
-        # Get raw data matrix (including header)
-        # rows_data = [columns, row1, row2, ...]
         original_rows = list(dataframe_to_rows(output_df, index=False, header=True))
 
         if not transpose:
@@ -214,18 +175,11 @@ class ExcelWriter:
                     cell.alignment = alignment
         else:
             # --- Transposed Writing ---
-            # original_rows is a list of lists
-            # Transposed matrix: zip(*original_rows)
             transposed_rows = list(zip(*original_rows))
-
-            # After Transposition:
-            # Column A (1st Col) is original Headers
-            # Row 1 (1st Row) is original Headers' first element + Batch 1 Data
 
             for i, row in enumerate(transposed_rows):
                 row_idx = i + 1
 
-                # Default height, will be adjusted in _auto_adjust_dimensions
                 ws.row_dimensions[row_idx].height = ROW_HEIGHT
 
                 for j, value in enumerate(row):
@@ -250,46 +204,36 @@ class ExcelWriter:
         if not transpose:
             # ================= Standard Mode (Images in Columns) =================
 
-            # 1. Determine Position
-            # Excel Col Index = df index + 1
             excel_col_idx = col_idx_in_df + 1
             column_letter = get_column_letter(excel_col_idx)
-
-            # 2. Set Cell Dimensions
-            # Column Width should already be handled by _auto_adjust_dimensions,
-            # but we enforce it here to be safe.
             target_col_width = self.IMG_DISPLAY_SIZE * self.PX_TO_COL_WIDTH
             current_width = ws.column_dimensions[column_letter].width
 
-            # Only set if significantly different to avoid overriding custom logic
             if current_width < target_col_width:
                 ws.column_dimensions[column_letter].width = target_col_width
 
-            # Calculate pixel dimensions for the image scaler
             cell_w_px = int(ws.column_dimensions[column_letter].width / self.PX_TO_COL_WIDTH)
 
             target_row_height_pt = self.IMG_DISPLAY_SIZE * self.PX_TO_ROW_HEIGHT
             cell_h_px = int(target_row_height_pt / self.PX_TO_ROW_HEIGHT)
 
-            # 3. Iterate and Insert
             for i in output_df.index:
                 excel_row_idx = i + 2  # Header is row 1 -> data starts at 2
                 cell_address = f"{column_letter}{excel_row_idx}"
 
-                # Set row height for the data rows
                 ws.row_dimensions[excel_row_idx].height = target_row_height_pt
 
-                # Get filename (SMILES)
                 img_filename = output_df.loc[i, figure_type]
-
+                mol_SMILES = self._get_mol_SMILES(img_filename, figure_type)
                 self._insert_one_image(
                     ws,
                     figure_path,
                     figure_type,
                     img_filename,
+                    mol_SMILES,
                     cell_address,
-                    excel_col_idx - 1,  # 0-based col for Anchor
-                    excel_row_idx - 1,  # 0-based row for Anchor
+                    excel_col_idx - 1,
+                    excel_row_idx - 1,
                     cell_w_px,
                     cell_h_px,
                     PADDING,
@@ -298,28 +242,18 @@ class ExcelWriter:
         else:
             # ================= Transposed Mode (Images in Rows) =================
 
-            # 1. Determine Position
-            # Original df columns became Excel rows
             excel_row_idx = col_idx_in_df + 1
-
-            # 2. Set Cell Dimensions
-            # Row Height (Points) - Set specific height for this row
             target_row_height_pt = self.IMG_DISPLAY_SIZE * self.PX_TO_ROW_HEIGHT
             ws.row_dimensions[excel_row_idx].height = target_row_height_pt
-
             cell_h_px = int(target_row_height_pt / self.PX_TO_ROW_HEIGHT)
 
-            # Col Width: Each column corresponds to a data entry (Batch 1, 2...)
             target_col_width = self.IMG_DISPLAY_SIZE * self.PX_TO_COL_WIDTH
             cell_w_px = int(target_col_width / self.PX_TO_COL_WIDTH)
 
-            # 3. Iterate and Insert
             for i in output_df.index:
-                # Original row i corresponds to Excel Column i+2 (Col 1 is Header)
                 excel_col_idx = i + 2
                 column_letter = get_column_letter(excel_col_idx)
 
-                # Ensure width is enough
                 current_w = ws.column_dimensions[column_letter].width
                 if current_w < target_col_width:
                     ws.column_dimensions[column_letter].width = target_col_width
@@ -327,12 +261,14 @@ class ExcelWriter:
                 cell_address = f"{column_letter}{excel_row_idx}"
 
                 img_filename = output_df.loc[i, figure_type]
+                mol_SMILES = self._get_mol_SMILES(img_filename, figure_type)
 
                 self._insert_one_image(
                     ws,
                     figure_path,
                     figure_type,
                     img_filename,
+                    mol_SMILES,
                     cell_address,
                     excel_col_idx - 1,
                     excel_row_idx - 1,
@@ -342,7 +278,7 @@ class ExcelWriter:
                 )
 
     def _insert_one_image(
-        self, ws, figure_path, figure_type, img_filename, cell_address, col_idx_0, row_idx_0, cell_w_px, cell_h_px, padding
+        self, ws, figure_path, figure_type, img_filename, mol_SMILES, cell_address, col_idx_0, row_idx_0, cell_w_px, cell_h_px, padding
     ):
         """
         :param img_filename: Actually the value from DataFrame (usually SMILES string)
@@ -350,10 +286,8 @@ class ExcelWriter:
         if pd.isna(img_filename):
             return
 
-        # 1. Determine Save Directory
         save_dir = Path(figure_path) / figure_type
 
-        # 2. Get safe filename (mimics plot_SMILES logic)
         safe_name = sanitize_filename(str(img_filename))
         img_path = save_dir / f"{safe_name}.png"
         image_ready = False
@@ -365,7 +299,7 @@ class ExcelWriter:
         else:
             # B. Image does not exist, try plotting from SMILES
             # console.log(f"Generating image for {safe_name}...", style="blue")
-            res = plot_SMILES(str(img_filename), str(save_dir))
+            res = plot_SMILES(mol_SMILES, str(save_dir), file_name=img_filename)
 
             if res.get("success", False):
                 # Verify file creation
@@ -417,3 +351,14 @@ class ExcelWriter:
         except Exception as e:
             # If insertion fails (e.g., corrupt image), restore text value
             cell.value = img_filename
+
+    def _get_mol_SMILES(self, img_filename, figure_type):
+        if isinstance(self.condition_dict[figure_type], dict):
+            try:
+                mol_SMILES = self.condition_dict[figure_type][img_filename]
+            except:
+                mol_SMILES = img_filename
+        else:
+            mol_SMILES = img_filename
+
+        return mol_SMILES

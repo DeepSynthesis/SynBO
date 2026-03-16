@@ -1,13 +1,19 @@
 import json
+from os import unlink
+import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
-import shutil
 
-from plots import plot_final_distribution_boxplot, plot_hypervolume_coverage, plot_optimization_curves, plot_optimization_process_scatter
+from utils.plots import (
+    plot_final_distribution_boxplot,
+    plot_hypervolume_coverage,
+    plot_optimization_curves,
+    plot_optimization_process_scatter,
+)
+from utils.metrics import get_average_optimal_targets, get_auc_of_opt, get_hypervolume, get_average_optimal_targets_hv, get_auc_of_opt_hv
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
 
@@ -16,36 +22,48 @@ global_dir = Path(__file__).parent
 data_dir = global_dir / Path("../examples/")
 
 # 控制参数
-NUM_ROUNDS = 1  # k值：运行多少轮
+NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "Asymmetric_Alkylation_Optimization",
+    "experiment_name": "B-H_Optimization (dynamic)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
-        "dataset_file": str(data_dir / "asym_alkylation/asym_alkylation.csv"),
-        "descriptor_dir": str(data_dir / "asym_alkylation/descriptors"),
+        "dataset_file": str(data_dir / "B-H_HTE/B-H_HTE.csv"),
+        "descriptor_dir": str(data_dir / "B-H_HTE/descriptors"),
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["reactant2", "catalyst1", "catalyst2"],
-        "name_suffix": ["_RDKit", "_RDKit", "_RDKit"],
+        "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
+        "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield", "ee"],
+        "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "minmax",
-        "sampling_method": "kmeans",
+        "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
+        "temperature": 0.1,
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+    },
+    "constraint_settings": {
+        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
+        "space_reduction_frequency": 3,  # Perform space reduction every N iterations (adjustable parameter)
+        "reduce_ratio": 0.25,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
+        # Additional LLM parameters
+        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
+        "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
+        "llm_base_url": "https://aihubmix.com/v1",
+        "llm_temperature": 0.0,  # Temperature parameter for LLM generation
     },
 }
 
@@ -80,12 +98,13 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
 
 
 def cleanup_temp_files(run_dir):
-    """删除所有的 batch-*.csv 文件"""
+    """删除所有的 batch-*.csv 文件和json文件"""
     for temp_file in run_dir.glob("batch-*.csv"):
-        try:
-            temp_file.unlink()
-        except OSError as e:
-            print(f"Error deleting {temp_file}: {e}")
+        temp_file.unlink()
+
+    json_file = run_dir / "prohibited_reagent.json"
+    if json_file.exists():
+        json_file.unlink()
 
 
 def setup_experiment_dir(base_dir, num_rounds):
@@ -158,6 +177,13 @@ def find_existing_experiment(base_dir_str, current_config):
     return None
 
 
+def load_start_points(start_point_path):
+    """Load start points from JSON file"""
+    with open(start_point_path, "r", encoding="utf-8") as f:
+        start_points = json.load(f)
+    return start_points
+
+
 def run_simulation(experiment_dir, desc_dict, condition_dict):
     """执行主要的优化计算循环"""
     base_seed = CONFIG["base_seed"]
@@ -168,11 +194,37 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
     print(f"Experiment Directory: {experiment_dir}")
 
+    # 加载 start_point.json
+    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/B-H_HTE/start_point.json"
+    start_points = load_start_points(start_point_path)
+    print(f"Loaded start points from: {start_point_path}")
+
+    # Initialize constraint settings
+    constraint_settings = CONFIG.get("constraint_settings", {})
+    enable_constraints = constraint_settings.get("enable_constraints", False)
+    constraint_method = constraint_settings.get("constraint_method", "llm")
+    space_reduction_frequency = constraint_settings.get("space_reduction_frequency", 3)
+    reduce_ratio = constraint_settings.get("reduce_ratio", 0.3)
+
+    # LLM parameters
+    llm_model = constraint_settings.get("llm_model", "gpt-4")
+    llm_api_key = constraint_settings.get("llm_api_key", None)
+    llm_base_url = constraint_settings.get("llm_base_url", None)
+    llm_temperature = constraint_settings.get("llm_temperature", 0.7)
+
+    if enable_constraints:
+        print(f"\n[Constraints Enabled]")
+        print(f"  - Method: {constraint_method}")
+        print(f"  - Space reduction frequency: every {space_reduction_frequency} iterations")
+        print(f"  - Reduce ratio: {reduce_ratio:.1%}")
+        print(f"  - LLM model: {llm_model}")
+
     for round_idx in range(CONFIG["num_rounds"]):
         current_seed = base_seed + round_idx
         print(f"\n{'='*20} Starting Round {round_idx + 1}/{CONFIG['num_rounds']} (Seed: {current_seed}) {'='*20}")
 
         batch_files_map = {}  # 存储 batch_id -> file_path，用于最后合并
+        constraints = None  # Initialize constraints as None
 
         for i in tqdm(range(CONFIG["iterations"]), desc=f"Round {round_idx+1} Calc"):
             rxn_opt = ReactionOptimizer(
@@ -181,6 +233,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
                 quiet=True,
+                save_dir=str(experiment_dir),
             )
 
             rxn_opt.load_rxn_space(condition_dict=condition_dict)
@@ -191,24 +244,74 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxns)
 
             if i == 0:
-                rxn_opt.initialize(
-                    batch_size=CONFIG["batch_size"],
-                    desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                    sampling_method=CONFIG["optimization_settings"]["sampling_method"],
-                    refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                )
+                # Use start points from JSON file for initial batch
+                round_key = f"round{round_idx + 1}"
+
+                start_indices = start_points[round_key]
+                print(f"Using start points for {round_key}: indices {start_indices}")
+
+                # Load dataset and select rows by indices
+                dataset_df = pd.read_csv(CONFIG["data_paths"]["dataset_file"])
+                selected_rows = dataset_df.iloc[start_indices]
+
+                # Create prev_rxn_info DataFrame with required columns
+                prev_rxn_info = selected_rows[
+                    CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]
+                ].copy()
+                prev_rxn_info["batch"] = -1  # Set batch to 0 for initial batch
+
+                # Load selected reactions as previous reactions
+                rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
+
+                # Set selected_conditions from prev_rxn_info
+                rxn_opt.selected_conditions = prev_rxn_info[rxn_opt.condition_types].values
+                rxn_opt.recommend_type = ["explore"] * len(start_indices)
+                rxn_opt.pred_mean = None
+                rxn_opt.pred_std = None
+
+                print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
+
             else:
+                # Generate constraints if enabled and it's the right iteration
+                if enable_constraints and i % space_reduction_frequency == 0:
+                    print(f"\n{'='*10} Generating constraints at iteration {i} {'='*10}")
+
+                    try:
+                        constraints = rxn_opt.get_constrains(
+                            method=constraint_method,
+                            reduce_ratio=reduce_ratio,
+                            model=llm_model,
+                            api_key=llm_api_key,
+                            base_url=llm_base_url,
+                            temperature=llm_temperature,
+                        )
+
+                        if constraints is not None:
+                            total_eliminated = sum(len(vals) for vals in constraints.values())
+                            print(f"✓ Constraints generated successfully")
+                            print(f"  - Eliminated {total_eliminated} reagents total")
+                            for ctype, vals in constraints.items():
+                                print(f"  - {ctype}: {len(vals)} reagents eliminated")
+                        else:
+                            print(f"⚠ Constraints generation returned None - using full reaction space")
+                            constraints = None
+                    except Exception as e:
+                        print(f"⚠ Error generating constraints: {e}")
+                        print(f"  Continuing with full reaction space")
+                        constraints = None
+
                 rxn_opt.optimize(
                     batch_size=CONFIG["batch_size"],
                     optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                     desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                     refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                    temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
+                    constraints=constraints,
                     **CONFIG["optimization_settings"]["kwargs"],
                 )
 
-            rxn_opt.save_results(save_dir=str(experiment_dir))
+            rxn_opt.save_results()
 
-            # 填充真实数据并记录文件路径
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path
 
@@ -244,33 +347,114 @@ def run_plotting(experiment_dir):
         print("No result files found to plot.")
         return
     # 合并数据
-    all_rounds_df = pd.concat([pd.read_csv(f) for f in result_files], ignore_index=True)
+    all_rounds_dfs = [pd.read_csv(f) for f in result_files]
     direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
     range_tags = [i["opt_range"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
 
     # 确保列名在 dataframe 中
-    valid_targets = [col for col in CONFIG["optimization_settings"]["opt_metrics"] if col in all_rounds_df.columns]
+    valid_targets = CONFIG["optimization_settings"]["opt_metrics"]
     if not valid_targets:
         print(f"Error: None of the target columns {CONFIG['optimization_settings']['opt_metrics']} found in CSV.")
         return
     # 设置 Seaborn 风格
     sns.set_theme(style="whitegrid")
     # --- 1. 绘制优化曲线 (Grid Plot with Variance) ---
-    plot_optimization_curves(all_rounds_df, valid_targets, direction_tags, range_tags, experiment_dir)
+    plot_optimization_curves(all_rounds_dfs, valid_targets, direction_tags, range_tags, experiment_dir)
     # --- 2. 绘制超体积占比 (Single Plot) ---
     # 注意：需要提供 CONFIG['data_paths']['dataset_file'] 并且安装 pymoo
     if Path(CONFIG["data_paths"]["dataset_file"]).exists():
         plot_hypervolume_coverage(
-            all_rounds_df, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
+            all_rounds_dfs, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
         )
     else:
         print(f"Skipping HV plot: Full space file not found at {CONFIG['data_paths']['dataset_file']}")
     # --- 3. 绘制最终最佳值分布 (Box Plot) ---
-    plot_final_distribution_boxplot(all_rounds_df, valid_targets, direction_tags, range_tags, experiment_dir)
+    range_tags_final = [[80, 100], [0.0, 0.1]]
+    plot_final_distribution_boxplot(all_rounds_dfs, valid_targets, direction_tags, range_tags_final, experiment_dir)
     plot_optimization_process_scatter(
-        all_rounds_df, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
+        all_rounds_dfs, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
     )
     print("All plotting tasks completed.")
+
+
+def run_metrics(experiment_dir):
+    """
+    Calculate and save metrics for the benchmark results.
+    """
+    experiment_dir = Path(experiment_dir)
+    print(f"\n{'='*20} Starting Metrics Calculation {'='*20}")
+    print(f"Source Directory: {experiment_dir}")
+
+    result_files = sorted(list(experiment_dir.glob("all_batches_final_round_*.csv")))
+    if not result_files:
+        print("No result files found to calculate metrics.")
+        return
+
+    # Load data
+    all_rounds_dfs = [pd.read_csv(f) for f in result_files]
+    valid_targets = CONFIG["optimization_settings"]["opt_metrics"]
+    direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
+    range_tags = [i["opt_range"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
+
+    # 1. Calculate average optimal targets
+    print("\nCalculating average optimal targets...")
+    avg_optimal_results = get_average_optimal_targets(all_rounds_dfs, valid_targets, direction_tags, range_tags)
+
+    # 2. Calculate AUC of optimization
+    print("Calculating AUC of optimization...")
+    auc_results = get_auc_of_opt(all_rounds_dfs, valid_targets, direction_tags, range_tags)
+
+    # 3. Calculate Average Optimal Targets HV
+    print("Calculating Average Optimal Targets HV...")
+    full_space_file = Path(CONFIG["data_paths"]["dataset_file"])
+    avg_opt_hv_results = get_average_optimal_targets_hv(all_rounds_dfs, valid_targets, direction_tags, range_tags, full_space_file)
+
+    # 4. Calculate AUC of Optimization HV
+    print("Calculating AUC of Optimization HV...")
+    auc_hv_results = get_auc_of_opt_hv(all_rounds_dfs, valid_targets, direction_tags, range_tags, full_space_file)
+
+    # 5. Compile all metrics into a summary
+    metrics_summary = {"average_optimal_targets": {}, "auc_of_optimization": {}}
+
+    # Format average optimal results
+    for target, data in avg_optimal_results.items():
+        metrics_summary["average_optimal_targets"][target] = {
+            "average": float(data["average_optimal"]),
+            "average_normalized": float(data["average_normalized"]),
+            "std": float(data["std"]),
+            "std_normalized": float(data["std_normalized"]),
+        }
+
+    # Format Hypervolume Optimal results under average_optimal_targets
+    metrics_summary["average_optimal_targets"]["hypervolume"] = {
+        "average_normalized": float(avg_opt_hv_results["average_normalized"]),
+        "std_normalized": float(avg_opt_hv_results["std_normalized"]),
+        "total_hv": float(avg_opt_hv_results["total_hv"]),
+    }
+
+    # Format AUC results
+    for target, data in auc_results.items():
+        metrics_summary["auc_of_optimization"][target] = {
+            "average": float(data["average"]),
+            "average_normalized": float(data["average_normalized"]),
+            "std": float(data["std"]),
+            "std_normalized": float(data["std_normalized"]),
+        }
+
+    # Format Hypervolume AUC results under auc_of_optimization
+    metrics_summary["auc_of_optimization"]["hypervolume"] = {
+        "average": float(auc_hv_results["average"]),
+        "average_normalized": float(auc_hv_results["average_normalized"]),
+        "std": float(auc_hv_results["std"]),
+        "std_normalized": float(auc_hv_results["std_normalized"]),
+        "total_hv": float(auc_hv_results["total_hv"]),
+    }
+
+    # 6. Save metrics summary to JSON
+    metrics_file = experiment_dir / "metrics_summary.json"
+    with open(metrics_file, "w", encoding="utf-8") as f:
+        json.dump(metrics_summary, f, indent=4, ensure_ascii=False)
+    print(f"Metrics summary saved: {metrics_file}")
 
 
 def main():
@@ -311,7 +495,10 @@ def main():
 
     # 3. 执行绘图部分 (Plotting)
     # 无论是复用旧数据还是新计算的数据，都运行绘图，以防旧数据的图被误删或需要更新绘图样式
-    run_plotting(experiment_dir)
+    # run_plotting(experiment_dir)
+
+    # 4. 执行指标计算部分 (Metrics)
+    run_metrics(experiment_dir)
 
     print(f"\nTask Complete. Results accessed at: {experiment_dir}")
 

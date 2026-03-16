@@ -51,6 +51,7 @@ class ReactionOptimizer:
         opt_type: Literal["init", "opt", "auto"] = "auto",
         random_seed: int = 42,
         quiet: bool = False,
+        save_dir: str = None,
     ) -> None:
         if isinstance(opt_metrics, str):
             opt_metrics = [opt_metrics]
@@ -71,15 +72,18 @@ class ReactionOptimizer:
 
         _logger_default._set_quiet(quiet)
 
-        self.condition_dict: Dict[str, List[Any]] = {}
-        self.desc_dict: Dict[str, Any] = {}
+        self.condition_dict = {}
+        self.desc_dict = {}
         self.opt_metrics = opt_metrics
         self.opt_metric_settings = opt_metric_settings
         self.opt_type = opt_type
-        self.prev_rxn_info: Optional[pd.DataFrame] = None
         self.batch_id = 0
         self.random_seed = random_seed
         self.quiet = quiet
+
+        self.save_dir = Path(save_dir) if save_dir else Path.cwd()
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
         self.opt_console = console
 
         self.opt_console.print(
@@ -100,9 +104,13 @@ class ReactionOptimizer:
         try:
             for k, v in condition_dict.items():
                 if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) in (str, int, float)):
-                    condition_dict[k] = sorted(pd.Series(v).fillna("None").tolist())
+                    if pd.Series(v).duplicated().sum() > 0:
+                        print(pd.Series(v)[pd.Series(v).duplicated()].values)
+                    assert pd.Series(v).duplicated().sum() == 0, f"Condition type `{k}` contains duplicate values"
+                    condition_dict[k] = sorted(pd.Series(v).fillna("None").drop_duplicates().tolist())
                 elif isinstance(v, pd.DataFrame):
                     assert k in v.columns, f"Condition type `{k}` not found in DataFrame!"
+                    assert v[k].duplicated().sum() == 0, f"Condition type `{k}` contains duplicate values"
                     condition_dict[k] = sorted(v[k].fillna("None").tolist())
                 else:
                     raise TypeError(f"the type of {k} is {type(v)}, which is not supported")
@@ -291,6 +299,8 @@ class ReactionOptimizer:
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
         optimize_method: str = "default_BO",
+        temperature: float = 0.0,
+        constraints: Optional[Dict[str, List[Any]]] = None,
         **optimization_kwargs: Any,
     ) -> None:
         """Optimize reaction conditions using Bayesian Optimization.
@@ -299,6 +309,10 @@ class ReactionOptimizer:
             batch_size: Number of conditions to recommend
             desc_normalize: Descriptor normalization method
             optimized_method: Optimization algorithm to use
+            temperature: Temperature parameter for exploration-exploitation trade-off (0.0 = pure exploitation, higher = more exploration)
+            constraints: Dictionary of constraints to apply to the search space. Format: {condition_type: [prohibited_values]}
+                        Example: {"base": ["base1", "base2"], "solvent": ["toluene"]}
+                        If a condition type is not in the dictionary, all values are allowed.
             opt_weights: Weights for multi-objective optimization
             mc_num_samples: Monte Carlo samples for acquisition function
             max_batch_size: Maximum batch size for acquisition optimization
@@ -309,6 +323,20 @@ class ReactionOptimizer:
         except:
             self.opt_console.print("Must load previous reaction information before optimization.", style="red")
             raise Exception("No previous reaction information was loaded.")
+
+        # Function 3: Load prohibited reagents from file if they exist
+        if self.save_dir:
+            from rxnopt.utils.constraints_io import load_prohibited_reagents, merge_constraints
+
+            file_prohibited = load_prohibited_reagents(self.save_dir)
+            if file_prohibited:
+                self.opt_console.print("📋 Loading prohibited reagents from file...", style="cyan")
+                # Merge with provided constraints
+                constraints = merge_constraints(constraints, file_prohibited)
+                if constraints:
+                    total_prohibited = sum(len(v) for v in constraints.values())
+                    self.opt_console.print(f"  Total constraints loaded: {total_prohibited} prohibited reagents", style="cyan")
+
         check_desc_completeness(self.desc_dict, self.condition_dict)
         self.total_name_arr, self.total_desc_arr = array_process(
             self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
@@ -341,6 +369,10 @@ class ReactionOptimizer:
             candidate_X=self.total_desc_arr,
             opt_metric_settings=self.opt_metric_settings,
             batch_size=batch_size,
+            temperature=temperature,
+            constraints=constraints,
+            total_name_arr=self.total_name_arr,
+            condition_types=self.condition_types,
         )
 
         # Denormalize prediction values using the same scalers
@@ -374,7 +406,6 @@ class ReactionOptimizer:
 
     def save_results(
         self,
-        save_dir: Union[str, Path],
         filetype: Literal["csv", "excel", "json"] = "csv",
         figure_output: List[str] = None,
         figure_path: Optional[Union[str, Path]] = None,
@@ -390,15 +421,21 @@ class ReactionOptimizer:
             figure_path: Path for figures
             suffix: Optional filename suffix
         """
+        # Prepare prediction info dictionary
+        pred_info = None
+        if self.pred_mean is not None and self.pred_std is not None:
+            pred_info = {}
+            for i, metric in enumerate(self.opt_metrics):
+                pred_info[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
+
         save_df(
-            save_path=save_dir,
+            save_path=self.save_dir,
             filetype=filetype,
             selected_conditions=self.selected_conditions,
-            condition_types=self.condition_types,
+            condition_dict=self.condition_dict,
             recommend_type=self.recommend_type,
             batch_id=self.batch_id,
-            pred_mean=self.pred_mean,
-            pred_std=self.pred_std,
+            pred_info=pred_info,
             opt_metrics=self.opt_metrics,
             figure_output=figure_output,
             figure_path=figure_path,
@@ -429,3 +466,119 @@ class ReactionOptimizer:
         for desc_df in self.desc_dict.values():
             total_shape += desc_df.shape[1]
         return total_shape
+
+    def get_constrains(self, method: str = "llm", **kwargs) -> Optional[Dict[str, List[Any]]]:
+        """Get constraints for optimization based on analysis method.
+
+        Args:
+            method: Analysis method to use ("llm" or others)
+            **kwargs: Additional parameters for the analysis method
+
+        Returns:
+            Dictionary of constraints in format {condition_type: [prohibited_values]}
+            Returns None if no constraints are needed
+
+        Raises:
+            ValueError: If method is not supported or required data is not loaded
+        """
+        if method == "llm":
+            from rxnopt.analysis.llm_analyzer import LLMAnalyzer
+            from rxnopt.utils.constraints_io import load_prohibited_reagents, save_prohibited_reagents
+
+            if self.prev_rxn_info is None:
+                raise ValueError("Previous reaction information must be loaded before getting constraints")
+
+            # Function 2: Load existing prohibited reagents before LLM recommendation
+            existing_prohibited = None
+            if self.save_dir:
+                existing_prohibited = load_prohibited_reagents(self.save_dir)
+
+            analyzer = LLMAnalyzer(
+                opt_metrics=self.opt_metrics,
+                opt_metric_settings=self.opt_metric_settings,
+                prev_rxn=self.prev_rxn_info,
+                condition_dict=self.condition_dict,
+                existing_prohibited=existing_prohibited,  # Pass existing prohibited to LLM
+            )
+            constraints = analyzer.analyze(**kwargs)
+
+            # Function 1: Save prohibited reagents after LLM recommendation
+            if constraints and self.save_dir:
+                save_prohibited_reagents(save_dir=self.save_dir, new_prohibited=constraints, existing_prohibited=existing_prohibited)
+
+            return constraints
+        else:
+            raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")
+
+    def calculate_current_hv(self, batch_id: Optional[int] = None, reference_point_multiplier: float = 1.1) -> Dict[str, any]:
+        """Calculate hypervolume (HV) for current optimization progress.
+
+        This method calculates the hypervolume metric for multi-objective optimization,
+        which measures the volume of the objective space dominated by the Pareto front.
+
+        Args:
+            batch_id: Optional batch ID to calculate HV up to. If None, uses all available data
+            reference_point_multiplier: Multiplier for reference point (default: 1.1)
+
+        Returns:
+            Dictionary containing:
+                - 'hv': Hypervolume value
+                - 'hv_normalized': Normalized hypervolume (0 to 1)
+                - 'total_hv': Total theoretical hypervolume (reference)
+                - 'num_points': Number of points used in calculation
+                - 'batch_id': Batch ID used for calculation
+
+        Raises:
+            ValueError: If prev_rxn_info has not been loaded
+        """
+        from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch
+
+        if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
+            raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
+
+        if batch_id is None:
+            # Use the current batch_id if available, otherwise calculate HV for all data
+            batch_id = getattr(self, "batch_id", None)
+
+        hv_result = calculate_hypervolume_for_batch(
+            prev_rxn_info=self.prev_rxn_info,
+            opt_metrics=self.opt_metrics,
+            opt_metric_settings=self.opt_metric_settings,
+            batch_id=batch_id,
+            reference_point_multiplier=reference_point_multiplier,
+        )
+
+        return hv_result
+
+    def calculate_hv_by_batch(self, reference_point_multiplier: float = 1.1) -> pd.DataFrame:
+        """Calculate hypervolume for each batch cumulatively.
+
+        This method calculates the hypervolume at each batch, including all data
+        from previous batches. This shows the progress of optimization over time.
+
+        Args:
+            reference_point_multiplier: Multiplier for reference point (default: 1.1)
+
+        Returns:
+            DataFrame with columns:
+                - 'batch': Batch index
+                - 'hv': Hypervolume value
+                - 'hv_normalized': Normalized hypervolume (0 to 1)
+                - 'num_points': Cumulative number of points
+
+        Raises:
+            ValueError: If prev_rxn_info has not been loaded
+        """
+        from rxnopt.utils.hv_calculator import calculate_hypervolume_by_batch
+
+        if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
+            raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
+
+        hv_results = calculate_hypervolume_by_batch(
+            prev_rxn_info=self.prev_rxn_info,
+            opt_metrics=self.opt_metrics,
+            opt_metric_settings=self.opt_metric_settings,
+            reference_point_multiplier=reference_point_multiplier,
+        )
+
+        return hv_results

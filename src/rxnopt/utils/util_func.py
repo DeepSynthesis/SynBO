@@ -6,13 +6,16 @@ Modern utility functions with rich progress bars and improved error handling.
 from __future__ import annotations
 
 from functools import wraps
+from typing import List
 
 
+import numpy as np
 import pandas as pd
 import torch
 from pathlib import Path
+from indigo import Indigo
+from indigo.renderer import IndigoRenderer
 from rdkit import Chem
-from rdkit.Chem.Draw import rdMolDraw2D
 import re
 
 
@@ -92,6 +95,46 @@ def get_opt_type(opt: str) -> str:
         return "Initialization"
 
 
+def generate_constraint_mask(
+    total_name_arr: np.ndarray,
+    condition_types: List[str],
+    constraints: dict,
+) -> np.ndarray:
+    """Generate constraint mask based on condition restrictions.
+
+    Args:
+        total_name_arr: Array of all condition combinations (shape: [n_combinations, n_conditions])
+        condition_types: List of condition type names
+        constraints: Dictionary of constraints {condition_type: [prohibited_values]}
+
+    Returns:
+        Boolean mask array where True indicates the combination satisfies constraints
+    """
+    if not constraints:
+        return np.ones(len(total_name_arr), dtype=bool)
+
+    mask = np.ones(len(total_name_arr), dtype=bool)
+
+    for condition_type, prohibited_values in constraints.items():
+        if condition_type not in condition_types:
+            continue  # Skip invalid condition types
+
+        # Get index of this condition type in the name array
+        condition_idx = condition_types.index(condition_type)
+
+        # Check which combinations have allowed values for this condition
+        prohibited_values = set(prohibited_values)
+        condition_values = total_name_arr[:, condition_idx]
+        condition_mask = np.array([val not in prohibited_values for val in condition_values])
+
+        # Update overall mask
+        mask = mask & condition_mask
+
+    assert sum(mask) > 0, "No valid combinations found with given constraints"
+
+    return mask
+
+
 def sanitize_filename(filename: str) -> str:
     illegal_chars = r'[<>:"/\\|?*]'
     safe_name = re.sub(illegal_chars, "_", filename)
@@ -100,34 +143,47 @@ def sanitize_filename(filename: str) -> str:
     return safe_name
 
 
-def plot_SMILES(SMILES: str, save_dir: str) -> dict:
+def plot_SMILES(SMILES: str, save_dir: str, file_name: str = None, output_format: str = "png") -> dict:
+    """
+    Plot SMILES molecule as PNG or SVG
+
+    Args:
+        SMILES: SMILES string to plot
+        save_dir: Directory to save the image
+        file_name: Name of the file (default: SMILES string)
+        output_format: Output format ("png" or "svg", default: "png")
+
+    Returns:
+        Dictionary with success status and file path if successful
+    """
+    SMILES = Chem.MolToSmiles(Chem.MolFromSmiles(SMILES), kekuleSmiles=True)
+    SMILES = SMILES.replace("->", "").replace("<-", "")
     mol = Chem.MolFromSmiles(SMILES)
+    file_name = SMILES if file_name is None else file_name
     if mol is None:
         return {"success": False}
     save_path_obj = Path(save_dir)
     if not save_path_obj.exists():
         save_path_obj.mkdir(parents=True, exist_ok=True)
-    width, height = 400, 400
-    drawer = rdMolDraw2D.MolDraw2DCairo(width, height)
-    opts = drawer.drawOptions()
-    # --- 样式设置 ---
-    opts.bondLineWidth = 3.0  # 键的粗细
-    opts.minFontSize = 16  # 最小字体大小
-    opts.fixedFontSize = 20  # 固定字体大小
-    # opts.atomLabelFontFace = "Arial"  <-- 删除这一行，RDKit不支持此属性
 
-    # RDKit 默认就是类似 Arial 的无衬线字体
     try:
-        drawer.DrawMolecule(mol)
-        drawer.FinishDrawing()
-        # 确保这里调用了正确的文件名清洗函数
-        # safe_name = sanitize_filename(SMILES)
-        # 临时替代方案，防止 sanitize_filename 未定义导致测试失败：
-        safe_name = sanitize_filename(SMILES)
-        file_path = save_path_obj / f"{safe_name}.png"
-        drawer.WriteDrawingText(str(file_path))
-        return {"success": True}
+        indigo = Indigo()
+        renderer = IndigoRenderer(indigo)
+        safe_name = sanitize_filename(file_name)
+
+        if output_format.lower() == "svg":
+            file_path = save_path_obj / f"{safe_name}.svg"
+            indigo.setOption("render-output-format", "svg")
+        else:
+            file_path = save_path_obj / f"{safe_name}.png"
+            indigo.setOption("render-output-format", "png")
+
+        mol = indigo.loadMolecule(SMILES)
+        mol.layout()
+        indigo.setOption("render-coloring", True)
+        renderer.renderToFile(mol, str(file_path))
+
+        return {"success": True, "file_path": str(file_path)}
     except Exception as e:
+        print(e)
         return {"success": False}
-
-

@@ -1,0 +1,16 @@
+oxidant_smiles
+O=S(=O)([O-])OO
+[Ag+]
+O=Ic1ccccc1
+O=C1CCC(=O)N1Cl
+O=C1c2ccccc2C(=O)N1Cl
+F[n+]1ccccc1
+O=C1OI(O)c2ccccc21
+O=C(O)c1ccccc1I(=O)=O
+O=S(=O)([O-])OOS(=O)(=O)[O-]
+Cc1cc(C)[n+](F)c(C)c1
+O=C1c2ccccc2S(=O)(=O)N1Cl
+CC1(C)C(=O)N(Cl)C(=O)N1Cl
+O=c1n(Cl)c(=O)n(Cl)c(=O)n1Cl
+COC(=O)NC(=NCl)NC(=O)OC
+F[N+]12CC[N+](CCl)(CC1)CC2

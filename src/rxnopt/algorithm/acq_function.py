@@ -21,7 +21,7 @@ class BaseAcquisitionFunction:
     def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler):
         self.model = model
         self.sampler = sampler
-        self.acquisition_function = None  # 子类应实例化此对象
+        self.acquisition_function = None
         self.console = console
 
     @property
@@ -37,7 +37,7 @@ class BaseAcquisitionFunction:
                 acq_values_list.append(acq_values)
         return torch.cat(acq_values_list, dim=0)
 
-    def optimize_discrete_greedy(
+    def optimize_discrete(
         self,
         acq_func,
         q: int,
@@ -48,10 +48,24 @@ class BaseAcquisitionFunction:
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         """
-        通用的离散空间贪婪序列优化逻辑。
-        适用于 qUCB, qEHVI, qNEHVI 等支持 set_X_pending 的采集函数。
+        General discrete space greedy sequence optimization
+
+        Args:
+            acq_func: Acquisition function to optimize
+            q: Number of candidates to select
+            choices: Candidate points tensor
+            max_batch_size: Maximum batch size for evaluation
+            unique: Whether to ensure unique selections
+            progress: Progress bar object
+            task: Progress task object
+            min_distance: Minimum distance for uniqueness check
+            exclude_points: Points to exclude from selection
+            temperature: Temperature for exploration-exploitation trade-off
+            constraint_mask: Boolean mask indicating which points satisfy constraints
         """
         acq_func.set_X_pending(None)
 
@@ -62,23 +76,31 @@ class BaseAcquisitionFunction:
                 style="yellow",
             )
             q = len_choices
-        # 2. 构建初始可用掩码 (Available Mask)
+        
+        # Build the initial Available Mask
         available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
 
-        # 排除指定的点 (exclude_points)
+        # Apply constraint mask if provided
+        if constraint_mask is not None:
+            available_mask = available_mask & constraint_mask
+            constrained_count = constraint_mask.sum().item()
+            total_count = len(constraint_mask)
+            self.console.print(
+                f"Constraint applied: {constrained_count}/{total_count} candidates available",
+                style="cyan"
+            )
+
+        # Exclude the specified points
         if unique and exclude_points is not None and len(exclude_points) > 0:
-            # 计算 choices 到 exclude_points 的距离矩阵
             dists = torch.cdist(choices, exclude_points)
-            # 如果某点到任意 exclude_point 的距离小于阈值，则该点不可用
             distinct_check = (dists > min_distance).all(dim=1)
             available_mask = available_mask & distinct_check
         candidate_list = []
         acq_value_list = []
-        # 当前迭代的掩码
+
         current_mask = available_mask.clone()
-        # 3. 贪婪循环
+        # greedy get loop
         for q_i in range(q):
-            # 获取当前有效索引
             valid_indices = torch.nonzero(current_mask, as_tuple=True)[0]
             if len(valid_indices) == 0:
                 self.console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
@@ -86,21 +108,31 @@ class BaseAcquisitionFunction:
 
             if progress:
                 progress.log(f"Choosing candidate {q_i+1} of {q}", style="yellow")
-            # 准备当前批次的数据 (Num_Valid, 1, D) - q-batch 维度设为 1 用于当前评估
+
             choices_batched = choices[valid_indices].unsqueeze(-2)
-            # 计算采集函数值
+
             with torch.no_grad():
-                # 使用 cholesky_jitter 增加数值稳定性
+
                 with gpytorch.settings.cholesky_jitter(1e-3):
                     acq_values = self._split_batch_eval_acqf(
                         acq_func=acq_func,
                         X=choices_batched,
                         max_batch_size=max_batch_size,
                     )
-            # 选择最佳点
-            best_idx_in_batch = torch.argmax(acq_values)
+
+            # define the exploration and exploitation trade-off
+            if temperature > 0.0:
+                range_val = (torch.max(acq_values) - torch.min(acq_values)).clamp(min=1e-8)
+                acq_norm = (acq_values - torch.min(acq_values)) / range_val
+                logits = (acq_norm - 1.0) / temperature
+                probs = torch.softmax(logits, dim=0)
+
+                best_idx_in_batch = torch.multinomial(probs, 1).item()
+            else:
+                best_idx_in_batch = torch.argmax(acq_values)
+
             best_acq_val = acq_values[best_idx_in_batch]
-            # 映射回全局索引
+
             best_global_idx = valid_indices[best_idx_in_batch]
 
             # (1, 1, D)
@@ -109,25 +141,22 @@ class BaseAcquisitionFunction:
             candidate_list.append(selected_candidate)
             acq_value_list.append(best_acq_val)
 
-            # 更新 Pending Points
-            # 形状变为 (1, current_q, D)
             current_candidates = torch.cat(candidate_list, dim=-2)
             torch.cuda.empty_cache()
 
-            # 关键步骤：告诉采集函数这些点已经被选了，寻找下一个点时要基于这些点的条件分布
-            # set_X_pending 需要 (current_q, D) 形状，所以需要 squeeze(0)
+            # Key step: Inform the acquisition function that these points have been selected.
+            # When looking for the next point, it should be based on the conditional distribution of these points
             acq_func.set_X_pending(current_candidates.squeeze(0))
-            # 如果要求唯一，更新掩码排除掉刚刚选中的点
+            # If uniqueness is required, update the mask to exclude the point just selected
             if unique:
-                # 计算剩余点到最新选中点的距离
                 dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
                 is_far_enough = dist_to_new > min_distance
                 current_mask = current_mask & is_far_enough
             if progress:
                 progress.update(task, advance=1)
 
-        # 4. 清理与返回
-        acq_func.set_X_pending(None)  # 防止副作用
+        # clean up
+        acq_func.set_X_pending(None)
 
         if not candidate_list:
             return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
@@ -168,16 +197,15 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         choices: Tensor,
         max_batch_size: int = 128,
         unique: bool = True,
-        maximum_metrics: bool = True,  # EHVI 可能会用到这个参数来决定方向，但在 discrete 逻辑里不影响循环结构
         progress: object = None,
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
 
-        # 直接调用基类的通用逻辑
-        # 注意：这里需要传入全局的 console 对象，假设你的环境中有一个名为 console 的变量
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -187,6 +215,8 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
 
@@ -226,9 +256,11 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -238,47 +270,39 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
 
-# ---------------------------------------------------------------------------
-# 2. qParEGO (通过随机标量化解决多目标问题)
-# ---------------------------------------------------------------------------
 class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
     """
-    ParEGO: 使用随机切比雪夫标量化将多目标转化为单目标，
-    然后应用 Expected Improvement (EI)。
+    Convert multiple objectives into single objectives using random Chebyshev scaling, and then apply EI.
     """
 
     def __init__(
         self,
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
-        X_baseline: Tensor,  # 训练数据的输入特征
+        X_baseline: Tensor,
         num_objectives: int,
     ):
         super().__init__(model, sampler)
 
-        # 1. 随机生成权重
         weights = torch.randn(num_objectives).abs()
         weights /= weights.sum()
 
-        # 2. 获取当前训练集的模型预测值用于标量化参考
         with torch.no_grad():
             posterior = model.posterior(X_baseline)
             Y_baseline = posterior.mean
 
-        # 3. 确保 weights 与 Y_baseline 在同一设备上
         weights = weights.to(Y_baseline.device)
 
-        # 3. 构建切比雪夫标量化目标
         objective = self._get_chebyshev_objective(weights=weights, Y=Y_baseline)
 
-        # 4. 计算当前最佳标量化值
         scalarized_Y = objective(Y_baseline)
         best_f = scalarized_Y.max()
 
-        # 5. 初始化采集函数
         self.acquisition_function = qExpectedImprovement(
             model=model,
             best_f=best_f,
@@ -297,9 +321,10 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        # 直接调用基类的通用逻辑
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -309,6 +334,8 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
     @staticmethod
@@ -372,9 +399,11 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         task: object = None,
         min_distance: float = 1e-6,
         exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
-        return self.optimize_discrete_greedy(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -384,6 +413,8 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
             task=task,
             min_distance=min_distance,
             exclude_points=exclude_points,
+            temperature=temperature,
+            constraint_mask=constraint_mask,
         )
 
 

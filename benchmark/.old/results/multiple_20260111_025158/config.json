@@ -1,0 +1,67 @@
+{
+    "experiment_name": "B-H_Optimization_RF_random_select_random",
+    "base_seed": 199,
+    "num_rounds": 10,
+    "iterations": 10,
+    "batch_size": 5,
+    "data_paths": {
+        "dataset_file": "/home/tzz/AIChem/reactionopt/benchmark/../examples/B-H_HTE/B-H_HTE.csv",
+        "descriptor_dir": "/home/tzz/AIChem/reactionopt/benchmark/../examples/B-H_HTE/descriptors",
+        "results_base_dir": "/home/tzz/AIChem/reactionopt/benchmark/results"
+    },
+    "reaction_space": {
+        "reagent_types": [
+            "base",
+            "ligand",
+            "solvent",
+            "concentration",
+            "temperature"
+        ],
+        "name_suffix": [
+            "_dft",
+            "_dft",
+            "_dft",
+            null,
+            null
+        ],
+        "index_col": [
+            "index",
+            "index",
+            "index",
+            "index",
+            "index"
+        ]
+    },
+    "optimization_settings": {
+        "opt_metrics": [
+            "yield",
+            "cost"
+        ],
+        "opt_direct_info": [
+            {
+                "opt_direct": "max",
+                "opt_range": [
+                    0,
+                    100
+                ],
+                "metric_weight": 1.0
+            },
+            {
+                "opt_direct": "min",
+                "opt_range": [
+                    0,
+                    0.5
+                ],
+                "metric_weight": 1.0
+            }
+        ],
+        "opt_type": "auto",
+        "desc_normalize": "minmax",
+        "sampling_method": "random",
+        "refine_desc": "filter_0.8",
+        "optimize_method": "random_select",
+        "kwargs": {
+            "surrogate_model": "RF"
+        }
+    }
+}

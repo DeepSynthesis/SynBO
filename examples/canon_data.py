@@ -1,4 +1,4 @@
-from quanda.utils import canonicalize_input_SMILES_file
+from qspoc.utils import canonicalize_input_SMILES_file
 
 
 {

@@ -7,9 +7,15 @@ from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from rxnopt.utils.util_func import compute_hvi
+from rxnopt.utils.util_func import compute_hvi, generate_constraint_mask
 from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import BNNEnsembleSurrogateModel, BayesianLinearSurrogateModel, GPSurrogateModel, RFSurrogateModel, SklearnModelWrapper
+from rxnopt.algorithm.sg_model import (
+    BNNEnsembleSurrogateModel,
+    BayesianLinearSurrogateModel,
+    GPSurrogateModel,
+    RFSurrogateModel,
+    SklearnModelWrapper,
+)
 from rxnopt.algorithm.acq_function import (
     EHVIAcquisitionFunction,
     NEIAcquisitionFunction,
@@ -44,9 +50,9 @@ class DefaultBO:
             self.surrogate_model_class = GPSurrogateModel
         elif surrogate_model == "RF":
             self.surrogate_model_class = RFSurrogateModel
-        elif surrogate_model == "ensemble":
+        elif surrogate_model == "BNN":
             self.surrogate_model_class = BNNEnsembleSurrogateModel
-        elif surrogate_model == "linear":
+        elif surrogate_model == "BayesianLinear":
             self.surrogate_model_class = BayesianLinearSurrogateModel
         else:
             raise ValueError(f"Unknown surrogate model: {surrogate_model}")
@@ -72,6 +78,10 @@ class DefaultBO:
         opt_metric_settings: List[dict],
         batch_size: int,
         training_y_dict: dict,
+        temperature: float = 0.0,
+        constraints: dict = None,
+        total_name_arr: np.ndarray = None,
+        condition_types: List[str] = None,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
@@ -96,7 +106,7 @@ class DefaultBO:
 
                 train_y_i = training_y_t[:, i].reshape(-1, 1)
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
-                
+
                 if isinstance(model_i, GPSurrogateModel):
                     model_i.fit(training_X_t, train_y_i)
                     models.append(model_i.model)
@@ -104,7 +114,7 @@ class DefaultBO:
                     wrapper = SklearnModelWrapper(model_i)
                     wrapper.fit_surrogate(training_X_t, train_y_i)
                     models.append(wrapper)
-                
+
                 progress.update(task_train, advance=1)
 
             self.global_model = ModelListGP(*models)
@@ -151,6 +161,18 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
+            # Generate constraint mask if constraints are provided
+            constraint_mask_t = None
+            
+            if constraints is not None and total_name_arr is not None and condition_types is not None:
+                constraint_mask = generate_constraint_mask(
+                    total_name_arr=total_name_arr,
+                    condition_types=condition_types,
+                    constraints=constraints,
+                )
+                constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
+                progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
                 q=batch_size,
@@ -161,6 +183,8 @@ class DefaultBO:
                 min_distance=1e-6,
                 progress=progress,
                 task=task_acq_opt,
+                temperature=temperature,
+                constraint_mask=constraint_mask_t,
             )
 
         if self.device.type == "cuda":
@@ -183,7 +207,7 @@ class DefaultBO:
         with torch.no_grad():
             posterior = self.global_model.posterior(self.acq_result)
             pred_mean = posterior.mean
-            
+
         # Handle different shapes from posterior.mean
         # The posterior.mean from ModelListGP with multiple outputs has shape (batch_size, q)
         # where each model contributes one dimension
@@ -194,7 +218,7 @@ class DefaultBO:
         elif pred_mean.dim() == 3:
             # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
             pred_mean = pred_mean.squeeze(0)
-        
+
         # Ensure pred_mean is 2D
         if pred_mean.dim() != 2:
             raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
@@ -219,7 +243,7 @@ class DefaultBO:
             posterior = self.global_model.posterior(self.acq_result)
             pred_mean = posterior.mean
             pred_var = posterior.variance
-            
+
         # Handle different shapes from posterior
         if pred_mean.dim() == 2:
             # Already in correct shape (n_points, n_outputs)
@@ -228,11 +252,11 @@ class DefaultBO:
             # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
             pred_mean = pred_mean.squeeze(0)
             pred_var = pred_var.squeeze(0)
-        
+
         # Ensure correct shapes
         if pred_mean.dim() != 2:
             raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
-            
+
         pred_mean = pred_mean.cpu().numpy()
         pred_var = pred_var.cpu().numpy()
         pred_std = np.sqrt(pred_var)

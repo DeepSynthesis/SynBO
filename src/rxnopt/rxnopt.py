@@ -509,3 +509,76 @@ class ReactionOptimizer:
             return constraints
         else:
             raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")
+
+    def calculate_current_hv(self, batch_id: Optional[int] = None, reference_point_multiplier: float = 1.1) -> Dict[str, any]:
+        """Calculate hypervolume (HV) for current optimization progress.
+
+        This method calculates the hypervolume metric for multi-objective optimization,
+        which measures the volume of the objective space dominated by the Pareto front.
+
+        Args:
+            batch_id: Optional batch ID to calculate HV up to. If None, uses all available data
+            reference_point_multiplier: Multiplier for reference point (default: 1.1)
+
+        Returns:
+            Dictionary containing:
+                - 'hv': Hypervolume value
+                - 'hv_normalized': Normalized hypervolume (0 to 1)
+                - 'total_hv': Total theoretical hypervolume (reference)
+                - 'num_points': Number of points used in calculation
+                - 'batch_id': Batch ID used for calculation
+
+        Raises:
+            ValueError: If prev_rxn_info has not been loaded
+        """
+        from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch
+
+        if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
+            raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
+
+        if batch_id is None:
+            # Use the current batch_id if available, otherwise calculate HV for all data
+            batch_id = getattr(self, "batch_id", None)
+
+        hv_result = calculate_hypervolume_for_batch(
+            prev_rxn_info=self.prev_rxn_info,
+            opt_metrics=self.opt_metrics,
+            opt_metric_settings=self.opt_metric_settings,
+            batch_id=batch_id,
+            reference_point_multiplier=reference_point_multiplier,
+        )
+
+        return hv_result
+
+    def calculate_hv_by_batch(self, reference_point_multiplier: float = 1.1) -> pd.DataFrame:
+        """Calculate hypervolume for each batch cumulatively.
+
+        This method calculates the hypervolume at each batch, including all data
+        from previous batches. This shows the progress of optimization over time.
+
+        Args:
+            reference_point_multiplier: Multiplier for reference point (default: 1.1)
+
+        Returns:
+            DataFrame with columns:
+                - 'batch': Batch index
+                - 'hv': Hypervolume value
+                - 'hv_normalized': Normalized hypervolume (0 to 1)
+                - 'num_points': Cumulative number of points
+
+        Raises:
+            ValueError: If prev_rxn_info has not been loaded
+        """
+        from rxnopt.utils.hv_calculator import calculate_hypervolume_by_batch
+
+        if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
+            raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
+
+        hv_results = calculate_hypervolume_by_batch(
+            prev_rxn_info=self.prev_rxn_info,
+            opt_metrics=self.opt_metrics,
+            opt_metric_settings=self.opt_metric_settings,
+            reference_point_multiplier=reference_point_multiplier,
+        )
+
+        return hv_results

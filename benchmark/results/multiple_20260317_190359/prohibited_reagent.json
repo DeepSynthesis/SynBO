@@ -1,0 +1,23 @@
+{
+  "catalyst1": [
+    "Riboflavin_Tetrabutyrate",
+    "RhB",
+    "MethyleneBlue",
+    "[26-Me-Acr-Me]ClO4",
+    "Me-Ph-triazine"
+  ],
+  "catalyst2": [
+    "L-Pipecolic_acid",
+    "Morpholine",
+    "Octahydroindole-2-carboxylic-acid",
+    "Proline",
+    "Proline_amide",
+    "Macmillan_cat2",
+    "Thiazolidine-4-carboxamide"
+  ],
+  "reactant2": [
+    "O=C(CBr)c1ccc(-c2ccccc2)cc1",
+    "O=C(CBr)c1ccc(C(F)(F)F)cc1",
+    "O=C(CBr)c1ccc(Br)cc1"
+  ]
+}

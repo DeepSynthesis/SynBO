@@ -239,7 +239,14 @@ Your task:
 3. Focus on eliminating the least promising reagents based on:
    - Poor performance in the existing data
    - Chemical incompatibility
-   But DO NOT remove reagents that are not present in the data. They are likely to be tests for future rounds.
+ But DO NOT remove reagents that are not present in the data. They are likely to be tests for future rounds.
+
+IMPORTANT - RIGHT TO REFUSE SPATIAL EXCLUSION:
+You have the right to refuse performing spatial exclusion if either of the following conditions is met:
+   - You determine that there are no conditions that need to be excluded based on the current data
+   - Further exclusion would result in an empty candidate list for any condition type
+In these cases, return an empty JSON object {{}} instead of attempting to eliminate reagents.
+
 4. Return your answer in the following `JSON` format like:
 
 {{
@@ -247,6 +254,10 @@ Your task:
     "reagent2": ["reagent2_value1", "reagent2_value2"],
     ...
 }}
+
+Or if you decide to refuse spatial exclusion, return an empty JSON:
+
+{{}}
 
 The keys should be the condition types, and the values should be lists of reagents to ELIMINATE (NOT KEEP).
 

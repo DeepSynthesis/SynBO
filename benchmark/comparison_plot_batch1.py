@@ -126,7 +126,7 @@ if __name__ == "__main__":
             "range_tags": [[0, 1], [0, 1]],
         },
         "rxnopt(dynamic)": {
-            "results_path": "results/multiple_20260310_192847/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260317_160720/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
             "range_tags": [[0, 1], [0, 1]],

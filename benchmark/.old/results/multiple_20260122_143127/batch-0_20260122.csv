@@ -1,6 +1,6 @@
 batch,index,type,reactant2,catalyst1,catalyst2,pred yield,pred ee,yield,ee
-0,1,explore,O=C(CBr)c1ccc(-c2ccccc2)cc1,F[P-](F)(F)(F)(F)F.c1cc[c]2c(c1)-c1cccc[n+]1[Ir-3]213([c]2ccccc2-c2cccc[n+]21)[n+]1ccccc1-c1cccc[n+]13,C1COCCN1,-,-,0.117813029,0.006302468
-0,2,explore,O=C(CBr)c1ccccc1,CCN(CC)c1ccc2c(-c3ccccc3C(=O)O)c3ccc(=[N+](CC)CC)cc-3oc2c1.[Cl-],C[Si](C)(C)OC(c1cc(C(F)(F)F)cc(C(F)(F)F)c1)(c1cc(C(F)(F)F)cc(C(F)(F)F)c1)[C@@H]1CCCN1,-,-,0.117591891,0.559057336
-0,3,explore,COc1ccc(C(=O)CBr)cc1,Cc1cccc(C)c1-c1c2ccccc2[n+](C)c2ccccc12.[O-][Cl+3]([O-])([O-])[O-],NC(=O)[C@@H]1CCCN1,-,-,0.049781483,0.288734511
-0,4,explore,O=C(CBr)c1ccc(-c2ccccc2)cc1,CN(C)c1ccc2nc3ccc(N(C)C)cc3[s+]c2c1.[Cl-],C[Si](C)(C)OC(c1cc(C(F)(F)F)cc(C(F)(F)F)c1)(c1cc(C(F)(F)F)cc(C(F)(F)F)c1)[C@@H]1CCCN1,-,-,0.013057783,0.400717303
-0,5,explore,O=C(CBr)c1ccc(C(F)(F)F)cc1,F[P-](F)(F)(F)(F)F.F[P-](F)(F)(F)(F)F.c1cc[n+]2c(c1)-c1cccc[n+]1[Ru-4]213([n+]2ccccc2-c2cccc[n+]21)[n+]1ccccc1-c1cccc[n+]13,C[Si](C)(C)OC(c1ccccc1)(c1ccccc1)[C@@H]1CCCN1,-,-,0.286593791,0.468160342
+0,1,explore,O=C(CBr)c1ccc(-c2ccccc2)cc1,Ir(ppy)2bpyPF6,Morpholine,-,-,0.117813029,0.006302468
+0,2,explore,O=C(CBr)c1ccccc1,RhB,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,-,-,0.117591891,0.559057336
+0,3,explore,COc1ccc(C(=O)CBr)cc1,[26-Me-Acr-Me]ClO4,Proline_amide,-,-,0.049781483,0.288734511
+0,4,explore,O=C(CBr)c1ccc(-c2ccccc2)cc1,MethyleneBlue,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,-,-,0.013057783,0.400717303
+0,5,explore,O=C(CBr)c1ccc(C(F)(F)F)cc1,Ru(bpy)3[PF6]2,diphenyl-2-pyrrolidinyl-TMS-ether,-,-,0.286593791,0.468160342

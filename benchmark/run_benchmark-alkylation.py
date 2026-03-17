@@ -15,6 +15,7 @@ from utils.plots import (
 from utils.metrics import get_average_optimal_targets, get_auc_of_opt, get_hypervolume, get_average_optimal_targets_hv, get_auc_of_opt_hv
 from rxnopt import ReactionOptimizer
 from rxnopt.utils import load_desc_dict, get_prev_rxn
+from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent
@@ -53,9 +54,21 @@ CONFIG = {
         "temperature": 0.1,
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
+    "constraint_settings": {
+        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
+        "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
+        "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
+        "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
+        # Additional LLM parameters
+        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
+        "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
+        "llm_base_url": "https://aihubmix.com/v1",
+        "llm_temperature": 0.0,  # Temperature parameter for LLM generation
+    },
 }
 
-CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
+CONFIG["reaction_space"]["index_col"] = ["index" for r in CONFIG["reaction_space"]["reagent_types"]]
 # ===========================================================================================================
 
 
@@ -186,11 +199,36 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     start_points = load_start_points(start_point_path)
     print(f"Loaded start points from: {start_point_path}")
 
+    # Initialize constraint settings
+    constraint_settings = CONFIG.get("constraint_settings", {})
+    enable_constraints = constraint_settings.get("enable_constraints", False)
+    constraint_method = constraint_settings.get("constraint_method", "llm")
+    hv_stagnation_rounds = constraint_settings.get("hv_stagnation_rounds", 3)
+    hv_improvement_threshold = constraint_settings.get("hv_improvement_threshold", 0.01)
+    reduce_ratio = constraint_settings.get("reduce_ratio", 0.3)
+
+    # LLM parameters
+    llm_model = constraint_settings.get("llm_model", "gpt-4")
+    llm_api_key = constraint_settings.get("llm_api_key", None)
+    llm_base_url = constraint_settings.get("llm_base_url", None)
+    llm_temperature = constraint_settings.get("llm_temperature", 0.7)
+
+    if enable_constraints:
+        print(f"\n[Constraints Enabled]")
+        print(f"  - Method: {constraint_method}")
+        print(f"  - HV stagnation rounds: {hv_stagnation_rounds}")
+        print(f"  - HV improvement threshold: {hv_improvement_threshold:.2%}")
+        print(f"  - Reduce ratio: {reduce_ratio:.1%}")
+        print(f"  - LLM model: {llm_model}")
+
     for round_idx in range(CONFIG["num_rounds"]):
         current_seed = base_seed + round_idx
         print(f"\n{'='*20} Starting Round {round_idx + 1}/{CONFIG['num_rounds']} (Seed: {current_seed}) {'='*20}")
 
         batch_files_map = {}  # 存储 batch_id -> file_path，用于最后合并
+        constraints = None  # Initialize constraints as None
+        hv_history = []  # Track HV values to detect stagnation
+        stagnation_count = 0  # Count consecutive rounds without improvement
 
         for i in tqdm(range(CONFIG["iterations"]), desc=f"Round {round_idx+1} Calc"):
             rxn_opt = ReactionOptimizer(
@@ -199,6 +237,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
                 quiet=True,
+                save_dir=str(experiment_dir),
             )
 
             rxn_opt.load_rxn_space(condition_dict=condition_dict)
@@ -223,7 +262,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 prev_rxn_info = selected_rows[
                     CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]
                 ].copy()
-                prev_rxn_info["batch"] = -1  # Set batch to 0 for initial batch
+                prev_rxn_info["batch"] = -1  # Set batch to -1 for initial batch
 
                 # Load selected reactions as previous reactions
                 rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
@@ -237,16 +276,83 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
 
             else:
+                # Calculate current HV before optimization
+                try:
+                    hv_result = calculate_hypervolume_for_batch(
+                        prev_rxn_info=prev_rxns,
+                        opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
+                        opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
+                        batch_id=None,
+                        reference_point_multiplier=1.1,
+                    )
+                    current_hv = hv_result["hv_normalized"]
+                except Exception as e:
+                    print(f"Warning: Could not calculate HV at iteration {i}: {e}")
+                    current_hv = 0.0
+
+                # Check HV improvement
+                if hv_history:
+                    last_hv = hv_history[-1]
+                    improvement = ((current_hv - last_hv) / last_hv) * 100 if last_hv > 0 else 0
+
+                    # Check if HV improved beyond threshold
+                    if improvement >= hv_improvement_threshold:
+                        stagnation_count = 0
+                        print(f"  HV improved by {improvement:.3f}% (stagnation count reset)")
+                    else:
+                        stagnation_count += 1
+                        print(f"  HV stagnated for {stagnation_count} rounds (improvement: {improvement:.3f}%)")
+
+                    hv_history.append(current_hv)
+                else:
+                    # First iteration, just record HV
+                    hv_history.append(current_hv)
+                    stagnation_count = 0
+                    print(f"  Initial HV: {current_hv:.4f}")
+
+                # Generate constraints if enabled and HV has stagnated for k rounds
+                should_reduce_space = enable_constraints and stagnation_count >= hv_stagnation_rounds
+
+                if should_reduce_space:
+                    print(f"\n{'='*10} Generating constraints at iteration {i} (HV stagnated for {stagnation_count} rounds) {'='*10}")
+
+                    try:
+                        constraints = rxn_opt.get_constrains(
+                            method=constraint_method,
+                            reduce_ratio=reduce_ratio,
+                            model=llm_model,
+                            api_key=llm_api_key,
+                            base_url=llm_base_url,
+                            temperature=llm_temperature,
+                        )
+
+                        if constraints is not None:
+                            total_eliminated = sum(len(vals) for vals in constraints.values())
+                            print(f"✓ Constraints generated successfully")
+                            print(f"  - Eliminated {total_eliminated} reagents total")
+                            for ctype, vals in constraints.items():
+                                print(f"  - {ctype}: {len(vals)} reagents eliminated")
+                            # Reset stagnation count after space reduction
+                            stagnation_count = 0
+                        else:
+                            print(f"⚠ Constraints generation returned None - using full reaction space")
+                            constraints = None
+                    except Exception as e:
+                        print(f"⚠ Error generating constraints: {e}")
+                        print(f"  Continuing with full reaction space")
+                        constraints = None
+
                 rxn_opt.optimize(
                     batch_size=CONFIG["batch_size"],
                     optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                     desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                     refine_desc=CONFIG["optimization_settings"]["refine_desc"],
                     temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
+                    constraints=constraints,
                     **CONFIG["optimization_settings"]["kwargs"],
                 )
 
-            rxn_opt.save_results(save_dir=str(experiment_dir))
+            rxn_opt.save_results()
 
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path
@@ -261,7 +367,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
             dfs.append(df)
 
         if dfs:
-            df_all = pd.concat(dfs, ignore_index=True)
+            df_all = pd.concat(dfs, ignore_index=False)
             final_filename = f"all_batches_final_round_{round_idx}.csv"
             df_all.to_csv(experiment_dir / final_filename, index=False)
             print(f"Saved summary: {final_filename}")

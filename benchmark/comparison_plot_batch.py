@@ -120,7 +120,7 @@ if __name__ == "__main__":
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
         "rxnopt(dynamic)": {
-            "results_path": "results/multiple_20260313_213156/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260317_150451/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],

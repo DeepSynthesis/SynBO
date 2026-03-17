@@ -57,7 +57,8 @@ CONFIG = {
     "constraint_settings": {
         "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
-        "space_reduction_frequency": 3,  # Perform space reduction every N iterations (adjustable parameter)
+        "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
+        "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
         "reduce_ratio": 0.25,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
         "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
@@ -186,6 +187,8 @@ def load_start_points(start_point_path):
 
 def run_simulation(experiment_dir, desc_dict, condition_dict):
     """执行主要的优化计算循环"""
+    from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch
+
     base_seed = CONFIG["base_seed"]
 
     # 保存配置
@@ -203,7 +206,8 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     constraint_settings = CONFIG.get("constraint_settings", {})
     enable_constraints = constraint_settings.get("enable_constraints", False)
     constraint_method = constraint_settings.get("constraint_method", "llm")
-    space_reduction_frequency = constraint_settings.get("space_reduction_frequency", 3)
+    hv_stagnation_rounds = constraint_settings.get("hv_stagnation_rounds", 3)
+    hv_improvement_threshold = constraint_settings.get("hv_improvement_threshold", 0.01)
     reduce_ratio = constraint_settings.get("reduce_ratio", 0.3)
 
     # LLM parameters
@@ -215,7 +219,8 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     if enable_constraints:
         print(f"\n[Constraints Enabled]")
         print(f"  - Method: {constraint_method}")
-        print(f"  - Space reduction frequency: every {space_reduction_frequency} iterations")
+        print(f"  - HV stagnation rounds: {hv_stagnation_rounds}")
+        print(f"  - HV improvement threshold: {hv_improvement_threshold:.2%}")
         print(f"  - Reduce ratio: {reduce_ratio:.1%}")
         print(f"  - LLM model: {llm_model}")
 
@@ -225,6 +230,8 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
         batch_files_map = {}  # 存储 batch_id -> file_path，用于最后合并
         constraints = None  # Initialize constraints as None
+        hv_history = []  # Track HV values to detect stagnation
+        stagnation_count = 0  # Count consecutive rounds without improvement
 
         for i in tqdm(range(CONFIG["iterations"]), desc=f"Round {round_idx+1} Calc"):
             rxn_opt = ReactionOptimizer(
@@ -258,7 +265,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 prev_rxn_info = selected_rows[
                     CONFIG["reaction_space"]["reagent_types"] + CONFIG["optimization_settings"]["opt_metrics"]
                 ].copy()
-                prev_rxn_info["batch"] = -1  # Set batch to 0 for initial batch
+                prev_rxn_info["batch"] = -1  # Set batch to -1 for initial batch
 
                 # Load selected reactions as previous reactions
                 rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
@@ -272,9 +279,45 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
 
             else:
-                # Generate constraints if enabled and it's the right iteration
-                if enable_constraints and i % space_reduction_frequency == 0:
-                    print(f"\n{'='*10} Generating constraints at iteration {i} {'='*10}")
+                # Calculate current HV before optimization
+                try:
+                    hv_result = calculate_hypervolume_for_batch(
+                        prev_rxn_info=prev_rxns,
+                        opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
+                        opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
+                        batch_id=None,
+                        reference_point_multiplier=1.1,
+                    )
+                    current_hv = hv_result["hv_normalized"]
+                except Exception as e:
+                    print(f"Warning: Could not calculate HV at iteration {i}: {e}")
+                    current_hv = 0.0
+
+                # Check HV improvement
+                if hv_history:
+                    last_hv = hv_history[-1]
+                    improvement = ((current_hv - last_hv) / last_hv) * 100 if last_hv > 0 else 0
+
+                    # Check if HV improved beyond threshold
+                    if improvement >= hv_improvement_threshold:
+                        stagnation_count = 0
+                        print(f"  HV improved by {improvement:.3f}% (stagnation count reset)")
+                    else:
+                        stagnation_count += 1
+                        print(f"  HV stagnated for {stagnation_count} rounds (improvement: {improvement:.3f}%)")
+
+                    hv_history.append(current_hv)
+                else:
+                    # First iteration, just record HV
+                    hv_history.append(current_hv)
+                    stagnation_count = 0
+                    print(f"  Initial HV: {current_hv:.4f}")
+
+                # Generate constraints if enabled and HV has stagnated for k rounds
+                should_reduce_space = enable_constraints and stagnation_count >= hv_stagnation_rounds
+
+                if should_reduce_space:
+                    print(f"\n{'='*10} Generating constraints at iteration {i} (HV stagnated for {stagnation_count} rounds) {'='*10}")
 
                     try:
                         constraints = rxn_opt.get_constrains(
@@ -292,6 +335,8 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                             print(f"  - Eliminated {total_eliminated} reagents total")
                             for ctype, vals in constraints.items():
                                 print(f"  - {ctype}: {len(vals)} reagents eliminated")
+                            # Reset stagnation count after space reduction
+                            stagnation_count = 0
                         else:
                             print(f"⚠ Constraints generation returned None - using full reaction space")
                             constraints = None

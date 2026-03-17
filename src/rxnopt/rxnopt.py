@@ -510,7 +510,7 @@ class ReactionOptimizer:
         else:
             raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")
 
-    def calculate_current_hv(self, batch_id: Optional[int] = None, reference_point_multiplier: float = 1.1) -> Dict[str, any]:
+    def calculate_current_hv(self, batch_id: Optional[int] = None, reference_point_multiplier: float = 1.0) -> Dict[str, any]:
         """Calculate hypervolume (HV) for current optimization progress.
 
         This method calculates the hypervolume metric for multi-objective optimization,
@@ -518,7 +518,7 @@ class ReactionOptimizer:
 
         Args:
             batch_id: Optional batch ID to calculate HV up to. If None, uses all available data
-            reference_point_multiplier: Multiplier for reference point (default: 1.1)
+            reference_point_multiplier: Multiplier for reference point (default: 1.0)
 
         Returns:
             Dictionary containing:
@@ -550,14 +550,14 @@ class ReactionOptimizer:
 
         return hv_result
 
-    def calculate_hv_by_batch(self, reference_point_multiplier: float = 1.1) -> pd.DataFrame:
+    def calculate_hv_by_batch(self, reference_point_multiplier: float = 1.0) -> pd.DataFrame:
         """Calculate hypervolume for each batch cumulatively.
 
         This method calculates the hypervolume at each batch, including all data
         from previous batches. This shows the progress of optimization over time.
 
         Args:
-            reference_point_multiplier: Multiplier for reference point (default: 1.1)
+            reference_point_multiplier: Multiplier for reference point (default: 1.0)
 
         Returns:
             DataFrame with columns:

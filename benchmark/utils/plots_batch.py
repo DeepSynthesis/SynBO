@@ -163,7 +163,7 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
         full_space_file: Full space data file path.
         experiment_dir: Image save directory (Path object or string).
     """
-    from pymoo.indicators.hv import HV
+    from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch, calculate_hypervolume_by_batch
 
     if len(target_columns) != len(direction_tags) or len(target_columns) != len(range_tags):
         print("Error: The length of 'target_columns', 'direction_tags', and 'range_tags' must be same.")
@@ -172,51 +172,42 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
+    # Convert direction_tags and range_tags to opt_metric_settings format for rxnopt
+    opt_metric_settings = [
+        {"opt_direct": direction, "opt_range": list(range_val)}
+        for direction, range_val in zip(direction_tags, range_tags)
+    ]
+
+    # Load full space data
     if str(full_space_file).endswith(".csv"):
         full_df = pd.read_csv(full_space_file)
     else:
         full_df = pd.read_excel(full_space_file)
 
-    full_data_raw = full_df[target_columns].values
+    # Add batch column if not present for full space (use batch=-1 to indicate it's full space)
+    if "batch" not in full_df.columns:
+        full_df["batch"] = -1
 
-    def normalize_and_transform(data, ranges, directions):
-        """
-        1. Normalize to [0, 1] using range_tags.
-        2. Convert to minimization problem using direction_tags.
-        """
-        data = np.array(data)
-        transformed = np.zeros_like(data, dtype=float)
-
-        for i, (col_min, col_max) in enumerate(ranges):
-            col_data = data[:, i]
-            if col_max == col_min:
-                norm_col = np.full_like(col_data, 1.0)
-            else:
-                norm_col = (col_data - col_min) / (col_max - col_min)
-
-            norm_col = np.clip(norm_col, 0.0, 1.0)
-
-            direction = directions[i]
-            if direction == "min":
-                transformed[:, i] = norm_col
-            elif direction == "max":
-                transformed[:, i] = 1.0 - norm_col
-            else:
-                print(f"Warning: Unknown direction '{direction}', assuming 'max'.")
-                transformed[:, i] = 1.0 - norm_col
-
-        return transformed
-
-    full_data_norm = normalize_and_transform(full_data_raw, range_tags, direction_tags)
-    ref_point = np.array([1.1] * len(target_columns))
-    ind = HV(ref_point=ref_point)
-    total_hv = ind(full_data_norm)
+    # Calculate total hypervolume using rxnopt method
+    try:
+        total_hv_result = calculate_hypervolume_for_batch(
+            prev_rxn_info=full_df,
+            opt_metrics=target_columns,
+            opt_metric_settings=opt_metric_settings,
+            batch_id=None,
+            reference_point_multiplier=1.1
+        )
+        total_hv = total_hv_result["hv"]
+    except Exception as e:
+        print(f"Warning: Could not calculate total hypervolume: {e}")
+        print("Using reference point calculation instead.")
+        total_hv = np.prod([1.1] * len(target_columns))
 
     if total_hv == 0:
         print("Warning: Total Hypervolume is 0. Check your range_tags or data.")
         return
 
-    print(f"Total Theoretical HV (Normalized): {total_hv:.4f}")
+    print(f"Total Theoretical HV: {total_hv:.4f}")
 
     all_best_records = []
     all_actual_records = []
@@ -224,38 +215,41 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     for model_name, dfs in model_data.items():
         for df in dfs:
             df = df.sort_values("batch").copy()
-            round_data_raw = df[target_columns].values
-            round_data_norm = normalize_and_transform(round_data_raw, range_tags, direction_tags)
-
-            # Calculate HV for each batch (HV of all samples up to and including that batch)
-            batch_hv_values = {}
-            batch_indices = sorted(df["batch"].unique())
-
-            for batch_idx in batch_indices:
-                # Get all samples up to and including this batch
-                batch_samples = df[df["batch"] <= batch_idx]
-                batch_data_raw = batch_samples[target_columns].values
-                batch_data_norm = normalize_and_transform(batch_data_raw, range_tags, direction_tags)
-
-                # Calculate HV for this batch
-                current_hv = ind(batch_data_norm)
-                hv_percentage = (current_hv / total_hv) * 100
-
-                batch_hv_values[batch_idx] = hv_percentage
-
-            # Convert to series for cummax and groupby
-            batch_hv_series = pd.Series(batch_hv_values)
-
-            # Calculate cumulative best HV (hypervolume should be maximized)
-            cumulative_best_hv = batch_hv_series.cummax()
-
-            # Add cumulative best records (best HV up to and including current batch)
-            for batch_idx, hv_value in cumulative_best_hv.items():
-                all_best_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
-
-            # Add batch HV records (HV at each batch)
-            for batch_idx, hv_value in batch_hv_series.items():
-                all_actual_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
+            
+            # Calculate HV for each batch using rxnopt method
+            try:
+                hv_by_batch_df = calculate_hypervolume_by_batch(
+                    prev_rxn_info=df,
+                    opt_metrics=target_columns,
+                    opt_metric_settings=opt_metric_settings,
+                    reference_point_multiplier=1.1
+                )
+                
+                # Convert to dictionary for easier processing
+                batch_hv_values = {}
+                for _, row in hv_by_batch_df.iterrows():
+                    batch_id = int(row["batch"])
+                    hv_value = row["hv"]
+                    hv_percentage = (hv_value / total_hv) * 100
+                    batch_hv_values[batch_id] = hv_percentage
+                
+                # Convert to series for cummax
+                batch_hv_series = pd.Series(batch_hv_values)
+                
+                # Calculate cumulative best HV (hypervolume should be maximized)
+                cumulative_best_hv = batch_hv_series.cummax()
+                
+                # Add cumulative best records (best HV up to and including current batch)
+                for batch_idx, hv_value in cumulative_best_hv.items():
+                    all_best_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
+                
+                # Add batch HV records (HV at each batch)
+                for batch_idx, hv_value in batch_hv_series.items():
+                    all_actual_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
+                    
+            except Exception as e:
+                print(f"Warning: Could not calculate HV for model {model_name}: {e}")
+                continue
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)

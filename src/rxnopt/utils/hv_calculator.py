@@ -10,7 +10,7 @@ def calculate_hypervolume_for_batch(
     opt_metrics: List[str],
     opt_metric_settings: List[Dict[str, any]],
     batch_id: Optional[int] = None,
-    reference_point_multiplier: float = 1.1,
+    reference_point_multiplier: float = 1.0,
 ) -> Dict[str, any]:
     """
     Calculate hypervolume (HV) for reaction optimization results.
@@ -28,7 +28,7 @@ def calculate_hypervolume_for_batch(
                             - 'opt_range': [min_value, max_value]
                             - 'metric_weight': weight for multi-objective (optional)
         batch_id: Optional batch ID to calculate HV up to. If None, uses all data
-        reference_point_multiplier: Multiplier for reference point (default: 1.1)
+        reference_point_multiplier: Multiplier for reference point (default: 1.0)
 
     Returns:
         Dictionary containing:
@@ -133,7 +133,7 @@ def calculate_hypervolume_by_batch(
     prev_rxn_info: pd.DataFrame,
     opt_metrics: List[str],
     opt_metric_settings: List[Dict[str, any]],
-    reference_point_multiplier: float = 1.1,
+    reference_point_multiplier: float = 1.0,
 ) -> pd.DataFrame:
     """
     Calculate hypervolume for each batch cumulatively.
@@ -147,7 +147,7 @@ def calculate_hypervolume_by_batch(
                        - 'batch' column (batch index for each reaction)
         opt_metrics: List of optimization metric column names
         opt_metric_settings: List of dictionaries with settings for each metric
-        reference_point_multiplier: Multiplier for reference point (default: 1.1)
+        reference_point_multiplier: Multiplier for reference point (default: 1.0)
 
     Returns:
         DataFrame with columns:

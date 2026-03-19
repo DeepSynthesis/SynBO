@@ -51,11 +51,11 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "temperature": 0.1,
-        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+        "temperature": 0.2,
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
-        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
         "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
         "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)

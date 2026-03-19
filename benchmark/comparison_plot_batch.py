@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # 示例：比较rxnopt和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
-        "rxnopt(dynamic)": {
+        "rxnopt(dynamic_0.1)": {
             "results_path": "results/multiple_20260317_150451/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
@@ -131,8 +131,8 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],
         },
-        "rxnopt(0.1)": {
-            "results_path": "results/multiple_20260309_194409/all_batches_final_round_*.csv",
+        "rxnopt(BNN)": {
+            "results_path": "results/multiple_20260319_195024/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],

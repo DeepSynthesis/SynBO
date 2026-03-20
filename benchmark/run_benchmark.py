@@ -55,11 +55,11 @@ CONFIG = {
         "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
-        "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
         "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
         "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
-        "reduce_ratio": 0.25,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
+        "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
         "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
         "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
@@ -314,7 +314,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     print(f"  Initial HV: {current_hv:.4f}")
 
                 # Generate constraints if enabled and HV has stagnated for k rounds
-                should_reduce_space = enable_constraints and stagnation_count >= hv_stagnation_rounds
+                should_reduce_space = enable_constraints and stagnation_count >= hv_stagnation_rounds and i > 2
 
                 if should_reduce_space:
                     print(f"\n{'='*10} Generating constraints at iteration {i} (HV stagnated for {stagnation_count} rounds) {'='*10}")

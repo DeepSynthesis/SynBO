@@ -11,6 +11,7 @@ from botorch.acquisition.monte_carlo import qUpperConfidenceBound, qExpectedImpr
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.objective import GenericMCObjective
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
+from botorch.optim import optimize_acqf_discrete as botorch_optimize_acqf_discrete
 
 from rxnopt.utils.logger import console
 
@@ -166,6 +167,106 @@ class BaseAcquisitionFunction:
 
         return final_candidates, final_values
 
+    def optimize_discrete_joint(
+        self,
+        acq_func,
+        q: int,
+        choices: Tensor,
+        max_batch_size: int = 128,
+        unique: bool = True,
+        progress: object = None,
+        task: object = None,
+        min_distance: float = 1e-6,
+        exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
+    ) -> tuple[Tensor, Tensor]:
+        """
+        Joint optimization for batch selection using BoTorch's optimize_acqf_discrete.
+        This method selects q candidates simultaneously by optimizing the joint acquisition function.
+        
+        Unlike the greedy sequence optimization, this approach considers the joint expected improvement
+        of all q candidates at once, which is theoretically optimal but computationally more expensive.
+
+        Args:
+            acq_func: Acquisition function to optimize (should support q-batch evaluation)
+            q: Number of candidates to select
+            choices: Candidate points tensor
+            max_batch_size: Maximum batch size for evaluation
+            unique: Whether to ensure unique selections
+            progress: Progress bar object (not used in joint optimization)
+            task: Progress task object (not used in joint optimization)
+            min_distance: Minimum distance for uniqueness check
+            exclude_points: Points to exclude from selection
+            constraint_mask: Boolean mask indicating which points satisfy constraints
+
+        Returns:
+            tuple[Tensor, Tensor]: Selected candidates (q, D) and their acquisition values
+        """
+        acq_func.set_X_pending(None)
+        
+        # Filter candidates based on constraints and exclusions
+        filtered_choices = choices
+        len_choices = len(choices)
+        
+        # Build the initial Available Mask
+        available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
+
+        # Apply constraint mask if provided
+        if constraint_mask is not None:
+            available_mask = available_mask & constraint_mask
+            constrained_count = constraint_mask.sum().item()
+            total_count = len(constraint_mask)
+            self.console.print(
+                f"Joint optimization - Constraint applied: {constrained_count}/{total_count} candidates available",
+                style="cyan"
+            )
+
+        # Exclude the specified points
+        if unique and exclude_points is not None and len(exclude_points) > 0:
+            dists = torch.cdist(choices, exclude_points)
+            distinct_check = (dists > min_distance).all(dim=1)
+            available_mask = available_mask & distinct_check
+        
+        # Apply mask to choices
+        filtered_choices = choices[available_mask]
+        
+        if len(filtered_choices) < q and unique:
+            self.console.print(
+                f"Joint optimization: Requested {q} candidates but only {len(filtered_choices)} choices remain.",
+                style="yellow",
+            )
+            q = len(filtered_choices)
+        
+        if q == 0:
+            self.console.print("Joint optimization: No valid candidates available", style="red")
+            return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
+
+        # Use BoTorch's optimize_acqf_discrete for joint optimization
+        self.console.print(f"Joint optimization: Selecting {q} candidates simultaneously from {len(filtered_choices)} options", style="blue")
+        
+        with torch.no_grad():
+            with gpytorch.settings.cholesky_jitter(1e-3):
+                # BoTorch's optimize_acqf_discrete optimizes q candidates jointly
+                acq_result = botorch_optimize_acqf_discrete(
+                    acq_function=acq_func,
+                    choices=filtered_choices,
+                    q=q,
+                    unique=unique,
+                    max_batch_size=max_batch_size,
+                )
+        
+        # acq_result is a tuple of (candidates, acquisition_values)
+        selected_candidates = acq_result[0]  # (q, D)
+        acquisition_values = acq_result[1]    # (q,)
+        
+        # Clean up
+        acq_func.set_X_pending(None)
+        
+        self.console.print(f"Joint optimization: Successfully selected {len(selected_candidates)} candidates", style="green")
+        
+        return selected_candidates, acquisition_values
+
     def optimize_acqf_discrete(self, *args, **kwargs):
         """Evaluate the acquisition function"""
         raise NotImplementedError
@@ -205,7 +306,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
 
-        return self.optimize_discrete(
+        return self.optimize_discrete_joint(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -260,7 +361,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
-        return self.optimize_discrete(
+        return self.optimize_discrete_joint(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -324,7 +425,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        return self.optimize_discrete(
+        return self.optimize_discrete_joint(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -403,7 +504,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
-        return self.optimize_discrete(
+        return self.optimize_discrete_joint(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,

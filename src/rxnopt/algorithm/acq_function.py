@@ -172,8 +172,8 @@ class BaseAcquisitionFunction:
         acq_func,
         q: int,
         choices: Tensor,
-        max_batch_size: int = 128,
         unique: bool = True,
+        max_batch_size: int = 128,
         progress: object = None,
         task: object = None,
         min_distance: float = 1e-6,
@@ -182,94 +182,45 @@ class BaseAcquisitionFunction:
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         """
-        Joint optimization for batch selection using BoTorch's optimize_acqf_discrete.
-        This method selects q candidates simultaneously by optimizing the joint acquisition function.
+        Joint optimization for batch selection (EDBO-style).
+        This method selects q candidates simultaneously using BoTorch's optimize_acqf_discrete,
+        exactly as implemented in EDBO+.
         
         Unlike the greedy sequence optimization, this approach considers the joint expected improvement
-        of all q candidates at once, which is theoretically optimal but computationally more expensive.
+        of all q candidates at once. This is the implementation used by EDBO+.
 
         Args:
-            acq_func: Acquisition function to optimize (should support q-batch evaluation)
+            acq_func: Acquisition function to optimize (must support q-batch evaluation)
             q: Number of candidates to select
-            choices: Candidate points tensor
-            max_batch_size: Maximum batch size for evaluation
-            unique: Whether to ensure unique selections
-            progress: Progress bar object (not used in joint optimization)
-            task: Progress task object (not used in joint optimization)
-            min_distance: Minimum distance for uniqueness check
-            exclude_points: Points to exclude from selection
-            constraint_mask: Boolean mask indicating which points satisfy constraints
+            choices: Candidate points tensor (n, D)
+            unique: Whether to ensure unique selections (default: True)
+            max_batch_size: Maximum batch size for evaluation (default: 128)
+            progress: Not used in EDBO implementation (kept for API compatibility)
+            task: Not used in EDBO implementation (kept for API compatibility)
+            min_distance: Not used in EDBO implementation (kept for API compatibility)
+            exclude_points: Not used in EDBO implementation (kept for API compatibility)
+            temperature: Not used in EDBO implementation (kept for API compatibility)
+            constraint_mask: Not used in EDBO implementation (kept for API compatibility)
 
         Returns:
-            tuple[Tensor, Tensor]: Selected candidates (q, D) and their acquisition values
+            tuple[Tensor, Tensor]: 
+                - Selected candidates (q, D)
+                - Acquisition values for selected candidates (q,)
         """
-        acq_func.set_X_pending(None)
-        
-        # Filter candidates based on constraints and exclusions
-        filtered_choices = choices
-        len_choices = len(choices)
-        
-        # Build the initial Available Mask
-        available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
-
-        # Apply constraint mask if provided
-        if constraint_mask is not None:
-            available_mask = available_mask & constraint_mask
-            constrained_count = constraint_mask.sum().item()
-            total_count = len(constraint_mask)
-            self.console.print(
-                f"Joint optimization - Constraint applied: {constrained_count}/{total_count} candidates available",
-                style="cyan"
-            )
-
-        # Exclude the specified points
-        if unique and exclude_points is not None and len(exclude_points) > 0:
-            dists = torch.cdist(choices, exclude_points)
-            distinct_check = (dists > min_distance).all(dim=1)
-            available_mask = available_mask & distinct_check
-        
-        # Apply mask to choices
-        filtered_choices = choices[available_mask]
-        
-        if len(filtered_choices) < q and unique:
-            self.console.print(
-                f"Joint optimization: Requested {q} candidates but only {len(filtered_choices)} choices remain.",
-                style="yellow",
-            )
-            q = len(filtered_choices)
-        
-        if q == 0:
-            self.console.print("Joint optimization: No valid candidates available", style="red")
-            return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
-
-        # Use BoTorch's optimize_acqf_discrete for joint optimization
-        self.console.print(f"Joint optimization: Selecting {q} candidates simultaneously from {len(filtered_choices)} options", style="blue")
-        
-        with torch.no_grad():
-            with gpytorch.settings.cholesky_jitter(1e-3):
-                # BoTorch's optimize_acqf_discrete optimizes q candidates jointly
-                acq_result = botorch_optimize_acqf_discrete(
-                    acq_function=acq_func,
-                    choices=filtered_choices,
-                    q=q,
-                    unique=unique,
-                    max_batch_size=max_batch_size,
-                )
+        # Use BoTorch's optimize_acqf_discrete - exactly as EDBO does
+        acq_result = botorch_optimize_acqf_discrete(
+            acq_function=acq_func,
+            choices=choices,
+            q=q,
+            unique=unique,
+            max_batch_size=max_batch_size,
+        )
         
         # acq_result is a tuple of (candidates, acquisition_values)
         selected_candidates = acq_result[0]  # (q, D)
         acquisition_values = acq_result[1]    # (q,)
         
-        # Clean up
-        acq_func.set_X_pending(None)
-        
-        self.console.print(f"Joint optimization: Successfully selected {len(selected_candidates)} candidates", style="green")
-        
         return selected_candidates, acquisition_values
-
-    def optimize_acqf_discrete(self, *args, **kwargs):
-        """Evaluate the acquisition function"""
-        raise NotImplementedError
 
 
 class EHVIAcquisitionFunction(BaseAcquisitionFunction):

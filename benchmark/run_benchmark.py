@@ -51,7 +51,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "temperature": 0.0,
+        "temperature": 0.1,
         "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {

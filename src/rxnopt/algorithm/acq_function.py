@@ -204,11 +204,15 @@ class BaseAcquisitionFunction:
                 - Selected candidates (q, D)
                 - Acquisition values for selected candidates (q,)
         """
-        # Use BoTorch's optimize_acqf_discrete - exactly as EDBO does
 
-        print(choices.shape)
-
-        acq_result = botorch_optimize_acqf_discrete(
+        # acq_result = botorch_optimize_acqf_discrete(
+        #     acq_function=acq_func,
+        #     choices=choices,
+        #     q=q,
+        #     unique=unique,
+        #     max_batch_size=max_batch_size,
+        # )
+        acq_result = self._new_optimize_acqf_discrete(
             acq_function=acq_func,
             choices=choices,
             q=q,
@@ -219,10 +223,43 @@ class BaseAcquisitionFunction:
         # acq_result is a tuple of (candidates, acquisition_values)
         selected_candidates = acq_result[0]  # (q, D)
         acquisition_values = acq_result[1]  # (q,)
-        
-        # from IPython import embed; embed()
 
         return selected_candidates, acquisition_values
+
+    def _new_optimize_acqf_discrete(acq_function, q, choices, max_batch_size, unique) -> tuple[Tensor, Tensor]:
+
+        def _split_batch_eval_acqf(acq_function, X, max_batch_size):
+            return torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
+
+        choices_batched = choices.unsqueeze(-2)
+        if q > 1:
+            candidate_list, acq_value_list = [], []
+            base_X_pending = acq_function.X_pending
+            for _ in range(q):
+                with torch.no_grad():
+                    acq_values = _split_batch_eval_acqf(
+                        acq_function=acq_function,
+                        X=choices_batched,
+                        max_batch_size=max_batch_size,
+                    )
+                best_idx = torch.argmax(acq_values)
+                candidate_list.append(choices_batched[best_idx])
+                acq_value_list.append(acq_values[best_idx])
+                # set pending points
+                candidates = torch.cat(candidate_list, dim=-2)
+                acq_function.set_X_pending(torch.cat([base_X_pending, candidates], dim=-2) if base_X_pending is not None else candidates)
+                # need to remove choice from choice set if enforcing uniqueness
+                if unique:
+                    choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
+
+            # Reset acq_func to previous X_pending state
+            acq_function.set_X_pending(base_X_pending)
+            return candidates, torch.stack(acq_value_list)
+
+        with torch.no_grad():
+            acq_values = _split_batch_eval_acqf(acq_function=acq_function, X=choices_batched, max_batch_size=max_batch_size)
+        best_idx = torch.argmax(acq_values)
+        return choices_batched[best_idx], acq_values[best_idx]
 
 
 class EHVIAcquisitionFunction(BaseAcquisitionFunction):

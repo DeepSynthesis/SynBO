@@ -126,7 +126,7 @@ if __name__ == "__main__":
             "range_tags": [[0, 100], [0, 0.1]],
         },
         "SynBO(BNN_cleanup)": {
-            "results_path": "results/multiple_20260323_144844/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260323_153642/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],

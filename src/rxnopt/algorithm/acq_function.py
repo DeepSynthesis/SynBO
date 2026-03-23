@@ -38,12 +38,12 @@ class BaseAcquisitionFunction:
                 acq_values_list.append(acq_values)
         return torch.cat(acq_values_list, dim=0)
 
-    def optimize_discrete(
+    def optimize_discrete_unuse(
         self,
         acq_func,
         q: int,
         choices: Tensor,
-        max_batch_size: int = 128,
+        max_batch_size: int = 1024,
         unique: bool = True,
         progress: object = None,
         task: object = None,
@@ -77,7 +77,7 @@ class BaseAcquisitionFunction:
                 style="yellow",
             )
             q = len_choices
-        
+
         # Build the initial Available Mask
         available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
 
@@ -86,10 +86,7 @@ class BaseAcquisitionFunction:
             available_mask = available_mask & constraint_mask
             constrained_count = constraint_mask.sum().item()
             total_count = len(constraint_mask)
-            self.console.print(
-                f"Constraint applied: {constrained_count}/{total_count} candidates available",
-                style="cyan"
-            )
+            self.console.print(f"Constraint applied: {constrained_count}/{total_count} candidates available", style="cyan")
 
         # Exclude the specified points
         if unique and exclude_points is not None and len(exclude_points) > 0:
@@ -167,13 +164,13 @@ class BaseAcquisitionFunction:
 
         return final_candidates, final_values
 
-    def optimize_discrete_joint(
+    def optimize_discrete(
         self,
         acq_func,
         q: int,
         choices: Tensor,
         unique: bool = True,
-        max_batch_size: int = 128,
+        max_batch_size: int = 1024,
         progress: object = None,
         task: object = None,
         min_distance: float = 1e-6,
@@ -185,7 +182,7 @@ class BaseAcquisitionFunction:
         Joint optimization for batch selection (EDBO-style).
         This method selects q candidates simultaneously using BoTorch's optimize_acqf_discrete,
         exactly as implemented in EDBO+.
-        
+
         Unlike the greedy sequence optimization, this approach considers the joint expected improvement
         of all q candidates at once. This is the implementation used by EDBO+.
 
@@ -203,7 +200,7 @@ class BaseAcquisitionFunction:
             constraint_mask: Not used in EDBO implementation (kept for API compatibility)
 
         Returns:
-            tuple[Tensor, Tensor]: 
+            tuple[Tensor, Tensor]:
                 - Selected candidates (q, D)
                 - Acquisition values for selected candidates (q,)
         """
@@ -215,11 +212,11 @@ class BaseAcquisitionFunction:
             unique=unique,
             max_batch_size=max_batch_size,
         )
-        
+
         # acq_result is a tuple of (candidates, acquisition_values)
         selected_candidates = acq_result[0]  # (q, D)
-        acquisition_values = acq_result[1]    # (q,)
-        
+        acquisition_values = acq_result[1]  # (q,)
+
         return selected_candidates, acquisition_values
 
 
@@ -247,7 +244,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         self,
         q: int,
         choices: Tensor,
-        max_batch_size: int = 128,
+        max_batch_size: int = 1024,
         unique: bool = True,
         progress: object = None,
         task: object = None,
@@ -257,7 +254,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
 
-        return self.optimize_discrete_joint(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -301,7 +298,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         self,
         q: int,
         choices: Tensor,
-        max_batch_size: int = 128,
+        max_batch_size: int = 1024,
         unique: bool = True,
         maximum_metrics: bool = True,
         progress: object = None,
@@ -312,7 +309,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
-        return self.optimize_discrete_joint(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -366,7 +363,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         self,
         q: int,
         choices: Tensor,
-        max_batch_size: int = 128,
+        max_batch_size: int = 1024,
         unique: bool = True,
         maximum_metrics: bool = True,
         progress: object = None,
@@ -376,7 +373,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        return self.optimize_discrete_joint(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,
@@ -444,7 +441,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         self,
         q: int,
         choices: Tensor,
-        max_batch_size: int = 128,
+        max_batch_size: int = 1024,
         unique: bool = True,
         maximum_metrics: bool = True,
         progress: object = None,
@@ -455,7 +452,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
-        return self.optimize_discrete_joint(
+        return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
             choices=choices,

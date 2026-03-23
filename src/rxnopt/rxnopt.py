@@ -362,11 +362,16 @@ class ReactionOptimizer:
             device=device,
             optimization_kwargs=optimization_kwargs,
         )
+        
+
+        # 从 self.total_desc_arr中排除掉done_arr_desc        
+        candidate_indices = np.setdiff1d(np.arange(len(self.total_desc_arr)), self.done_arr_index)
+        candidate_X = self.total_desc_arr[candidate_indices]
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
             training_X=done_arr_desc,
             training_y=normalized_metrics,
-            candidate_X=self.total_desc_arr,
+            candidate_X=candidate_X,
             opt_metric_settings=self.opt_metric_settings,
             batch_size=batch_size,
             temperature=temperature,

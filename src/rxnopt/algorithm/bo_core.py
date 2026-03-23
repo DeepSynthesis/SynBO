@@ -88,7 +88,7 @@ class DefaultBO:
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
-
+        
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
             BarColumn(bar_width=None),

@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "asym_alkylation (dynamic)",
+    "experiment_name": "asym_alkylation (new)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -51,8 +51,8 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.8",
         "optimize_method": "default_BO",
-        "temperature": 0.3,
-        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+        "temperature": 0.1,
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

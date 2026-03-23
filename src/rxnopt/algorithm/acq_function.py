@@ -253,8 +253,7 @@ class BaseAcquisitionFunction:
                     # Get the current valid indices (choices_batched may have been reduced)
                     num_choices = len(choices_batched)
                     # Map to original indices based on how many have been removed
-                    start_idx = q_i if unique else 0
-                    end_idx = start_idx + num_choices
+
                     # Get boost values for current choices
                     # current_boost = unused_reagent_boost[start_idx:end_idx].to(acq_values.device)
                     # Add boost to acquisition values
@@ -273,9 +272,7 @@ class BaseAcquisitionFunction:
                     # Also update unused_reagent_boost to match
                     if unused_reagent_boost is not None:
                         # Remove the selected index from boost tensor
-                        unused_reagent_boost = torch.cat(
-                            [unused_reagent_boost[: start_idx + best_idx], unused_reagent_boost[start_idx + best_idx + 1 :]]
-                        )
+                        unused_reagent_boost = torch.cat([unused_reagent_boost[:best_idx], unused_reagent_boost[best_idx + 1 :]])
 
             # Reset acq_func to previous X_pending state
             acq_function.set_X_pending(base_X_pending)

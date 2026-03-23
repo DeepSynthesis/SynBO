@@ -71,6 +71,7 @@ class Optimizer:
                 constraints=constraints,
                 total_name_arr=total_name_arr,
                 condition_types=condition_types,
+                total_desc_arr=self.total_desc_arr,
             )
 
             selected_indices = [np.argwhere(np.all(self.total_desc_arr == best_sample, axis=1)).flatten() for best_sample in best_samples]

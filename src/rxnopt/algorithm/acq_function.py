@@ -51,6 +51,7 @@ class BaseAcquisitionFunction:
         exclude_points: Tensor = None,
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         """
         General discrete space greedy sequence optimization
@@ -177,6 +178,7 @@ class BaseAcquisitionFunction:
         exclude_points: Tensor = None,
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         """
         Joint optimization for batch selection (EDBO-style).
@@ -198,6 +200,8 @@ class BaseAcquisitionFunction:
             exclude_points: Not used in EDBO implementation (kept for API compatibility)
             temperature: Not used in EDBO implementation (kept for API compatibility)
             constraint_mask: Not used in EDBO implementation (kept for API compatibility)
+            unused_reagent_boost: Tensor of shape (n,) containing boost values for candidates with unused reagents.
+                                 Higher values give more priority to candidates with unused reagents.
 
         Returns:
             tuple[Tensor, Tensor]:
@@ -218,6 +222,7 @@ class BaseAcquisitionFunction:
             q=q,
             unique=unique,
             max_batch_size=max_batch_size,
+            unused_reagent_boost=unused_reagent_boost,
         )
 
         # acq_result is a tuple of (candidates, acquisition_values)
@@ -226,7 +231,7 @@ class BaseAcquisitionFunction:
 
         return selected_candidates, acquisition_values
 
-    def _new_optimize_acqf_discrete(acq_function, q, choices, max_batch_size, unique) -> tuple[Tensor, Tensor]:
+    def _new_optimize_acqf_discrete(self, acq_function, q, choices, max_batch_size, unique, unused_reagent_boost: Tensor = None):
 
         def _split_batch_eval_acqf(acq_function, X, max_batch_size):
             return torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
@@ -235,13 +240,27 @@ class BaseAcquisitionFunction:
         if q > 1:
             candidate_list, acq_value_list = [], []
             base_X_pending = acq_function.X_pending
-            for _ in range(q):
+            for q_i in range(q):
                 with torch.no_grad():
                     acq_values = _split_batch_eval_acqf(
                         acq_function=acq_function,
                         X=choices_batched,
                         max_batch_size=max_batch_size,
                     )
+
+                # Apply unused reagent boost if provided
+                if unused_reagent_boost is not None:
+                    # Get the current valid indices (choices_batched may have been reduced)
+                    num_choices = len(choices_batched)
+                    # Map to original indices based on how many have been removed
+                    start_idx = q_i if unique else 0
+                    end_idx = start_idx + num_choices
+                    # Get boost values for current choices
+                    # current_boost = unused_reagent_boost[start_idx:end_idx].to(acq_values.device)
+                    # Add boost to acquisition values
+
+                    acq_values = acq_values + unused_reagent_boost.to(acq_values.device)
+
                 best_idx = torch.argmax(acq_values)
                 candidate_list.append(choices_batched[best_idx])
                 acq_value_list.append(acq_values[best_idx])
@@ -251,6 +270,12 @@ class BaseAcquisitionFunction:
                 # need to remove choice from choice set if enforcing uniqueness
                 if unique:
                     choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
+                    # Also update unused_reagent_boost to match
+                    if unused_reagent_boost is not None:
+                        # Remove the selected index from boost tensor
+                        unused_reagent_boost = torch.cat(
+                            [unused_reagent_boost[: start_idx + best_idx], unused_reagent_boost[start_idx + best_idx + 1 :]]
+                        )
 
             # Reset acq_func to previous X_pending state
             acq_function.set_X_pending(base_X_pending)
@@ -258,6 +283,11 @@ class BaseAcquisitionFunction:
 
         with torch.no_grad():
             acq_values = _split_batch_eval_acqf(acq_function=acq_function, X=choices_batched, max_batch_size=max_batch_size)
+
+        # Apply unused reagent boost if provided
+        if unused_reagent_boost is not None:
+            acq_values = acq_values + unused_reagent_boost.to(acq_values.device)
+
         best_idx = torch.argmax(acq_values)
         return choices_batched[best_idx], acq_values[best_idx]
 
@@ -294,6 +324,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
 
         return self.optimize_discrete(
@@ -308,6 +339,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             exclude_points=exclude_points,
             temperature=temperature,
             constraint_mask=constraint_mask,
+            unused_reagent_boost=unused_reagent_boost,
         )
 
 
@@ -349,6 +381,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
         return self.optimize_discrete(
@@ -363,6 +396,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
             exclude_points=exclude_points,
             temperature=temperature,
             constraint_mask=constraint_mask,
+            unused_reagent_boost=unused_reagent_boost,
         )
 
 
@@ -414,6 +448,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
@@ -427,6 +462,7 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
             exclude_points=exclude_points,
             temperature=temperature,
             constraint_mask=constraint_mask,
+            unused_reagent_boost=unused_reagent_boost,
         )
 
     @staticmethod
@@ -492,6 +528,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         exclude_points: Tensor = None,
         temperature: float = 0.0,
         constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
         return self.optimize_discrete(
@@ -506,6 +543,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
             exclude_points=exclude_points,
             temperature=temperature,
             constraint_mask=constraint_mask,
+            unused_reagent_boost=unused_reagent_boost,
         )
 
 

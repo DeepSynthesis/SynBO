@@ -82,6 +82,7 @@ class DefaultBO:
         constraints: dict = None,
         total_name_arr: np.ndarray = None,
         condition_types: List[str] = None,
+        total_desc_arr: np.ndarray = None,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
@@ -168,6 +169,18 @@ class DefaultBO:
             constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
             # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
 
+        # Generate unused reagent boost if total_name_arr is provided
+        unused_reagent_boost = None
+        if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
+            unused_reagent_boost = self._compute_unused_reagent_boost(
+                training_X=training_X_t,
+                candidate_X=candidate_X_t,
+                total_name_arr=total_name_arr,
+                total_desc_arr=total_desc_arr,
+                condition_types=condition_types,
+                device=self.device,
+            )
+
         # task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
         self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
             q=batch_size,
@@ -180,6 +193,7 @@ class DefaultBO:
             # task=task_acq_opt,
             temperature=temperature,
             constraint_mask=constraint_mask_t,
+            unused_reagent_boost=unused_reagent_boost,
         )
 
         if self.device.type == "cuda":
@@ -266,3 +280,87 @@ class DefaultBO:
         weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings])
         training_y = training_y / weights
         return training_y
+
+    def _compute_unused_reagent_boost(
+        self,
+        training_X: torch.Tensor,
+        candidate_X: torch.Tensor,
+        total_name_arr: np.ndarray,
+        total_desc_arr: np.ndarray,
+        condition_types: List[str],
+        device: torch.device,
+        boost_value: float = 0.5,
+    ) -> torch.Tensor:
+        """
+        Compute boost values for candidates containing unused reagents.
+
+        This method identifies which reagents have already been used in training data
+        and gives a boost to candidates that contain unused reagents, encouraging
+        exploration of the reagent space.
+
+        Args:
+            training_X: Training data descriptors (n_training, n_features)
+            candidate_X: Candidate descriptors (n_candidates, n_features)
+            total_name_arr: Array of all condition name combinations (n_total, n_condition_types)
+            total_desc_arr: Array of all condition descriptors (n_total, n_features)
+            condition_types: List of condition type names
+            device: PyTorch device
+            boost_value: Value to add to acquisition function for candidates with unused reagents (default: 0.5)
+
+        Returns:
+            Tensor of boost values for each candidate (n_candidates,)
+        """
+        # Convert tensors to numpy for easier comparison
+        training_X_np = training_X.cpu().numpy()
+        candidate_X_np = candidate_X.cpu().numpy()
+        
+        # Find training indices by matching descriptors in total_desc_arr
+        training_indices = set()
+        for train_desc in training_X_np:
+            matches = np.all(np.abs(total_desc_arr - train_desc) < 1e-6, axis=1)
+            matching_indices = np.where(matches)[0]
+            if len(matching_indices) > 0:
+                training_indices.add(matching_indices[0])
+        
+        # Get used reagents for each condition type
+        used_reagents = {ct: set() for ct in condition_types}
+        for idx in training_indices:
+            for j, ct in enumerate(condition_types):
+                used_reagents[ct].add(str(total_name_arr[idx, j]))
+        
+        # Log which reagents are used/unused
+        self.console.print("[bold cyan]Reagent usage analysis:[/bold cyan]")
+        for j, ct in enumerate(condition_types):
+            all_reagents = set(str(x) for x in total_name_arr[:, j])
+            unused = all_reagents - used_reagents[ct]
+            self.console.print(f"  {ct}: {len(used_reagents[ct])} used, {len(unused)} unused", style="cyan")
+        
+        # Find candidate indices and compute boosts
+        boosts = []
+        for cand_desc in candidate_X_np:
+            # Find matching index in total_desc_arr
+            matches = np.all(np.abs(total_desc_arr - cand_desc) < 1e-6, axis=1)
+            matching_indices = np.where(matches)[0]
+            
+            if len(matching_indices) == 0:
+                # No match found, no boost
+                boosts.append(0.0)
+                continue
+            
+            cand_idx = matching_indices[0]
+            
+            # Check if this candidate contains any unused reagent
+            has_unused_reagent = False
+            for j, ct in enumerate(condition_types):
+                reagent_name = str(total_name_arr[cand_idx, j])
+                if reagent_name not in used_reagents[ct]:
+                    has_unused_reagent = True
+                    break
+            
+            boosts.append(boost_value if has_unused_reagent else 0.0)
+        
+        # Count how many candidates get a boost
+        num_boosted = sum(1 for b in boosts if b > 0)
+        self.console.print(f"[bold green]{num_boosted}/{len(boosts)} candidates receive unused reagent boost (+{boost_value})[/bold green]")
+        
+        return torch.tensor(boosts, dtype=torch.double, device=device)

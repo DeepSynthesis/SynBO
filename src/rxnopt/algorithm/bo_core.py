@@ -88,110 +88,105 @@ class DefaultBO:
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
-        
-        with Progress(
-            TextColumn("[bold cyan]{task.description}"),
-            BarColumn(bar_width=None),
-            MofNCompleteColumn(),
-            TimeRemainingColumn(),
-            console=self.console,
-        ) as progress:
-            num_models = training_y_t.shape[1]
-            task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
 
-            models = []
-            for i in range(num_models):
-                key = list(training_y_dict.keys())[i]
-                progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
+        # with Progress(
+        #     TextColumn("[bold cyan]{task.description}"),
+        #     BarColumn(bar_width=None),
+        #     MofNCompleteColumn(),
+        #     TimeRemainingColumn(),
+        #     console=self.console,
+        # ) as progress:
+        num_models = training_y_t.shape[1]
+        # task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
 
-                train_y_i = training_y_t[:, i].reshape(-1, 1)
-                model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
+        models = []
+        for i in range(num_models):
+            key = list(training_y_dict.keys())[i]
+            #   progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
 
-                if isinstance(model_i, GPSurrogateModel):
-                    model_i.fit(training_X_t, train_y_i)
-                    models.append(model_i.model)
-                else:
-                    wrapper = SklearnModelWrapper(model_i)
-                    wrapper.fit_surrogate(training_X_t, train_y_i)
-                    models.append(wrapper)
+            train_y_i = training_y_t[:, i].reshape(-1, 1)
+            model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
 
-                progress.update(task_train, advance=1)
-
-            self.global_model = ModelListGP(*models)
-
-            task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
-            training_y_np = training_y_t.cpu().numpy()
-            self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
-
-            # min_y, max_y = training_y_t.min(dim=0).values, training_y_t.max(dim=0).values
-            # range_y = max_y - min_y if max_y - min_y > 0 else 1.0
-            # self.ref_point = min_y - 0.1 * range_y
-
-            self.ref_point = torch.tensor(
-                [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
-            )
-
-            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
-            if self.acquisition_function_class == EHVIAcquisitionFunction:
-                partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
-                acq_func = self.acquisition_function_class(
-                    model=self.global_model,
-                    sampler=sampler,
-                    ref_point=self.ref_point,
-                    partitioning=partitioning,
-                )
-            elif self.acquisition_function_class == UCBAcquisitionFunction:
-                weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
-                acq_func = self.acquisition_function_class(
-                    model=self.global_model,
-                    sampler=sampler,
-                    beta=2.0,
-                    weights=weights,
-                )
-            elif self.acquisition_function_class == ParEGOAcquisitionFunction:
-
-                acq_func = self.acquisition_function_class(
-                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
-                )
-            elif self.acquisition_function_class == NEIAcquisitionFunction:
-                weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
-                acq_func = self.acquisition_function_class(
-                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights
-                )
+            if isinstance(model_i, GPSurrogateModel):
+                model_i.fit(training_X_t, train_y_i)
+                models.append(model_i.model)
             else:
-                raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
+                wrapper = SklearnModelWrapper(model_i)
+                wrapper.fit_surrogate(training_X_t, train_y_i)
+                models.append(wrapper)
 
-            # Generate constraint mask if constraints are provided
-            constraint_mask_t = None
-            
-            if constraints is not None and total_name_arr is not None and condition_types is not None:
-                constraint_mask = generate_constraint_mask(
-                    total_name_arr=total_name_arr,
-                    condition_types=condition_types,
-                    constraints=constraints,
-                )
-                constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
-                progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+            # progress.update(task_train, advance=1)
 
-            task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
-            self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
-                q=batch_size,
-                choices=candidate_X_t,
-                max_batch_size=self.max_batch_size,
-                unique=True,
-                exclude_points=training_X_t,
-                min_distance=1e-6,
-                progress=progress,
-                task=task_acq_opt,
-                temperature=temperature,
-                constraint_mask=constraint_mask_t,
+        self.global_model = ModelListGP(*models)
+
+        # task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
+        training_y_np = training_y_t.cpu().numpy()
+        # self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
+        self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np).to(device=self.device)
+
+        self.ref_point = torch.tensor(
+            [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
+        )
+
+        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
+        if self.acquisition_function_class == EHVIAcquisitionFunction:
+            partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+            acq_func = self.acquisition_function_class(
+                model=self.global_model,
+                sampler=sampler,
+                ref_point=self.ref_point,
+                partitioning=partitioning,
             )
+        elif self.acquisition_function_class == UCBAcquisitionFunction:
+            weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+            acq_func = self.acquisition_function_class(
+                model=self.global_model,
+                sampler=sampler,
+                beta=2.0,
+                weights=weights,
+            )
+        elif self.acquisition_function_class == ParEGOAcquisitionFunction:
+
+            acq_func = self.acquisition_function_class(
+                model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
+            )
+        elif self.acquisition_function_class == NEIAcquisitionFunction:
+            weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+            acq_func = self.acquisition_function_class(model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights)
+        else:
+            raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
+
+        # Generate constraint mask if constraints are provided
+        constraint_mask_t = None
+
+        if constraints is not None and total_name_arr is not None and condition_types is not None:
+            constraint_mask = generate_constraint_mask(
+                total_name_arr=total_name_arr,
+                condition_types=condition_types,
+                constraints=constraints,
+            )
+            constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
+            # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+
+        # task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
+        self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
+            q=batch_size,
+            choices=candidate_X_t,
+            max_batch_size=self.max_batch_size,
+            unique=True,
+            exclude_points=training_X_t,
+            min_distance=1e-6,
+            # progress=progress,
+            # task=task_acq_opt,
+            temperature=temperature,
+            constraint_mask=constraint_mask_t,
+        )
 
         if self.device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]
         else:
             best_samples = [res.numpy() for res in self.acq_result]
-
+        
         recommend_type = self._get_exploit_or_explore()
         pred_mean, pred_std = self._get_predictions()
 

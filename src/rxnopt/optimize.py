@@ -11,10 +11,17 @@ from rxnopt.algorithm.random_select import RandomSelect
 
 class Optimizer:
     def __init__(
-        self, method, name_data, random_seed: int = 42, device: torch.device = torch.device("cpu"), optimization_kwargs: dict = None
+        self,
+        method,
+        total_name_data,
+        total_desc_arr,
+        random_seed: int = 42,
+        device: torch.device = torch.device("cpu"),
+        optimization_kwargs: dict = None,
     ):
         self.method = method
-        self.name_data = name_data
+        self.total_name_data = total_name_data
+        self.total_desc_arr = total_desc_arr
         self.random_seed = random_seed
         self.opt_console = console
 
@@ -66,9 +73,9 @@ class Optimizer:
                 condition_types=condition_types,
             )
 
-            selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
+            selected_indices = [np.argwhere(np.all(self.total_desc_arr == best_sample, axis=1)).flatten() for best_sample in best_samples]
             selected_indices = np.array(selected_indices).squeeze()
-            selected_conditions = self.name_data[selected_indices].squeeze()
+            selected_conditions = self.total_name_data[selected_indices].squeeze()
 
             self.opt_console.print("✅ Finish optimization", style="green")
             return selected_conditions, recommend_type, pred_mean, pred_std

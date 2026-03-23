@@ -28,7 +28,7 @@ def plot_comparison(
                     "results_path": "path/to/results.csv",  # 支持通配符，如 "results/multiple_*/all_batches_final_round_*.csv"
                     "target_columns": ["yield", "cost"],    # 需要评估的目标值列名
                     "direction_tags": ["max", "min"],       # 优化方向: "max" 或 "min"
-                    "range_tags": [[0, 100], [0, 0.1]],     # 目标值的范围
+                    "range_tags": [[0, 100], [0, 0.5]],     # 目标值的范围
                 },
                 ...
             }
@@ -123,25 +123,25 @@ if __name__ == "__main__":
             "results_path": "results/multiple_20260320_153018/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "SynBO(BNN_cleanup)": {
-            "results_path": "results/multiple_20260323_153642/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260323_163441/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "SynBO(BNN)": {
             "results_path": "results/multiple_20260320_151024/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
+            "range_tags": [[0, 100], [0, 0.5]],
         },
     }
 

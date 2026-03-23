@@ -205,6 +205,9 @@ class BaseAcquisitionFunction:
                 - Acquisition values for selected candidates (q,)
         """
         # Use BoTorch's optimize_acqf_discrete - exactly as EDBO does
+
+        print(choices.shape)
+
         acq_result = botorch_optimize_acqf_discrete(
             acq_function=acq_func,
             choices=choices,
@@ -216,6 +219,8 @@ class BaseAcquisitionFunction:
         # acq_result is a tuple of (candidates, acquisition_values)
         selected_candidates = acq_result[0]  # (q, D)
         acquisition_values = acq_result[1]  # (q,)
+        
+        # from IPython import embed; embed()
 
         return selected_candidates, acquisition_values
 
@@ -471,7 +476,8 @@ class ParetoFrontCalculator:
     """Class for calculating Pareto fronts"""
 
     @staticmethod
-    def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
+    # def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
+    def calculate_target_function(points: np.ndarray) -> np.ndarray:
         """
         Calculate Pareto front for points in arbitrary dimensions
 
@@ -485,7 +491,7 @@ class ParetoFrontCalculator:
             return np.array([])
         pareto_front = [points[0]]  # Initialize list of Pareto optimal points
         for point in points[1:]:
-            progress.update(task, advance=1)
+            # progress.update(task, advance=1)
             is_pareto = True
             to_remove = []
             # Compare with all points in current Pareto front

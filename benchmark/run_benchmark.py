@@ -239,7 +239,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
-                quiet=True,
+                quiet=False,
                 save_dir=str(experiment_dir),
             )
 

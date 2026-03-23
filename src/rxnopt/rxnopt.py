@@ -356,15 +356,15 @@ class ReactionOptimizer:
 
         device = torch.device(f"cuda:2") if torch.cuda.is_available() else torch.device("cpu")
         optimizer = Optimizer(
-            name_data=self.total_name_arr,
             method=optimize_method,
+            total_name_data=self.total_name_arr,
+            total_desc_arr=self.total_desc_arr,
             random_seed=self.random_seed,
             device=device,
             optimization_kwargs=optimization_kwargs,
         )
-        
 
-        # 从 self.total_desc_arr中排除掉done_arr_desc        
+        # 从 self.total_desc_arr中排除掉done_arr_desc
         candidate_indices = np.setdiff1d(np.arange(len(self.total_desc_arr)), self.done_arr_index)
         candidate_X = self.total_desc_arr[candidate_indices]
 

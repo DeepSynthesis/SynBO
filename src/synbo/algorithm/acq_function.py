@@ -3,7 +3,8 @@ import gpytorch
 import torch
 from torch import Tensor
 from botorch.models import ModelListGP
-from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImprovement
+from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
+# from botorch.acquisition.multi_objective.monte_carlo import 
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
@@ -11,7 +12,7 @@ from botorch.acquisition.monte_carlo import qUpperConfidenceBound, qExpectedImpr
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.objective import GenericMCObjective
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
-from botorch.optim import optimize_acqf_discrete as botorch_optimize_acqf_discrete
+from botorch.optim import optimize_acqf_discrete
 
 from synbo.utils.logger import console
 
@@ -209,23 +210,24 @@ class BaseAcquisitionFunction:
                 - Acquisition values for selected candidates (q,)
         """
 
-        # acq_result = botorch_optimize_acqf_discrete(
-        #     acq_function=acq_func,
-        #     choices=choices,
-        #     q=q,
-        #     unique=unique,
-        #     max_batch_size=max_batch_size,
-        # )
-        acq_result = self._new_optimize_acqf_discrete(
+        acq_result = optimize_acqf_discrete(
             acq_function=acq_func,
             choices=choices,
             q=q,
             unique=unique,
             max_batch_size=max_batch_size,
-            unused_reagent_boost=unused_reagent_boost,
         )
+        # acq_result = self._new_optimize_acqf_discrete(
+        #     acq_function=acq_func,
+        #     choices=choices,
+        #     q=q,
+        #     unique=unique,
+        #     max_batch_size=max_batch_size,
+        #     unused_reagent_boost=unused_reagent_boost,
+        # )
 
         # acq_result is a tuple of (candidates, acquisition_values)
+        
         selected_candidates = acq_result[0]  # (q, D)
         acquisition_values = acq_result[1]  # (q,)
 
@@ -298,15 +300,20 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         sampler: SobolQMCNormalSampler,
         ref_point: torch.Tensor,
         partitioning,
+        train_x,
     ):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        self.acquisition_function = qLogExpectedHypervolumeImprovement(
+        self.acquisition_function = qLogNoisyExpectedHypervolumeImprovement(
             model=model,
             sampler=sampler,
             ref_point=ref_point,
-            partitioning=partitioning,
+            # partitioning=partitioning,
+            alpha=0.0,
+            incremental_nehvi=True,
+            X_baseline=train_x,
+            prune_baseline=True,
         )
 
     def optimize_acqf_discrete(

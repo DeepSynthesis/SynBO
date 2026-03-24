@@ -156,6 +156,7 @@ class DefaultBO:
                 sampler=sampler,
                 ref_point=self.ref_point,
                 partitioning=partitioning,
+                train_x=torch.Tensor(training_X).to(self.device),
             )
         elif self.acquisition_function_class == UCBAcquisitionFunction:
             weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)

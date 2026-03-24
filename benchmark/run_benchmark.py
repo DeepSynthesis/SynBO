@@ -38,7 +38,7 @@ CONFIG = {
     },
     "reaction_space": {
         "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
-        "name_suffix": ["_dft", "_dft", "_dft", None, None],
+        "name_suffix": [None, None, "_dft", "_dft", "_dft"],
     },
     "optimization_settings": {
         "opt_metrics": ["yield", "cost"],

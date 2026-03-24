@@ -383,10 +383,10 @@ class ReactionOptimizer:
         #     # y_min, y_max = opt_metric["opt_range"]
         #     # self.y_scalers[metric] = {"min": y_min, "max": y_max}
 
-        y_scaler = StandardScaler()
+        self.y_scaler = StandardScaler()
 
         #     # normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
-        normalized_metrics = y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
+        normalized_metrics = self.y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
 
         try:
             import GPUtil
@@ -434,18 +434,9 @@ class ReactionOptimizer:
 
         # Denormalize prediction values using the same scalers
         if self.pred_mean is not None and self.pred_std is not None:
-            denormalized_pred_mean = self.pred_mean.copy()
-            denormalized_pred_std = self.pred_std.copy()
-
-            for i, metric in enumerate(self.opt_metrics):
-                y_min = self.y_scalers[metric]["min"]
-                y_max = self.y_scalers[metric]["max"]
-                denormalized_pred_mean[:, i] = self.pred_mean[:, i] * (y_max - y_min) + y_min
-                denormalized_pred_std[:, i] = self.pred_std[:, i] * (y_max - y_min)
-
             # Update the attributes with denormalized values
-            self.pred_mean = denormalized_pred_mean
-            self.pred_std = denormalized_pred_std
+            self.pred_mean = self.y_scaler.inverse_transform(self.pred_mean)
+            self.pred_std = self.pred_std * self.y_scaler.scale_
 
         # Display optimization summary
         exploit_count = sum(1 for t in self.recommend_type if t == "exploit")

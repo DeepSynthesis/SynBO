@@ -121,13 +121,14 @@ class RFSurrogateModel(BaseSurrogateModel):
     Estimates uncertainty by calculating the variance across individual decision trees.
     """
 
-    def __init__(self, num_dims: int, device: str = "cpu", n_estimators: int = 100):
+    def __init__(self, num_dims: int, device: str = "cpu", n_estimators: int = 100, random_seed: int = 42):
         super().__init__(num_dims)
         # Random Forest usually runs on CPU via sklearn, but we keep the device param for API consistency
         self.device = device
         self.n_estimators = n_estimators
+        self.random_seed = random_seed
         self.model = RandomForestRegressor(
-            n_estimators=self.n_estimators, min_samples_leaf=3, random_state=42  # Prevent overfitting to single points
+            n_estimators=self.n_estimators, min_samples_leaf=3, random_state=random_seed  # Prevent overfitting to single points
         )
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
@@ -176,15 +177,18 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
     Trains multiple MLPs and uses the ensemble statistics for mean and variance.
     """
 
-    def __init__(self, num_dims: int, device: str, n_models: int = 10, hidden_dim: int = 256):
+    def __init__(self, num_dims: int, device: str, n_models: int = 10, hidden_dim: int = 256, random_seed: int = 42):
         super().__init__(num_dims)
         self.device = device
         self.n_models = n_models
         self.hidden_dim = hidden_dim
+        self.random_seed = random_seed
         self.models = []  # List to store individual networks
 
-    def _create_mlp(self):
-        """Create a simple MLP suitable for low-data regimes"""
+    def _create_mlp(self, seed: int):
+        """Create a simple MLP suitable for low-data regimes with deterministic initialization"""
+        # Set seed for reproducible weight initialization
+        torch.manual_seed(seed)
         return (
             nn.Sequential(
                 nn.Linear(self.num_dims, self.hidden_dim),
@@ -205,7 +209,9 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
         self.models = []  # Reset models
 
         for i in range(self.n_models):
-            model = self._create_mlp()
+            # Use different but deterministic seed for each model
+            model_seed = self.random_seed + i
+            model = self._create_mlp(seed=model_seed)
             optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
             criterion = nn.MSELoss()
 

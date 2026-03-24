@@ -43,7 +43,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 512, 512
+            self.mc_num_samples, self.max_batch_size = 256, 256
         self.device = device
 
         if surrogate_model == "GP":
@@ -106,7 +106,12 @@ class DefaultBO:
             #   progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
 
             train_y_i = training_y_t[:, i].reshape(-1, 1)
-            model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
+
+            # Instantiate model with random_seed for reproducibility
+            if self.surrogate_model_class in [RFSurrogateModel, BNNEnsembleSurrogateModel]:
+                model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1], random_seed=self.random_seed)
+            else:
+                model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
 
             if isinstance(model_i, GPSurrogateModel):
                 model_i.fit(training_X_t, train_y_i)

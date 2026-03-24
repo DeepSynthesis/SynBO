@@ -81,6 +81,9 @@ class ReactionOptimizer:
         self.random_seed = random_seed
         self.quiet = quiet
 
+        # Set global random seeds for reproducibility
+        self._set_random_seeds(random_seed)
+
         self.save_dir = Path(save_dir) if save_dir else Path.cwd()
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -93,6 +96,25 @@ class ReactionOptimizer:
                 expand=False,
             )
         )
+
+    def _set_random_seeds(self, seed: int) -> None:
+        """Set global random seeds for reproducibility.
+
+        Args:
+            seed: Random seed to use
+        """
+        import random
+
+        random.seed(seed)
+
+        np.random.seed(seed)
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
     def load_rxn_space(self, condition_dict: Dict[str, List[Any]]) -> None:
         """Load reaction condition space.
@@ -245,9 +267,9 @@ class ReactionOptimizer:
 
         self.opt_console.print(
             "Running settings:\n"
-            f"· Optimization type: [bold]{get_opt_type(self.opt_type)}[/bold]\n"
-            f"· Batch size: [bold]{batch_size}[/bold]\n"
-            f"· Normalization: [bold]{desc_normalize}[/bold]\n"
+            f"_ Optimization type: [bold]{get_opt_type(self.opt_type)}[/bold]\n"
+            f"_ Batch size: [bold]{batch_size}[/bold]\n"
+            f"_ Normalization: [bold]{desc_normalize}[/bold]\n"
         )
 
         if self.opt_type == "init":
@@ -354,7 +376,19 @@ class ReactionOptimizer:
             normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
             normalized_metrics[metric] = normalized_y
 
-        device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
+        try:
+            import GPUtil
+
+            device_ids = GPUtil.getAvailable(order="memory", limit=1, maxLoad=0.5, maxMemory=0.5, includeNan=False)
+
+            if device_ids:
+                device = torch.device(f"cuda:{device_ids[0]}")
+            else:
+                device = torch.device("cpu")
+
+        except:
+            device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
+
         optimizer = Optimizer(
             method=optimize_method,
             total_name_data=self.total_name_arr,

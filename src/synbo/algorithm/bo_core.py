@@ -7,16 +7,16 @@ from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from rxnopt.utils.util_func import compute_hvi, generate_constraint_mask
-from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import (
+from synbo.utils.util_func import compute_hvi, generate_constraint_mask
+from synbo.utils.logger import console
+from synbo.algorithm.sg_model import (
     BNNEnsembleSurrogateModel,
     BayesianLinearSurrogateModel,
     GPSurrogateModel,
     RFSurrogateModel,
     SklearnModelWrapper,
 )
-from rxnopt.algorithm.acq_function import (
+from synbo.algorithm.acq_function import (
     EHVIAcquisitionFunction,
     NEIAcquisitionFunction,
     ParEGOAcquisitionFunction,

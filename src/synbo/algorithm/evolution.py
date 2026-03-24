@@ -6,8 +6,8 @@ from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, T
 from botorch.models import ModelListGP
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
-from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import (
+from synbo.utils.logger import console
+from synbo.algorithm.sg_model import (
     BNNEnsembleSurrogateModel,
     BayesianLinearSurrogateModel,
     GPSurrogateModel,

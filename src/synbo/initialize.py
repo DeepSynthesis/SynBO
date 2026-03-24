@@ -10,7 +10,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from tqdm import tqdm
 from scipy.spatial import distance
 from sklearn.neighbors import NearestNeighbors
-from rxnopt.utils.logger import console
+from synbo.utils.logger import console
 
 
 def dist_validate(arr: np.ndarray, indices: np.ndarray, num_samples: int = 1000, random_seed: Optional[int] = 42) -> tuple[float, float]:

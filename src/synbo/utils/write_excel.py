@@ -9,8 +9,8 @@ from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.utils import column_index_from_string, get_column_letter
 
-from rxnopt.utils.logger import console
-from rxnopt.utils.util_func import plot_SMILES, sanitize_filename
+from synbo.utils.logger import console
+from synbo.utils.util_func import plot_SMILES, sanitize_filename
 
 
 class ExcelWriter:

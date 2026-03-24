@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from rxnopt.utils.logger import console
+from synbo.utils.logger import console
 
 
 def load_prohibited_reagents(save_dir: Path) -> Optional[Dict[str, List[Any]]]:
@@ -22,7 +22,7 @@ def load_prohibited_reagents(save_dir: Path) -> Optional[Dict[str, List[Any]]]:
         return None
 
     try:
-        with open(prohibited_file, 'r') as f:
+        with open(prohibited_file, "r") as f:
             prohibited_reagents = json.load(f)
 
         if prohibited_reagents:
@@ -39,9 +39,7 @@ def load_prohibited_reagents(save_dir: Path) -> Optional[Dict[str, List[Any]]]:
 
 
 def save_prohibited_reagents(
-    save_dir: Path,
-    new_prohibited: Dict[str, List[Any]],
-    existing_prohibited: Optional[Dict[str, List[Any]]] = None
+    save_dir: Path, new_prohibited: Dict[str, List[Any]], existing_prohibited: Optional[Dict[str, List[Any]]] = None
 ) -> None:
     """Save prohibited reagents to prohibited_reagent.json.
 
@@ -77,7 +75,7 @@ def save_prohibited_reagents(
     prohibited_file = save_dir / "prohibited_reagent.json"
 
     try:
-        with open(prohibited_file, 'w') as f:
+        with open(prohibited_file, "w") as f:
             json.dump(merged_prohibited, f, indent=2, default=str)
 
         console.print(f"✓ Saved prohibited reagents to: {prohibited_file}", style="green")
@@ -90,8 +88,7 @@ def save_prohibited_reagents(
 
 
 def merge_constraints(
-    constraints1: Optional[Dict[str, List[Any]]],
-    constraints2: Optional[Dict[str, List[Any]]]
+    constraints1: Optional[Dict[str, List[Any]]], constraints2: Optional[Dict[str, List[Any]]]
 ) -> Optional[Dict[str, List[Any]]]:
     """Merge two constraint dictionaries.
 

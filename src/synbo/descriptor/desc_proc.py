@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 import numpy as np
 import pandas as pd
 
-from rxnopt.utils.logger import console
+from synbo.utils.logger import console
 
 MAX_TOTAL_DIMS = 200
 EVAL_STEP = 0.05

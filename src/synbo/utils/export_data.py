@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 
 import pandas as pd
-from rxnopt.utils.logger import console
+from synbo.utils.logger import console
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Union
 
@@ -77,7 +77,7 @@ def save_df(
     if filetype == "csv":
         output_df.to_csv(full_save_path.with_suffix(".csv"), index=False)
     elif filetype == "excel" or filetype == "xlsx":
-        from rxnopt.utils.write_excel import ExcelWriter
+        from synbo.utils.write_excel import ExcelWriter
 
         writer = ExcelWriter(condition_dict=condition_dict, opt_metrics=opt_metrics)
         writer.write_to_excel(

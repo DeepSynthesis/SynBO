@@ -11,7 +11,7 @@ __author__ = "Zhenzhi Tan"
 __email__ = "zhenzhi-tan@outlook.com"
 
 # Core classes
-from .rxnopt import ReactionOptimizer
+from .synbo import ReactionOptimizer
 from .initialize import Initializer
 from .optimize import Optimizer
 

@@ -18,7 +18,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.rule import Rule
 
-from rxnopt.utils.export_data import save_df
+from synbo.utils.export_data import save_df
 
 from .optimize import Optimizer
 from .descriptor.desc_proc import array_process, done_array_process
@@ -348,7 +348,7 @@ class ReactionOptimizer:
 
         # Function 3: Load prohibited reagents from file if they exist
         if self.save_dir:
-            from rxnopt.utils.constraints_io import load_prohibited_reagents, merge_constraints
+            from synbo.utils.constraints_io import load_prohibited_reagents, merge_constraints
 
             file_prohibited = load_prohibited_reagents(self.save_dir)
             if file_prohibited:
@@ -521,8 +521,8 @@ class ReactionOptimizer:
             ValueError: If method is not supported or required data is not loaded
         """
         if method == "llm":
-            from rxnopt.analysis.llm_analyzer import LLMAnalyzer
-            from rxnopt.utils.constraints_io import load_prohibited_reagents, save_prohibited_reagents
+            from synbo.analysis.llm_analyzer import LLMAnalyzer
+            from synbo.utils.constraints_io import load_prohibited_reagents, save_prohibited_reagents
 
             if self.prev_rxn_info is None:
                 raise ValueError("Previous reaction information must be loaded before getting constraints")
@@ -570,7 +570,7 @@ class ReactionOptimizer:
         Raises:
             ValueError: If prev_rxn_info has not been loaded
         """
-        from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch
+        from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
 
         if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
             raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
@@ -608,7 +608,7 @@ class ReactionOptimizer:
         Raises:
             ValueError: If prev_rxn_info has not been loaded
         """
-        from rxnopt.utils.hv_calculator import calculate_hypervolume_by_batch
+        from synbo.utils.hv_calculator import calculate_hypervolume_by_batch
 
         if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
             raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")

@@ -1,4 +1,4 @@
-"""Modern CLI interface for rxnopt using typer and rich."""
+"""Modern CLI interface for synbo using typer and rich."""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from rich.table import Table
 from rich.text import Text
 from typing_extensions import Annotated
 
-from .rxnopt import ReactionOptimizer
+from .synbo import ReactionOptimizer
 
 app = typer.Typer(
-    name="rxnopt",
+    name="synbo",
     help="🧪 Modern Reaction Optimization Framework",
     rich_markup_mode="rich",
 )
@@ -27,7 +27,7 @@ console = Console()
 def version_callback(value: bool):
     """Show version information."""
     if value:
-        console.print("[bold blue]rxnopt[/bold blue] version [green]0.1.0[/green]")
+        console.print("[bold blue]synbo[/bold blue] version [green]0.1.0[/green]")
         console.print("A modern reaction optimization framework using Bayesian Optimization")
         raise typer.Exit()
 
@@ -228,7 +228,7 @@ def create_config(
     output_file: Annotated[
         Path,
         typer.Option("--output", "-o", help="Output configuration file path"),
-    ] = Path("rxnopt_config.json"),
+    ] = Path("synbo_config.json"),
 ) -> None:
     """Create a sample configuration file."""
 
@@ -257,7 +257,7 @@ def create_config(
             f"[yellow]Next steps:[/yellow]\n"
             f"1. Edit the configuration file to match your reaction system\n"
             f"2. Prepare descriptor files if needed (optional)\n"
-            f"3. Run: [cyan]rxnopt init {output_file}[/cyan]",
+            f"3. Run: [cyan]synbo init {output_file}[/cyan]",
             title="🔧 Configuration Created",
         )
     )

@@ -4,8 +4,8 @@ import torch
 from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, TimeRemainingColumn
 
 from botorch.models import ModelListGP
-from rxnopt.utils.logger import console
-from rxnopt.algorithm.sg_model import GPSurrogateModel, SklearnModelWrapper
+from synbo.utils.logger import console
+from synbo.algorithm.sg_model import GPSurrogateModel, SklearnModelWrapper
 
 import warnings
 from linear_operator.utils.cholesky import NumericalWarning
@@ -41,7 +41,8 @@ class DefaultPS:
         if surrogate_model == "GP":
             self.surrogate_model_class = GPSurrogateModel
         elif surrogate_model == "RF":
-            from rxnopt.algorithm.sg_model import RFSurrogateModel
+            from synbo.algorithm.sg_model import RFSurrogateModel
+
             self.surrogate_model_class = RFSurrogateModel
         else:
             raise ValueError(f"Unknown surrogate model: {surrogate_model}")

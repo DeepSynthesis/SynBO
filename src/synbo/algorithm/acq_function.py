@@ -13,7 +13,7 @@ from botorch.acquisition.objective import GenericMCObjective
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from botorch.optim import optimize_acqf_discrete as botorch_optimize_acqf_discrete
 
-from rxnopt.utils.logger import console
+from synbo.utils.logger import console
 
 
 class BaseAcquisitionFunction:

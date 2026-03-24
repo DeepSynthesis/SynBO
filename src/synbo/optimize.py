@@ -2,11 +2,11 @@ from typing import List
 import numpy as np
 import torch
 
-from rxnopt.algorithm.evolution import DefaultEO
-from rxnopt.algorithm.particle_swarm import DefaultPS
-from rxnopt.utils.logger import console
-from rxnopt.algorithm.bo_core import DefaultBO
-from rxnopt.algorithm.random_select import RandomSelect
+from synbo.algorithm.evolution import DefaultEO
+from synbo.algorithm.particle_swarm import DefaultPS
+from synbo.utils.logger import console
+from synbo.algorithm.bo_core import DefaultBO
+from synbo.algorithm.random_select import RandomSelect
 
 
 class Optimizer:

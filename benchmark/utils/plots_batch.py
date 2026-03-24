@@ -172,10 +172,9 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    # Convert direction_tags and range_tags to opt_metric_settings format for rxnopt
+    # Convert direction_tags and range_tags to opt_metric_settings format for synbo
     opt_metric_settings = [
-        {"opt_direct": direction, "opt_range": list(range_val)}
-        for direction, range_val in zip(direction_tags, range_tags)
+        {"opt_direct": direction, "opt_range": list(range_val)} for direction, range_val in zip(direction_tags, range_tags)
     ]
 
     # Load full space data
@@ -188,14 +187,14 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     if "batch" not in full_df.columns:
         full_df["batch"] = -1
 
-    # Calculate total hypervolume using rxnopt method
+    # Calculate total hypervolume using synbo method
     try:
         total_hv_result = calculate_hypervolume_for_batch(
             prev_rxn_info=full_df,
             opt_metrics=target_columns,
             opt_metric_settings=opt_metric_settings,
             batch_id=None,
-            reference_point_multiplier=1.1
+            reference_point_multiplier=1.1,
         )
         total_hv = total_hv_result["hv"]
     except Exception as e:
@@ -215,16 +214,13 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     for model_name, dfs in model_data.items():
         for df in dfs:
             df = df.sort_values("batch").copy()
-            
-            # Calculate HV for each batch using rxnopt method
+
+            # Calculate HV for each batch using synbo method
             try:
                 hv_by_batch_df = calculate_hypervolume_by_batch(
-                    prev_rxn_info=df,
-                    opt_metrics=target_columns,
-                    opt_metric_settings=opt_metric_settings,
-                    reference_point_multiplier=1.1
+                    prev_rxn_info=df, opt_metrics=target_columns, opt_metric_settings=opt_metric_settings, reference_point_multiplier=1.1
                 )
-                
+
                 # Convert to dictionary for easier processing
                 batch_hv_values = {}
                 for _, row in hv_by_batch_df.iterrows():
@@ -232,21 +228,21 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
                     hv_value = row["hv"]
                     hv_percentage = (hv_value / total_hv) * 100
                     batch_hv_values[batch_id] = hv_percentage
-                
+
                 # Convert to series for cummax
                 batch_hv_series = pd.Series(batch_hv_values)
-                
+
                 # Calculate cumulative best HV (hypervolume should be maximized)
                 cumulative_best_hv = batch_hv_series.cummax()
-                
+
                 # Add cumulative best records (best HV up to and including current batch)
                 for batch_idx, hv_value in cumulative_best_hv.items():
                     all_best_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
-                
+
                 # Add batch HV records (HV at each batch)
                 for batch_idx, hv_value in batch_hv_series.items():
                     all_actual_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
-                    
+
             except Exception as e:
                 print(f"Warning: Could not calculate HV for model {model_name}: {e}")
                 continue
@@ -577,7 +573,7 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
     # 标签与标题
     plt.xlabel(f"{targets[0]}", fontsize=14, fontname="Arial", fontweight="bold")
     plt.ylabel(f"{targets[1]}", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title("Optimization Process: True PF vs rxnopt PFs", fontsize=16, fontname="Arial", fontweight="bold")
+    plt.title("Optimization Process: True PF vs synbo PFs", fontsize=16, fontname="Arial", fontweight="bold")
 
     # 设置tick参数
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)

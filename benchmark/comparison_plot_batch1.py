@@ -116,16 +116,16 @@ def plot_comparison(
 
 # 示例用法
 if __name__ == "__main__":
-    # 示例：比较rxnopt和EDBOplus的结果
+    # 示例：比较synbo和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
-        "rxnopt": {
+        "synbo": {
             "results_path": "results/multiple_20260317_200457/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
             "range_tags": [[0, 1], [0, 1]],
         },
-        "rxnopt(dynamic)": {
+        "synbo(dynamic)": {
             "results_path": "results/multiple_20260317_190359/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],

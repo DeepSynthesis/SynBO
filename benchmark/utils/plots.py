@@ -10,7 +10,7 @@ from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 def plot_optimization_curves(model_data, target_columns, direction_tags, range_tags, experiment_dir):
     """
     Plot optimization curves for multiple models.
-    
+
     Args:
         model_data: Dictionary with model names as keys and list of DataFrames as values
         target_columns: List of target column names
@@ -469,7 +469,7 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
                 combined_data = df[target_columns].values
             else:
                 combined_data = np.vstack([combined_data, df[target_columns].values])
-        
+
         if combined_data is not None:
             # 准备实验数据的排序 (同样处理 max/min)
             exp_sorting_data = combined_data.copy()
@@ -572,7 +572,7 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
     # 标签与标题
     plt.xlabel(f"{targets[0]}", fontsize=14, fontname="Arial", fontweight="bold")
     plt.ylabel(f"{targets[1]}", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title("Optimization Process: True PF vs rxnopt PFs", fontsize=16, fontname="Arial", fontweight="bold")
+    plt.title("Optimization Process: True PF vs synbo PFs", fontsize=16, fontname="Arial", fontweight="bold")
 
     # 设置tick参数
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)

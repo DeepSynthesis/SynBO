@@ -45,7 +45,7 @@ class TestConstrainWithLLM(unittest.TestCase):
         rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
         return rxn_opt
 
-    @patch("rxnopt.analysis.llm_analyzer.OpenAI")
+    @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_get_constrains_with_mock_llm(self, mock_openai):
         """Test get_constrains method with mocked LLM response."""
         print("\nTest 1: Mock LLM constraint generation")
@@ -92,7 +92,7 @@ class TestConstrainWithLLM(unittest.TestCase):
 
         print(f"✓ Successfully generated constraints for {len(constraints)} condition types")
 
-    @patch("rxnopt.analysis.llm_analyzer.OpenAI")
+    @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_optimization_with_llm_constraints(self, mock_openai):
         """Test optimization workflow with LLM-generated constraints."""
         print("\nTest 2: Optimization with LLM constraints")
@@ -141,7 +141,7 @@ class TestConstrainWithLLM(unittest.TestCase):
 
         print(f"✓ Successfully optimized with constraints")
 
-    @patch("rxnopt.analysis.llm_analyzer.OpenAI")
+    @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_different_reduce_ratios(self, mock_openai):
         """Test constraint generation with different reduce ratios."""
         print("\nTest 3: Different reduce ratios")
@@ -187,7 +187,7 @@ class TestConstrainWithLLM(unittest.TestCase):
 
             print(f"✓ Ratio {ratio}: {len(constraints)} constraints generated")
 
-    @patch("rxnopt.analysis.llm_analyzer.OpenAI")
+    @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_custom_base_url(self, mock_openai):
         """Test LLM analysis with custom base URL."""
         print("\nTest 4: Custom base URL")
@@ -215,7 +215,7 @@ class TestConstrainWithLLM(unittest.TestCase):
 
         print(f"✓ Custom base URL used: {custom_url}")
 
-    @patch("rxnopt.analysis.llm_analyzer.OpenAI")
+    @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_invalid_json_response(self, mock_openai):
         """Test handling of invalid JSON response from LLM."""
         print("\nTest 5: Invalid JSON response handling")
@@ -240,7 +240,7 @@ class TestConstrainWithLLM(unittest.TestCase):
 
         print(f"✓ Invalid JSON handled gracefully")
 
-    @patch("rxnopt.analysis.llm_analyzer.OpenAI")
+    @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_missing_api_key_error(self, mock_openai):
         """Test that missing API key raises appropriate error."""
         print("\nTest 6: Missing API key error")

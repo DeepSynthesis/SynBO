@@ -116,7 +116,7 @@ def plot_comparison(
 
 # 示例用法
 if __name__ == "__main__":
-    # 示例：比较rxnopt和EDBOplus的结果
+    # 示例：比较synbo和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
         "SynBO(Full)": {

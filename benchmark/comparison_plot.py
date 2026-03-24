@@ -118,9 +118,9 @@ def plot_comparison(
 
 # 示例用法
 if __name__ == "__main__":
-    # 示例：比较rxnopt, EDBOplus和Gryffin的结果
+    # 示例：比较synbo, EDBOplus和Gryffin的结果
     model_results = {
-        "rxnopt": {
+        "synbo": {
             "results_path": "results/multiple_20260320_153018/all_batches_final_round_0.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],

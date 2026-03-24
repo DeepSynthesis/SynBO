@@ -63,10 +63,10 @@ To verify your installation, run:
 
 .. code-block:: python
 
-    import rxnopt
-    print(rxnopt.__version__)
+    import synbo
+    print(synbo.__version__)
 
     # Create a simple optimizer
-    from rxnopt import ReactionOptimizer
+    from synbo import ReactionOptimizer
     optimizer = ReactionOptimizer(objectives=['yield'])
     print("Installation successful!")

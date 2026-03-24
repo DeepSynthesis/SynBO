@@ -47,12 +47,11 @@ CONFIG = {
             {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
-        "desc_normalize": "minmax",
+        "desc_normalize": "zscore",
         "sampling_method": "random",
-        "refine_desc": "filter_0.8",
+        "refine_desc": "filter_0.9",
         "optimize_method": "default_BO",
-        "temperature": 0.1,
-        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "UCB"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
@@ -350,7 +349,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                     desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                     refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                    temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
+                    # temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
                     constraints=constraints,
                     **CONFIG["optimization_settings"]["kwargs"],
                 )

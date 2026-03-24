@@ -132,7 +132,7 @@ if __name__ == "__main__":
             "range_tags": [[0, 1], [0, 1]],
         },
         "SynBO (newest)": {
-            "results_path": "results/multiple_20260323_205222/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260324_101431/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
             "range_tags": [[0, 1], [0, 1]],

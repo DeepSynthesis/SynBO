@@ -176,7 +176,7 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
     Trains multiple MLPs and uses the ensemble statistics for mean and variance.
     """
 
-    def __init__(self, num_dims: int, device: str, n_models: int = 5, hidden_dim: int = 64):
+    def __init__(self, num_dims: int, device: str, n_models: int = 10, hidden_dim: int = 256):
         super().__init__(num_dims)
         self.device = device
         self.n_models = n_models

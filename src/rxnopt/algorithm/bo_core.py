@@ -43,7 +43,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 128, 128
+            self.mc_num_samples, self.max_batch_size = 512, 512
         self.device = device
 
         if surrogate_model == "GP":
@@ -125,9 +125,23 @@ class DefaultBO:
         # self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
         self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np).to(device=self.device)
 
-        self.ref_point = torch.tensor(
-            [-1 if omi["opt_direct"] == "min" else 0 for omi in opt_metric_settings], dtype=float, device=self.device
-        )
+        # 基于训练数据动态计算参考点（EDBO+风格）
+        # 获取训练数据的最小值和最大值（已经过权重和方向调整）
+        y_min = training_y_t.min(dim=0).values
+        y_max = training_y_t.max(dim=0).values
+        y_range = y_max - y_min
+
+        # 参考点 = 最小值 - 10%的范围（确保参考点在Pareto前沿下方/更差位置）
+        ref_point_values = []
+        for i, omi in enumerate(opt_metric_settings):
+            if y_range[i] > 0:
+                ref_val = y_min[i] - 0.1 * y_range[i]
+            else:
+                # 如果所有值相同，给一个小的偏移
+                ref_val = y_min[i] - 0.1
+            ref_point_values.append(ref_val)
+
+        self.ref_point = torch.tensor(ref_point_values, dtype=torch.double, device=self.device)
 
         sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
         if self.acquisition_function_class == EHVIAcquisitionFunction:
@@ -200,7 +214,7 @@ class DefaultBO:
             best_samples = [res.cpu().numpy() for res in self.acq_result]
         else:
             best_samples = [res.numpy() for res in self.acq_result]
-        
+
         recommend_type = self._get_exploit_or_explore()
         pred_mean, pred_std = self._get_predictions()
 
@@ -313,7 +327,7 @@ class DefaultBO:
         # Convert tensors to numpy for easier comparison
         training_X_np = training_X.cpu().numpy()
         candidate_X_np = candidate_X.cpu().numpy()
-        
+
         # Find training indices by matching descriptors in total_desc_arr
         training_indices = set()
         for train_desc in training_X_np:
@@ -321,34 +335,34 @@ class DefaultBO:
             matching_indices = np.where(matches)[0]
             if len(matching_indices) > 0:
                 training_indices.add(matching_indices[0])
-        
+
         # Get used reagents for each condition type
         used_reagents = {ct: set() for ct in condition_types}
         for idx in training_indices:
             for j, ct in enumerate(condition_types):
                 used_reagents[ct].add(str(total_name_arr[idx, j]))
-        
+
         # Log which reagents are used/unused
         self.console.print("[bold cyan]Reagent usage analysis:[/bold cyan]")
         for j, ct in enumerate(condition_types):
             all_reagents = set(str(x) for x in total_name_arr[:, j])
             unused = all_reagents - used_reagents[ct]
             self.console.print(f"  {ct}: {len(used_reagents[ct])} used, {len(unused)} unused", style="cyan")
-        
+
         # Find candidate indices and compute boosts
         boosts = []
         for cand_desc in candidate_X_np:
             # Find matching index in total_desc_arr
             matches = np.all(np.abs(total_desc_arr - cand_desc) < 1e-6, axis=1)
             matching_indices = np.where(matches)[0]
-            
+
             if len(matching_indices) == 0:
                 # No match found, no boost
                 boosts.append(0.0)
                 continue
-            
+
             cand_idx = matching_indices[0]
-            
+
             # Check if this candidate contains any unused reagent
             has_unused_reagent = False
             for j, ct in enumerate(condition_types):
@@ -356,11 +370,11 @@ class DefaultBO:
                 if reagent_name not in used_reagents[ct]:
                     has_unused_reagent = True
                     break
-            
+
             boosts.append(boost_value if has_unused_reagent else 0.0)
-        
+
         # Count how many candidates get a boost
         num_boosted = sum(1 for b in boosts if b > 0)
         self.console.print(f"[bold green]{num_boosted}/{len(boosts)} candidates receive unused reagent boost (+{boost_value})[/bold green]")
-        
+
         return torch.tensor(boosts, dtype=torch.double, device=device)

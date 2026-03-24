@@ -354,7 +354,7 @@ class ReactionOptimizer:
             normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
             normalized_metrics[metric] = normalized_y
 
-        device = torch.device(f"cuda:2") if torch.cuda.is_available() else torch.device("cpu")
+        device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
         optimizer = Optimizer(
             method=optimize_method,
             total_name_data=self.total_name_arr,

@@ -61,7 +61,7 @@
         "refine_desc": "pass",
         "optimize_method": "default_BO",
         "kwargs": {
-            "surrogate_model": "BNN",
+            "surrogate_model": "GP",
             "acq_func": "EHVI"
         }
     },

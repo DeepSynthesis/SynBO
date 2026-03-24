@@ -1,6 +1,0 @@
-batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost
-3,1,explore,0.057,120,CsOAc,PPhtBu2,BuCN,67.59±61.54,0.13±0.02,0.0,0.129381549
-3,2,explore,0.1,120,CsOAc,PPhtBu2,BuCN,67.83±60.86,0.13±0.02,0.0,0.106523654
-3,3,explore,0.057,105,CsOAc,PPhtBu2,BuCN,67.94±60.81,0.14±0.02,0.0,0.129381549
-3,4,explore,0.153,90,CsOPiv,X-Phos,BuCN,55.33±3.80,0.08±0.09,75.4,0.12876799
-3,5,explore,0.1,105,CsOAc,PPhtBu2,BuCN,68.09±59.95,0.13±0.02,0.0,0.106523654

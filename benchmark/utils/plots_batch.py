@@ -163,7 +163,7 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
         full_space_file: Full space data file path.
         experiment_dir: Image save directory (Path object or string).
     """
-    from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch, calculate_hypervolume_by_batch
+    from synbo.utils.hv_calculator import calculate_hypervolume_for_batch, calculate_hypervolume_by_batch
 
     if len(target_columns) != len(direction_tags) or len(target_columns) != len(range_tags):
         print("Error: The length of 'target_columns', 'direction_tags', and 'range_tags' must be same.")

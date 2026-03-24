@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-from rxnopt import ReactionOptimizer
-from rxnopt.utils.load_data import load_desc_dict
+from synbo import ReactionOptimizer
+from synbo.utils.load_data import load_desc_dict
 
 
 class TestConstrainedOptimization(unittest.TestCase):

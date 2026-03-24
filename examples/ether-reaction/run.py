@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from rxnopt import ReactionOptimizer
+from synbo import ReactionOptimizer
 
 file_dir = Path(__file__).parent
 
@@ -8,7 +8,7 @@ file_dir = Path(__file__).parent
 # generate descriptors
 # optional: using quanda to generate QM descriptors
 def generate_qm_desc(condition_type):
-    from rxnopt.descriptor import calc_qm_desc_from_file
+    from synbo.descriptor import calc_qm_desc_from_file
 
     rxn_species_dir = file_dir / Path(f"rxn_space/{condition_type}.csv")
     calc_qm_desc_from_file(rxn_species_dir, "desc/{condition_type}_desc.csv", "SMILES")

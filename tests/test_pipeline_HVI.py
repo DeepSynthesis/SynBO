@@ -4,9 +4,9 @@ from pathlib import Path
 import shutil
 from matplotlib import pyplot as plt
 import pandas as pd
-from rxnopt import ReactionOptimizer
-from rxnopt.descriptor.spoc_desc import calc_spoc_desc
-from rxnopt.utils import load_desc_dict, get_prev_rxn
+from synbo import ReactionOptimizer
+from synbo.descriptor.spoc_desc import calc_spoc_desc
+from synbo.utils import load_desc_dict, get_prev_rxn
 
 import seaborn as sns
 import numpy as np

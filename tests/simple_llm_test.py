@@ -9,8 +9,8 @@ import pandas as pd
 from unittest.mock import Mock, patch
 import json
 
-from rxnopt import ReactionOptimizer
-from rxnopt.utils.load_data import load_desc_dict
+from synbo import ReactionOptimizer
+from synbo.utils.load_data import load_desc_dict
 
 
 def setup_optimizer():

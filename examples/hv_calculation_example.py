@@ -1,7 +1,7 @@
 """Example demonstrating hypervolume calculation functionality."""
 
 import pandas as pd
-from rxnopt import ReactionOptimizer
+from synbo import ReactionOptimizer
 
 # Example 1: Calculate HV for current optimization progress
 def example_current_hv():
@@ -97,7 +97,7 @@ def example_hv_by_batch():
 
 def example_direct_function_call():
     """Example of calling HV calculation functions directly."""
-    from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch, calculate_hypervolume_by_batch
+    from synbo.utils.hv_calculator import calculate_hypervolume_for_batch, calculate_hypervolume_by_batch
     
     # Create sample data
     prev_data = pd.DataFrame({

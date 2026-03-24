@@ -1,6 +1,6 @@
 from pathlib import Path
 import pandas as pd
-from rxnopt.descriptor.spoc_desc import calc_spoc_desc
+from synbo.descriptor.spoc_desc import calc_spoc_desc
 
 dataset_name = "B-H_HTE"
 mol_types = ["base", "ligand", "solvent"]

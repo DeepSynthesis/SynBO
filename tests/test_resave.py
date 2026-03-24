@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from rxnopt.utils.export_data import resave_output_results
+from synbo.utils.export_data import resave_output_results
 
 
 class TestResaveOutput(unittest.TestCase):

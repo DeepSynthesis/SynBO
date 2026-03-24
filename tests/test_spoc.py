@@ -1,5 +1,5 @@
 from pathlib import Path
-from rxnopt.descriptor import calc_spoc_desc
+from synbo.descriptor import calc_spoc_desc
 
 test_filepath = Path(__file__).parent / "descriptor"
 

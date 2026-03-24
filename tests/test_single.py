@@ -1,5 +1,5 @@
-from rxnopt import ReactionOptimizer
-from rxnopt.utils import load_desc_dict
+from synbo import ReactionOptimizer
+from synbo.utils import load_desc_dict
 
 
 reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]

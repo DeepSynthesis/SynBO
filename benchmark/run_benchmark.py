@@ -14,8 +14,8 @@ from utils.plots import (
     plot_optimization_process_scatter,
 )
 from utils.metrics import get_average_optimal_targets, get_auc_of_opt, get_hypervolume, get_average_optimal_targets_hv, get_auc_of_opt_hv
-from rxnopt import ReactionOptimizer
-from rxnopt.utils import load_desc_dict, get_prev_rxn
+from synbo import ReactionOptimizer
+from synbo.utils import load_desc_dict, get_prev_rxn
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent
@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization (boost111)",
+    "experiment_name": "B-H_Optimization (set_random)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -51,7 +51,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "filter_0.9",
         "optimize_method": "default_BO",
-        "kwargs": {"surrogate_model": "BNN", "acq_func": "UCB"},
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
@@ -186,7 +186,7 @@ def load_start_points(start_point_path):
 
 def run_simulation(experiment_dir, desc_dict, condition_dict):
     """执行主要的优化计算循环"""
-    from rxnopt.utils.hv_calculator import calculate_hypervolume_for_batch
+    from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
 
     base_seed = CONFIG["base_seed"]
 
@@ -238,7 +238,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
-                quiet=False,
+                quiet=True,
                 save_dir=str(experiment_dir),
             )
 

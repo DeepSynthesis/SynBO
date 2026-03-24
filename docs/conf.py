@@ -14,7 +14,7 @@ author = 'Your Name'
 
 # The full version, including alpha/beta/rc tags
 try:
-    from rxnopt import __version__
+    from synbo import __version__
     release = __version__
 except ImportError:
     release = '0.1.0'

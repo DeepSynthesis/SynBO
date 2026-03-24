@@ -13,8 +13,8 @@ from utils.plots import (
     plot_optimization_process_scatter,
 )
 from utils.metrics import get_average_optimal_targets, get_auc_of_opt, get_hypervolume, get_average_optimal_targets_hv, get_auc_of_opt_hv
-from rxnopt import ReactionOptimizer
-from rxnopt.utils import load_desc_dict, get_prev_rxn
+from synbo import ReactionOptimizer
+from synbo.utils import load_desc_dict, get_prev_rxn
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent

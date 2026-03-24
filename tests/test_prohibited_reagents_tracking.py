@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 import shutil
 
-from rxnopt.utils.constraints_io import (
+from synbo.utils.constraints_io import (
     load_prohibited_reagents,
     save_prohibited_reagents,
     merge_constraints

@@ -77,7 +77,7 @@ class DefaultBO:
         candidate_X: np.ndarray,
         opt_metric_settings: List[dict],
         batch_size: int,
-        training_y_dict: dict,
+        # training_y_dict: dict,
         temperature: float = 0.0,
         constraints: dict = None,
         total_name_arr: np.ndarray = None,
@@ -102,10 +102,8 @@ class DefaultBO:
 
         models = []
         for i in range(num_models):
-            key = list(training_y_dict.keys())[i]
+            # key = list(training_y_dict.keys())[i]
             #   progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
-
-            train_y_i = training_y_t[:, i].reshape(-1, 1)
 
             # Instantiate model with random_seed for reproducibility
             if self.surrogate_model_class in [RFSurrogateModel, BNNEnsembleSurrogateModel]:
@@ -114,11 +112,12 @@ class DefaultBO:
                 model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
 
             if isinstance(model_i, GPSurrogateModel):
-                model_i.fit(training_X_t, train_y_i)
+                # from IPython import embed; embed(); exit()
+                model_i.fit(training_X_t, training_y_t[:, i].unsqueeze(-1))
                 models.append(model_i.model)
             else:
                 wrapper = SklearnModelWrapper(model_i)
-                wrapper.fit_surrogate(training_X_t, train_y_i)
+                wrapper.fit_surrogate(training_X_t, training_y_t[:, i].unsqueeze(-1))
                 models.append(wrapper)
 
             # progress.update(task_train, advance=1)
@@ -140,7 +139,7 @@ class DefaultBO:
         ref_point_values = []
         for i, omi in enumerate(opt_metric_settings):
             if y_range[i] > 0:
-                ref_val = y_min[i] - 0.1 * y_range[i]
+                ref_val = y_min[i]  # - 0.1 * y_range[i]
             else:
                 # 如果所有值相同，给一个小的偏移
                 ref_val = y_min[i] - 0.1
@@ -189,17 +188,17 @@ class DefaultBO:
             constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
             # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
 
-        # Generate unused reagent boost if total_name_arr is provided
+        # # Generate unused reagent boost if total_name_arr is provided
         unused_reagent_boost = None
-        if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
-            unused_reagent_boost = self._compute_unused_reagent_boost(
-                training_X=training_X_t,
-                candidate_X=candidate_X_t,
-                total_name_arr=total_name_arr,
-                total_desc_arr=total_desc_arr,
-                condition_types=condition_types,
-                device=self.device,
-            )
+        # if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
+        #     unused_reagent_boost = self._compute_unused_reagent_boost(
+        #         training_X=training_X_t,
+        #         candidate_X=candidate_X_t,
+        #         total_name_arr=total_name_arr,
+        #         total_desc_arr=total_desc_arr,
+        #         condition_types=condition_types,
+        #         device=self.device,
+        #     )
 
         # task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
         self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(

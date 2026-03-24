@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
+from sklearn.discriminant_analysis import StandardScaler
 import torch
 
 from rich.panel import Panel
@@ -21,7 +22,7 @@ from rich.rule import Rule
 from synbo.utils.export_data import save_df
 
 from .optimize import Optimizer
-from .descriptor.desc_proc import array_process, done_array_process
+from .descriptor.desc_proc import array_process, done_array_process, array_standarization
 from .utils.util_func import check_desc_completeness, generate_onehot_desc, track_called, get_opt_type
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
@@ -360,21 +361,32 @@ class ReactionOptimizer:
                     self.opt_console.print(f"  Total constraints loaded: {total_prohibited} prohibited reagents", style="cyan")
 
         check_desc_completeness(self.desc_dict, self.condition_dict)
+
+        # 1. Get total_name_arr and total_desc_arr (without normalization in array_process)
         self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
+            self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc
         )
+
+        # 2. Get done_arr_index
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
+
+        # 3. Apply standardization: fit on done array, transform on all arrays
+        self.total_desc_arr = array_standarization(self.total_desc_arr, self.done_arr_index, desc_normalize)
+
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
 
         # Normalize target values using opt_range
-        self.y_scalers = {}
-        normalized_metrics = {}
-        for i, (metric, opt_metric) in enumerate(zip(self.opt_metrics, self.opt_metric_settings)):
-            y_min, y_max = opt_metric["opt_range"]
-            self.y_scalers[metric] = {"min": y_min, "max": y_max}
-            normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
-            normalized_metrics[metric] = normalized_y
+        # self.y_scalers = {}
+        # normalized_metrics = {}
+        # for i, (metric, opt_metric) in enumerate(zip(self.opt_metrics, self.opt_metric_settings)):
+        #     # y_min, y_max = opt_metric["opt_range"]
+        #     # self.y_scalers[metric] = {"min": y_min, "max": y_max}
+
+        y_scaler = StandardScaler()
+
+        #     # normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
+        normalized_metrics = y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
 
         try:
             import GPUtil
@@ -399,7 +411,13 @@ class ReactionOptimizer:
         )
 
         # 从 self.total_desc_arr中排除掉done_arr_desc
-        candidate_indices = np.setdiff1d(np.arange(len(self.total_desc_arr)), self.done_arr_index)
+        # candidate_indices = np.setdiff1d(np.arange(len(self.total_desc_arr)), self.done_arr_index)
+        # from IPython import embed; embed()
+        # 替代方案：使用布尔掩码
+        mask = np.ones(len(self.total_desc_arr), dtype=bool)
+        mask[self.done_arr_index] = False
+        candidate_indices = np.where(mask)[0]  # 保持原有顺序
+
         candidate_X = self.total_desc_arr[candidate_indices]
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(

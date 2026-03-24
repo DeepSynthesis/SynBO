@@ -4,7 +4,7 @@ import torch
 from torch import Tensor
 from botorch.models import ModelListGP
 from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
-# from botorch.acquisition.multi_objective.monte_carlo import 
+from botorch.acquisition.multi_objective.monte_carlo import qExpectedHypervolumeImprovement
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
@@ -227,7 +227,7 @@ class BaseAcquisitionFunction:
         # )
 
         # acq_result is a tuple of (candidates, acquisition_values)
-        
+
         selected_candidates = acq_result[0]  # (q, D)
         acquisition_values = acq_result[1]  # (q,)
 
@@ -305,16 +305,18 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        self.acquisition_function = qLogNoisyExpectedHypervolumeImprovement(
+        self.acquisition_function = qExpectedHypervolumeImprovement(
             model=model,
             sampler=sampler,
             ref_point=ref_point,
-            # partitioning=partitioning,
-            alpha=0.0,
-            incremental_nehvi=True,
-            X_baseline=train_x,
-            prune_baseline=True,
+            partitioning=partitioning,
+            # alpha=0.0,
+            # incremental_nehvi=True,
+            # X_baseline=train_x,
+            # prune_baseline=True,
         )
+
+        print(self.ref_point)
 
     def optimize_acqf_discrete(
         self,

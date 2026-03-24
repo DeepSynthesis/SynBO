@@ -38,7 +38,7 @@ class GPSurrogateModel(BaseSurrogateModel):
         self.model = None
         # Use edboplus-style likelihood initialization
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood(GammaPrior(1.5, 0.1)).to(self.device)
-        self.likelihood.noise = 0.5
+        self.likelihood.noise = 5.0
 
     def fit(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
         """Build and train a single GP model"""
@@ -53,9 +53,9 @@ class GPSurrogateModel(BaseSurrogateModel):
         covar_module = ScaleKernel(
             MaternKernel(
                 ard_num_dims=self.num_dims,
-                lengthscale_prior=GammaPrior(3.0, 1.0),  # More concentrated prior
+                lengthscale_prior=GammaPrior(2.0, 0.2),  # More concentrated prior
             ),
-            outputscale_prior=GammaPrior(2.0, 0.5),
+            outputscale_prior=GammaPrior(5.0, 0.5),
         )
         # Set adaptive initial lengthscale
         covar_module.base_kernel.lengthscale = initial_lengthscale
@@ -64,6 +64,7 @@ class GPSurrogateModel(BaseSurrogateModel):
             train_X=train_x,
             train_Y=train_y,
             covar_module=covar_module,
+            likelihood=self.likelihood,
         ).to(self.device)
 
         # Add noise constraint
@@ -80,7 +81,7 @@ class GPSurrogateModel(BaseSurrogateModel):
 
         best_loss = float("inf")
         patience_counter = 0
-        patience_limit = 100
+        patience_limit = 1000
 
         for epoch in range(1000):
             optimizer.zero_grad()

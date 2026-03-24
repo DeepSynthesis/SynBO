@@ -51,14 +51,16 @@ class Optimizer:
         total_name_arr: np.ndarray = None,
         condition_types: List[str] = None,
     ) -> List[int]:
-        for k, d in zip(training_y.keys(), opt_metric_settings):
+        for i, d in enumerate(opt_metric_settings):
             if d["opt_direct"] == "min":
-                training_y[k] = -training_y[k]
+                training_y[i] = -training_y[i]
 
-        training_y_dict = training_y.copy()
-        if isinstance(training_y, dict):
-            training_y = np.array(list(training_y.values())).T
+        training_y = training_y.T
+        # training_y_dict = training_y.copy()
+        # if isinstance(training_y, dict):
+        #     training_y = np.array(list(training_y.values())).T
 
+        # from IPython import embed; embed()
         if self.method in ["default_BO"]:  # , "random_select", "evolution", "particle_swarm"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
@@ -66,7 +68,7 @@ class Optimizer:
                 candidate_X=candidate_X,
                 opt_metric_settings=opt_metric_settings,
                 batch_size=batch_size,
-                training_y_dict=training_y_dict,
+                # training_y_dict=training_y_dict,
                 temperature=temperature,
                 constraints=constraints,
                 total_name_arr=total_name_arr,

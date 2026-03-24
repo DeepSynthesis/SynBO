@@ -261,20 +261,10 @@ def array_process(
     # 3. 计算并打印最终维度
     final_total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
     console.print(f"Final total descriptor dimension: [bold cyan]{final_total_dims}[/bold cyan]")
-    # 4. 归一化 (Normalize data)
-    # 注意：归一化应该在每个独立的数组（代表一个条件类型的所有样本）上进行
-    normalized_desc_arrs = []
-    for desc_arr in desc_arrs:
-        # 对每个非空数组应用归一化
-        if desc_arr.size > 0:
-            normalized_desc_arrs.append(normalize_data(desc_arr, desc_normalize))
-        else:
-            # 如果数组为空，则保持原样，但在笛卡尔积中可能需要特殊处理
-            # 这里的实现是，如果一个条件类型没有样本，笛卡尔积结果将为空
-            normalized_desc_arrs.append(np.array([]))
-    # 5. 执行笛卡尔积 (Perform cartesian product)
+    # 4. 执行笛卡尔积 (Perform cartesian product)
     # cartesian_product_3d 需要能处理描述符向量的拼接
-    total_desc_arr = cartesian_product_3d(normalized_desc_arrs, data_type=float, info="descriptors")
+    # 注意：归一化不再这里进行，而是在获取done_arr_index后统一进行
+    total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float, info="descriptors")
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
     if len(total_desc_arr) > 0:
         console.print(f"Generated [bold]{len(total_desc_arr):,}[/bold] total combinations", style="green")
@@ -284,6 +274,39 @@ def array_process(
         )
 
     return total_name_arr, total_desc_arr
+
+
+def array_standarization(
+    total_desc_arr: np.ndarray,
+    done_arr_index: np.ndarray,
+    desc_normalize: Literal["minmax", "zscore", "l2", "none"],
+) -> np.ndarray:
+    """Standardize array by fitting scaler on done array and transforming all arrays.
+
+    Args:
+        total_desc_arr: Full descriptor array (2D)
+        done_arr_index: Indices of completed reactions in total array
+        desc_normalize: Normalization method
+
+    Returns:
+        Standardized array for all reactions
+    """
+    match desc_normalize:
+        case "minmax":
+            scaler = MinMaxScaler()
+        case "zscore":
+            scaler = StandardScaler()
+        case "l2":
+            scaler = Normalizer(norm="l2")
+        case "none":
+            return total_desc_arr.copy()
+        case _:
+            raise ValueError(f"Unknown normalization method: {desc_normalize}")
+
+    # Fit on done array, transform all arrays
+    done_arr_desc = total_desc_arr[done_arr_index]
+    scaler.fit(done_arr_desc)
+    return scaler.transform(total_desc_arr)
 
 
 def done_array_process(prev_rxn_info: pd.DataFrame, total_name_arr: np.ndarray, condition_types: List[str]) -> np.ndarray:

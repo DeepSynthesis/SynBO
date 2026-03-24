@@ -287,7 +287,7 @@ class EDBOplus:
         if columns_features == 'all':  # replacing with actual list of all features for printout
             columns_features = list(set(df.columns.tolist())- set(objectives) - set(['priority']))
         print(f"This run will optimize for the following objectives: {objectives}")
-        print(f"The following features will be used: {columns_features}")
+        print(f"The following features will be used: {columns_features[:5]}...")
 
         # 3. Separate train and test data.
 
@@ -397,6 +397,8 @@ class EDBOplus:
             if objective_mode[i].lower() == 'min':
                 y[:, i] = -y[:, i]
         y = scaler_y.fit_transform(y)
+        
+        from IPython import embed; embed()
 
         print("Generating surrogate model...")
         for i in range(0, n_objectives):
@@ -468,6 +470,8 @@ class EDBOplus:
                 ref_point=ref_point,  # use known reference point
                 partitioning=partitioning
             )
+            
+            print(ref_point)
 
             acq_result = optimize_acqf_discrete(
                 acq_function=EHVI,

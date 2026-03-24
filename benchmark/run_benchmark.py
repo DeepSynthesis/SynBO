@@ -37,7 +37,7 @@ CONFIG = {
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["base", "ligand", "solvent", "concentration", "temperature"],
+        "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
         "name_suffix": ["_dft", "_dft", "_dft", None, None],
     },
     "optimization_settings": {
@@ -49,9 +49,9 @@ CONFIG = {
         "opt_type": "auto",
         "desc_normalize": "zscore",
         "sampling_method": "random",
-        "refine_desc": "filter_0.9",
+        "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

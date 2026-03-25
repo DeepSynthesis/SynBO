@@ -3,7 +3,7 @@ import gpytorch
 import torch
 from torch import Tensor
 from botorch.models import ModelListGP
-from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
+from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement, qLogExpectedHypervolumeImprovement
 from botorch.acquisition.multi_objective.monte_carlo import qExpectedHypervolumeImprovement
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
@@ -210,21 +210,21 @@ class BaseAcquisitionFunction:
                 - Acquisition values for selected candidates (q,)
         """
 
-        acq_result = optimize_acqf_discrete(
-            acq_function=acq_func,
-            choices=choices,
-            q=q,
-            unique=unique,
-            max_batch_size=max_batch_size,
-        )
-        # acq_result = self._new_optimize_acqf_discrete(
+        # acq_result = optimize_acqf_discrete(
         #     acq_function=acq_func,
         #     choices=choices,
         #     q=q,
         #     unique=unique,
         #     max_batch_size=max_batch_size,
-        #     unused_reagent_boost=unused_reagent_boost,
         # )
+        acq_result = self._new_optimize_acqf_discrete(
+            acq_function=acq_func,
+            choices=choices,
+            q=q,
+            unique=unique,
+            max_batch_size=max_batch_size,
+            unused_reagent_boost=unused_reagent_boost,
+        )
 
         # acq_result is a tuple of (candidates, acquisition_values)
 
@@ -305,7 +305,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        self.acquisition_function = qExpectedHypervolumeImprovement(
+        self.acquisition_function = qLogExpectedHypervolumeImprovement(
             model=model,
             sampler=sampler,
             ref_point=ref_point,
@@ -553,60 +553,169 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         )
 
 
-import torch
-from torch import Tensor
-from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.sampling.normal import SobolQMCNormalSampler
-from botorch.acquisition.multi_objective.max_value_entropy_search import qLowerBoundMultiObjectiveMaxValueEntropySearch
+from botorch.acquisition.multi_objective.max_value_entropy_search import (
+    qLowerBoundMultiObjectiveMaxValueEntropySearch,
+)
 from botorch.acquisition.multi_objective.utils import compute_sample_box_decomposition
+from botorch.utils.multi_objective.pareto import is_non_dominated
+
 
 class MOGIBBONAcquisitionFunction(BaseAcquisitionFunction):
     """
-    Multi-Objective GIBBON (qLowerBoundMultiObjectiveMaxValueEntropySearch)
-    An information-theoretic multi-objective acquisition function that is highly 
-    efficient for large batch sizes (q > 1) and many objectives.
+    Multi-Objective Lower Bound Max-Value Entropy Search (MO-GIBBON).
+    与 EHVIAcquisitionFunction 的关键区别:
+    ----------------------------------------------------------
+    | 项目                   | EHVI          | 本类                              |
+    |------------------------|---------------|-----------------------------------|
+    | hypercell_bounds shape | 2 × J × M     | num_pareto_samples × 2 × J × M    |
+    | 来源                   | 已观测 Pareto  | GP posterior 多次采样的 Pareto 前沿 |
+    | 体现 Pareto 不确定性    | 否             | 是                                |
+    ----------------------------------------------------------
+    关于 candidate_set_for_sampling 参数:
+        用于从 GP posterior 采样 Pareto 前沿的候选集。
+        - 默认 None → 自动使用训练数据（几十个点，计算快但覆盖有限）
+        - 建议: 传入 choices 的随机子集（如 512~2048 个点），
+          可更好地覆盖候选空间，使 Pareto 前沿估计更准确。
+    关于 estimation_type:
+        "LB"  (默认): 解析高斯下界，速度快，推荐。
+        "LB2"       : 更紧的下界，稍慢。
+        "MC"        : Monte Carlo 估计，最慢但最准。
+        "0"         : 最简单的下界。
+    Notes:
+        (i)  采集值可能为负数 —— 这是数学性质，不是 bug。
+        (ii) batch q>1 时，增加更多候选点不保证单调增加采集值。
     """
 
     def __init__(
         self,
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
-        bounds: Tensor,
-        num_pareto_samples: int = 16,
-        # train_x 可选参数，如果你想将其作为基准点供后验参考可以保留
-        # train_x: Tensor = None, 
+        ref_point: torch.Tensor,
+        partitioning,  # 仅保留以兼容调用接口，不在内部使用
+        num_pareto_samples: int = 10,  # 采样 Pareto 前沿的数量
+        num_pareto_points: int = 10,  # 每条 Pareto 前沿保留的点数
+        estimation_type: str = "LB",
+        num_samples: int = 64,
+        candidate_set_for_sampling: Tensor = None,  # 用于采样 Pareto 前沿的候选集 (n, D)
     ):
-        """
-        Args:
-            model: The multi-output GP model.
-            sampler: QMC Sampler (passed to base class).
-            bounds: A `2 x D` tensor specifying the bounds of the input space. 
-                    Required to sample the Pareto frontiers from the model.
-            num_pareto_samples: Number of Pareto front samples to draw. 
-                                Higher means more accurate but slower. (Default: 16-64)
-        """
         super().__init__(model, sampler)
-        self.bounds = bounds
-        self.num_pareto_samples = num_pareto_samples
-
-        # 1. Compute Sample Box Decomposition
-        # 从模型后验中采样出未来可能的帕累托前沿边界 (Hypercell bounds)
-        # 这一步是 MO-GIBBON 核心的前置步骤
-        self.hypercell_bounds = compute_sample_box_decomposition(
+        self.ref_point = ref_point
+        self.partitioning = partitioning
+        # ── 确定用于 Pareto 前沿采样的候选集 ────────────────────────────────
+        # 优先使用外部传入的 candidate_set_for_sampling
+        # 若未提供，退回到训练数据（适合先验数据少的早期阶段）
+        if candidate_set_for_sampling is not None:
+            candidate_set = candidate_set_for_sampling
+        else:
+            # ModelListGP: 所有子模型共享同一 train_inputs
+            candidate_set = model.models[0].train_inputs[0]  # (n_train, D)
+        # ── Step 1: 从 GP posterior 采样多条 Pareto 前沿 ───────────────────
+        # pareto_fronts shape: (num_pareto_samples, num_pareto_points, M)
+        pareto_fronts = self._sample_pareto_frontiers(
             model=model,
-            bounds=bounds,
-            num_samples=num_pareto_samples,
+            candidate_set=candidate_set,
+            num_pareto_samples=num_pareto_samples,
+            num_pareto_points=num_pareto_points,
+            ref_point=ref_point,
         )
-
-        # 2. 初始化 MO-GIBBON 采集函数
-        # estimation_type="LB" 表示使用 Lower Bound 近似机制 (即 GIBBON 的逻辑)
+        # ── Step 2: 对每条 Pareto 前沿做 box decomposition ─────────────────
+        # hypercell_bounds shape: (num_pareto_samples, 2, J, M)
+        # 这就是 qLowerBoundMultiObjectiveMaxValueEntropySearch 所需的格式
+        hypercell_bounds = compute_sample_box_decomposition(
+            pareto_fronts=pareto_fronts,
+        )
+        # ── Step 3: 构建采集函数 ────────────────────────────────────────────
         self.acquisition_function = qLowerBoundMultiObjectiveMaxValueEntropySearch(
             model=model,
-            hypercell_bounds=self.hypercell_bounds,
-            estimation_type="LB", 
+            hypercell_bounds=hypercell_bounds,
+            estimation_type=estimation_type,
+            num_samples=num_samples,
         )
+        # ── set_X_pending shim ───────────────────────────────────────────────
+        # 与 MCAcquisitionFunction 不同，此类可能未暴露 set_X_pending()
+        # 注入 shim 使 optimize_discrete / optimize_discrete_unuse 中的
+        # acq_func.set_X_pending(...) 调用不会抛出 AttributeError
+        if not hasattr(self.acquisition_function, "set_X_pending"):
+            _acq = self.acquisition_function
 
-        print(f"MO-GIBBON Initialized with {num_pareto_samples} Pareto samples.")
+            def _set_x_pending(X_pending: torch.Tensor | None = None) -> None:
+                # @concatenate_pending_points 装饰器直接读取 self.X_pending 属性
+                _acq.X_pending = X_pending.clone().detach() if X_pending is not None else None
+
+            _acq.set_X_pending = _set_x_pending
+        print(self.ref_point)
+
+    @staticmethod
+    def _sample_pareto_frontiers(
+        model: ModelListGP,
+        candidate_set: Tensor,
+        num_pareto_samples: int,
+        num_pareto_points: int,
+        ref_point: Tensor,
+    ) -> Tensor:
+        """
+        在 candidate_set 上对 GP posterior 进行采样，
+        从每次采样中提取 Pareto 最优点，最终返回固定大小的 Pareto 前沿张量。
+        Args:
+            model:              已拟合的 ModelListGP。
+            candidate_set:      形状 (n, D)，从中采样的候选点集。
+            num_pareto_samples: 要采样的 Pareto 前沿数量。
+            num_pareto_points:  每条 Pareto 前沿固定保留的点数。
+                                超出时随机下采样，不足时有放回重复采样填充。
+            ref_point:          形状 (M,)，参考点；严格低于此点的样本会被过滤掉。
+        Returns:
+            形状 (num_pareto_samples, num_pareto_points, M) 的 Tensor。
+        """
+        device = candidate_set.device
+        dtype = candidate_set.dtype
+        ref = ref_point.to(device=device, dtype=dtype)
+        with torch.no_grad():
+            posterior = model.posterior(candidate_set)
+            # samples: (num_pareto_samples, n_candidates, M)
+            samples = posterior.rsample(torch.Size([num_pareto_samples]))
+        M = samples.shape[-1]
+        pareto_fronts = torch.zeros(
+            num_pareto_samples,
+            num_pareto_points,
+            M,
+            device=device,
+            dtype=dtype,
+        )
+        for i in range(num_pareto_samples):
+            y_i = samples[i]  # (n_candidates, M)
+            # 过滤掉在 ref_point 以下的点（这些点对 hypervolume 无贡献）
+            above_ref_mask = (y_i > ref.unsqueeze(0)).all(dim=-1)
+            y_feasible = y_i[above_ref_mask]
+            if y_feasible.shape[0] == 0:
+                # 边界情况: 无点超过 ref_point
+                # 退化策略: 取所有目标之和排名最高的 num_pareto_points 个点
+                scores = y_i.sum(dim=-1)
+                k = min(num_pareto_points, y_i.shape[0])
+                top_idx = scores.topk(k).indices
+                pareto_fronts[i, :k] = y_i[top_idx]
+                if k < num_pareto_points:
+                    # 用最后一个点重复填充（极罕见情况）
+                    pareto_fronts[i, k:] = pareto_fronts[i, k - 1].unsqueeze(0).expand(num_pareto_points - k, M)
+                continue
+            # 找出非支配点 (Pareto 最优)
+            is_nd = is_non_dominated(y_feasible)  # (n_feasible,) bool
+            pareto_pts = y_feasible[is_nd]  # (n_pareto, M)
+            n_pareto = pareto_pts.shape[0]
+            if n_pareto >= num_pareto_points:
+                # 随机下采样到 num_pareto_points（无放回）
+                idx = torch.randperm(n_pareto, device=device)[:num_pareto_points]
+                pareto_fronts[i] = pareto_pts[idx]
+            else:
+                # 先放入所有 Pareto 点，再有放回重复采样填充剩余位置
+                pareto_fronts[i, :n_pareto] = pareto_pts
+                if n_pareto > 0:
+                    fill_idx = torch.randint(
+                        n_pareto,
+                        (num_pareto_points - n_pareto,),
+                        device=device,
+                    )
+                    pareto_fronts[i, n_pareto:] = pareto_pts[fill_idx]
+        return pareto_fronts  # (num_pareto_samples, num_pareto_points, M)
 
     def optimize_acqf_discrete(
         self,
@@ -622,9 +731,6 @@ class MOGIBBONAcquisitionFunction(BaseAcquisitionFunction):
         constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
-        """
-        Wrapper to call the base class optimization method using the MO-GIBBON acq_func.
-        """
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,

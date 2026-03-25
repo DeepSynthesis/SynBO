@@ -44,7 +44,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 256, 256
+            self.mc_num_samples, self.max_batch_size = 256, 1024
         self.device = device
 
         if surrogate_model == "GP":
@@ -176,6 +176,16 @@ class DefaultBO:
         elif self.acquisition_function_class == NEIAcquisitionFunction:
             weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
             acq_func = self.acquisition_function_class(model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights)
+        elif self.acquisition_function_class == MOGIBBONAcquisitionFunction:
+            # weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+            # bounds = torch.stack([candidate_X_t.min(dim=0).values, candidate_X_t.max(dim=0).values])
+            partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+            acq_func = self.acquisition_function_class(
+                model=self.global_model,
+                sampler=sampler,
+                ref_point=self.ref_point,
+                partitioning=partitioning,
+            )  # , bounds=bounds)
         else:
             raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
@@ -191,17 +201,18 @@ class DefaultBO:
             constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
             # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
 
+        # TODO: need to Re-implementate reagent boost mechanism.
         # # Generate unused reagent boost if total_name_arr is provided
         unused_reagent_boost = None
-        # if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
-        #     unused_reagent_boost = self._compute_unused_reagent_boost(
-        #         training_X=training_X_t,
-        #         candidate_X=candidate_X_t,
-        #         total_name_arr=total_name_arr,
-        #         total_desc_arr=total_desc_arr,
-        #         condition_types=condition_types,
-        #         device=self.device,
-        #     )
+        if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
+            unused_reagent_boost = self._compute_unused_reagent_boost(
+                training_X=training_X_t,
+                candidate_X=candidate_X_t,
+                total_name_arr=total_name_arr,
+                total_desc_arr=total_desc_arr,
+                condition_types=condition_types,
+                device=self.device,
+            )
 
         # task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
         self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(

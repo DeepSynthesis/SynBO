@@ -44,14 +44,14 @@ CONFIG = {
         "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.1], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "zscore",
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

@@ -4,43 +4,43 @@ EDBO+ Benchmark Timing Information
 
 Dataset: HTE_datasets/B-H_HTE/B-H_HTE.csv
 Number of seeds: 10
-Budget per seed: 60 experiments
-Total experiments: 600
+Budget per seed: 50 experiments
+Total experiments: 500
 Acquisition function: EHVI
 Sampling method: with_index
-Start points loaded from: /home/tzz/AIChem/reactionopt/benchmark/compare_mothods/edboplus/../../datasets/HTE_datasets/B-H_HTE/start_point.json
+Start points loaded from: /home/tzz/AIChem/synbo/benchmark/compare_mothods/edboplus/../../datasets/HTE_datasets/B-H_HTE/start_point.json
 
 --------------------------------------------------------------------------------
 Timing Information:
 --------------------------------------------------------------------------------
-Start time: 2026-03-07 16:26:01
-End time: 2026-03-07 17:56:20
-Total time: 5418.60 seconds (90.31 minutes)
-Average time per seed: 541.86 seconds
+Start time: 2026-03-25 11:03:25
+End time: 2026-03-25 12:35:06
+Total time: 5501.23 seconds (91.69 minutes)
+Average time per seed: 550.12 seconds
 
 --------------------------------------------------------------------------------
 Performance Summary:
 --------------------------------------------------------------------------------
 Final Hypervolume (%):
-  Mean: 94.62%
-  Std:  6.07%
-  Min:  84.51%
-  Max:  99.83%
+  Mean: 92.02%
+  Std:  6.04%
+  Min:  83.55%
+  Max:  99.36%
 
 --------------------------------------------------------------------------------
 Performance per Round:
 --------------------------------------------------------------------------------
 Round    Seed     Final HV (%)    Time Est (s)   
 --------------------------------------------------------------------------------
-1        1        88.45           541.86         
-2        2        99.83           541.86         
-3        3        85.26           541.86         
-4        4        98.24           541.86         
-5        5        84.51           541.86         
-6        6        98.43           541.86         
-7        7        99.65           541.86         
-8        8        96.20           541.86         
-9        9        97.27           541.86         
-10       10       98.37           541.86         
+1        1        83.55           550.12         
+2        2        97.40           550.12         
+3        3        99.36           550.12         
+4        4        85.30           550.12         
+5        5        97.28           550.12         
+6        6        97.32           550.12         
+7        7        85.58           550.12         
+8        8        89.12           550.12         
+9        9        89.31           550.12         
+10       10       96.02           550.12         
 
 ================================================================================

@@ -2,9 +2,9 @@ import pandas as pd
 import os
 
 # 文件路径
-input_csv = "/home/tzz/AIChem/reactionopt/benchmark/compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/merged_EDBOplus_for_B-H_HTE.csv"
-hte_csv = "/home/tzz/AIChem/reactionopt/benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
-output_dir = "/home/tzz/AIChem/reactionopt/benchmark/compare_mothods/edboplus/result"
+input_csv = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/merged_EDBOplus_for_B-H_HTE.csv"
+hte_csv = "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
+output_dir = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/edboplus/results"
 
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)

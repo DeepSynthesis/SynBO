@@ -311,7 +311,8 @@ class Benchmark:
             else:
                 df_results = pd.DataFrame(columns=store_columns)
 
-            df_results = df_results.append(dict_i, ignore_index=True)
+            df_results = pd.concat([df_results, pd.DataFrame([dict_i])], ignore_index=True)
+            # df_results = df_results.append(dict_i, ignore_index=True)
             df_results.to_csv(self.filename_results, index=False)
 
         return df_results
@@ -387,7 +388,8 @@ class Benchmark:
                 argwhere_idx_next_ground = np.argwhere(self.df_ground[self.index_column].values == id)[0][0]
                 argwhere_dix_next_run = np.argwhere(df_run[self.index_column].values == id)[0][0]
                 for obj in self.objective_names:
-                    df_run[obj].values[argwhere_dix_next_run] = self.df_ground[obj].values[argwhere_idx_next_ground]
+                    
+                    df_run[obj].values[argwhere_dix_next_run] = str(self.df_ground[obj].values[argwhere_idx_next_ground])
                     try:
                         self.collected_values[obj + "_collected_values"].append(self.df_ground[obj].values[argwhere_idx_next_ground])
                     except:

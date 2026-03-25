@@ -553,6 +553,94 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         )
 
 
+import torch
+from torch import Tensor
+from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.sampling.normal import SobolQMCNormalSampler
+from botorch.acquisition.multi_objective.max_value_entropy_search import qLowerBoundMultiObjectiveMaxValueEntropySearch
+from botorch.acquisition.multi_objective.utils import compute_sample_box_decomposition
+
+class MOGIBBONAcquisitionFunction(BaseAcquisitionFunction):
+    """
+    Multi-Objective GIBBON (qLowerBoundMultiObjectiveMaxValueEntropySearch)
+    An information-theoretic multi-objective acquisition function that is highly 
+    efficient for large batch sizes (q > 1) and many objectives.
+    """
+
+    def __init__(
+        self,
+        model: ModelListGP,
+        sampler: SobolQMCNormalSampler,
+        bounds: Tensor,
+        num_pareto_samples: int = 16,
+        # train_x 可选参数，如果你想将其作为基准点供后验参考可以保留
+        # train_x: Tensor = None, 
+    ):
+        """
+        Args:
+            model: The multi-output GP model.
+            sampler: QMC Sampler (passed to base class).
+            bounds: A `2 x D` tensor specifying the bounds of the input space. 
+                    Required to sample the Pareto frontiers from the model.
+            num_pareto_samples: Number of Pareto front samples to draw. 
+                                Higher means more accurate but slower. (Default: 16-64)
+        """
+        super().__init__(model, sampler)
+        self.bounds = bounds
+        self.num_pareto_samples = num_pareto_samples
+
+        # 1. Compute Sample Box Decomposition
+        # 从模型后验中采样出未来可能的帕累托前沿边界 (Hypercell bounds)
+        # 这一步是 MO-GIBBON 核心的前置步骤
+        self.hypercell_bounds = compute_sample_box_decomposition(
+            model=model,
+            bounds=bounds,
+            num_samples=num_pareto_samples,
+        )
+
+        # 2. 初始化 MO-GIBBON 采集函数
+        # estimation_type="LB" 表示使用 Lower Bound 近似机制 (即 GIBBON 的逻辑)
+        self.acquisition_function = qLowerBoundMultiObjectiveMaxValueEntropySearch(
+            model=model,
+            hypercell_bounds=self.hypercell_bounds,
+            estimation_type="LB", 
+        )
+
+        print(f"MO-GIBBON Initialized with {num_pareto_samples} Pareto samples.")
+
+    def optimize_acqf_discrete(
+        self,
+        q: int,
+        choices: Tensor,
+        max_batch_size: int = 1024,
+        unique: bool = True,
+        progress: object = None,
+        task: object = None,
+        min_distance: float = 1e-6,
+        exclude_points: Tensor = None,
+        temperature: float = 0.0,
+        constraint_mask: Tensor = None,
+        unused_reagent_boost: Tensor = None,
+    ) -> tuple[Tensor, Tensor]:
+        """
+        Wrapper to call the base class optimization method using the MO-GIBBON acq_func.
+        """
+        return self.optimize_discrete(
+            acq_func=self.acquisition_function,
+            q=q,
+            choices=choices,
+            max_batch_size=max_batch_size,
+            unique=unique,
+            progress=progress,
+            task=task,
+            min_distance=min_distance,
+            exclude_points=exclude_points,
+            temperature=temperature,
+            constraint_mask=constraint_mask,
+            unused_reagent_boost=unused_reagent_boost,
+        )
+
+
 class ParetoFrontCalculator:
     """Class for calculating Pareto fronts"""
 

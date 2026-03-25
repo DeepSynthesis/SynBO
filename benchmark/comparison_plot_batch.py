@@ -131,8 +131,8 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.5]],
         },
-        "SynBO(BNN)": {
-            "results_path": "results/multiple_20260324_221544/all_batches_final_round_*.csv",
+        "SynBO(GP)": {
+            "results_path": "results/multiple_20260324_233149/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.5]],

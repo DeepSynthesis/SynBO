@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization (set_random)",
+    "experiment_name": "B-H_Optimization (new?)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -44,7 +44,7 @@ CONFIG = {
         "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.1], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "zscore",

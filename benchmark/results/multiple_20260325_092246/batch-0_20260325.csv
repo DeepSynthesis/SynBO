@@ -1,6 +1,0 @@
-batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost
-0,1,explore,0.1,90,KOPiv,BrettPhos,DMAc,-,-,0.0,0.144665413
-0,2,explore,0.153,90,CsOAc,JackiePhos,DMAc,-,-,11.77,0.3968953220000001
-0,3,explore,0.153,120,CsOPiv,tBPh-CPhos,DMAc,-,-,9.96,0.35066413
-0,4,explore,0.057,105,KOAc,BrettPhos,BuOAc,-,-,16.39,0.1761264139999999
-0,5,explore,0.1,105,CsOAc,JackiePhos,BuCN,-,-,26.69,0.41953911

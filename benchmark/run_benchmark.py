@@ -51,7 +51,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "GP", "acq_func": "MOGIBBON"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

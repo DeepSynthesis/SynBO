@@ -125,8 +125,8 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],
         },
-        "SynBO(BNN_cleanup)": {
-            "results_path": "results/multiple_20260323_163441/all_batches_final_round_*.csv",
+        "SynBO(GP_boost)": {
+            "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
-            "target_columns": ["yield_collected_values", "cost_collected_values"],
+            "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
             "range_tags": [[0, 100], [0, 0.1]],
         },

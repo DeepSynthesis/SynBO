@@ -126,7 +126,7 @@ def get_auc_of_opt(dfs, target_columns, direction_tags, range_tags):
             y = cumulative_best.values
 
             # Calculate AUC
-            auc = np.trapz(y, x)
+            auc = np.trapezoid(y, x=x)
             all_aucs.append(auc)
 
             # Normalize AUC by multiplying with number of batches
@@ -470,7 +470,7 @@ def get_auc_of_opt_hv(dfs, target_columns, direction_tags, range_tags, full_spac
         y = batch_hv_series.values
 
         # Calculate AUC
-        auc_hv = np.trapz(y, x)
+        auc_hv = np.trapezoid(y, x=x)
         all_auc_hvs.append(auc_hv)
 
         # Normalize AUC by total_hv * num_batches

@@ -196,7 +196,7 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
             batch_id=None,
             reference_point_multiplier=1.1,
         )
-        total_hv = total_hv_result["hv"]
+        total_hv = total_hv_result["total_hv"]
     except Exception as e:
         print(f"Warning: Could not calculate total hypervolume: {e}")
         print("Using reference point calculation instead.")
@@ -220,6 +220,8 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
                 hv_by_batch_df = calculate_hypervolume_by_batch(
                     prev_rxn_info=df, opt_metrics=target_columns, opt_metric_settings=opt_metric_settings, reference_point_multiplier=1.1
                 )
+                
+                hv_by_batch_df = hv_by_batch_df[:6]
 
                 # Convert to dictionary for easier processing
                 batch_hv_values = {}
@@ -250,6 +252,8 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
 
+    # from IPython import embed; embed()
+    
     if best_df.empty or actual_df.empty:
         print("No data to plot.")
         return

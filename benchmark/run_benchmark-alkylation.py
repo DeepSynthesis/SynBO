@@ -19,7 +19,7 @@ from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent
-data_dir = global_dir / Path("../examples/")
+data_dir = global_dir / Path("datasets/HTE_datasets/")
 
 # 控制参数
 NUM_ROUNDS = 10  # k值：运行多少轮
@@ -43,8 +43,8 @@ CONFIG = {
     "optimization_settings": {
         "opt_metrics": ["yield", "ee"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
-            {"opt_direct": "max", "opt_range": [0, 1], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
         "desc_normalize": "zscore",

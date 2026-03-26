@@ -19,7 +19,7 @@ from synbo.utils import load_desc_dict, get_prev_rxn
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent
-data_dir = global_dir / Path("../examples/")
+data_dir = global_dir / Path("datasets/HTE_datasets/")
 
 # 控制参数
 NUM_ROUNDS = 10  # k值：运行多少轮

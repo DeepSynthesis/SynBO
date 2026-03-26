@@ -1,0 +1,6 @@
+batch,index,type,reactant2,catalyst1,catalyst2,pred yield,pred ee,yield,ee
+2,1,explore,O=C(CBr)c1ccc(Cl)cc1,Ir(ppy)2bpyPF6,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,86.07±35.53,46.21±30.74,97.36337467,65.12970202
+2,2,explore,O=C(CBr)c1ccc(Br)cc1,Ir(ppy)2bpyPF6,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,79.29±39.01,38.53±33.76,96.86492091,36.02501439
+2,3,explore,O=C(CBr)c1ccccc1,Ir(ppy)2bpyPF6,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,77.59±39.19,36.48±33.93,81.42321509,58.7281927
+2,4,explore,COc1ccc(C(=O)CBr)cc1,Ir(ppy)2bpyPF6,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,77.55±39.19,36.30±33.93,9.700586797,9.2639016
+2,5,explore,O=C(CBr)c1ccc(Br)cc1,Me-Ph-triazine,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,77.13±39.20,36.05±33.93,85.20277669,49.99414853

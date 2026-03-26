@@ -1,0 +1,6 @@
+batch,index,type,reactant2,catalyst1,catalyst2,pred yield,pred ee,yield,ee
+4,1,explore,O=C(CBr)c1ccc(Cl)cc1,Ir(ppy)3,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,83.55±27.53,49.78±20.63,99.03010493,68.81163609
+4,2,explore,Cc1ccc(C(=O)CBr)cc1,Ru(bpy)3Cl2,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,73.72±30.41,39.81±22.85,99.942954,60.60419699
+4,3,explore,O=C(CBr)c1ccc(F)cc1,Riboflavin_Tetrabutyrate,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,73.72±30.41,39.81±22.85,79.62040099,67.75527539
+4,4,explore,O=C(CBr)c1ccc(Cl)cc1,Riboflavin_Tetrabutyrate,Thiazolidine-4-carboxamide,73.72±30.41,39.81±22.85,10.46871782,12.09574899
+4,5,explore,O=C(CBr)c1ccc(Cl)cc1,Ru(bpy)3Cl2,Macmillan_cat2,73.72±30.41,39.81±22.85,32.76270372,18.92932874

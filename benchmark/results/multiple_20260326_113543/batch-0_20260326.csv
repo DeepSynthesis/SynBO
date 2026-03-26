@@ -1,0 +1,6 @@
+batch,index,type,reactant2,catalyst1,catalyst2,pred yield,pred ee,yield,ee
+0,1,explore,O=C(CBr)c1ccc(Br)cc1,Ir(ppy)3,Proline,-,-,47.41776781,28.13221411
+0,2,explore,COc1ccc(C(=O)CBr)cc1,Ir[dF(CF3)ppy]2(dtbpy)PF6,Octahydroindole-2-carboxylic-acid,-,-,90.12916135,13.9420362
+0,3,explore,O=C(CBr)c1ccc(Br)cc1,Riboflavin_Tetrabutyrate,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,-,-,74.18721878,55.51248174
+0,4,explore,O=C(CBr)c1ccc(O)cc1,Ru(bpy)3[PF6]2,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,-,-,77.0851426,33.92306733
+0,5,explore,O=C(CBr)c1ccccc1,MethyleneBlue,Octahydroindole-2-carboxylic-acid,-,-,21.18622996,4.028721553

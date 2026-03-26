@@ -27,6 +27,7 @@ from .utils.util_func import check_desc_completeness, generate_onehot_desc, trac
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 from .utils.logger import _logger_default, console
+from .algorithm.edbo import EDBOplus, EDBOStandardScaler
 
 default_settings = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
 
@@ -410,9 +411,6 @@ class ReactionOptimizer:
             optimization_kwargs=optimization_kwargs,
         )
 
-        # 从 self.total_desc_arr中排除掉done_arr_desc
-        # candidate_indices = np.setdiff1d(np.arange(len(self.total_desc_arr)), self.done_arr_index)
-        # from IPython import embed; embed()
         # 替代方案：使用布尔掩码
         mask = np.ones(len(self.total_desc_arr), dtype=bool)
         mask[self.done_arr_index] = False
@@ -451,6 +449,224 @@ class ReactionOptimizer:
                 title="🎯 Results Summary",
             )
         )
+
+    def optimize_edbo(
+        self,
+        batch_size: int = 5,
+        acquisition_function: str = "NoisyEHVI",
+        init_sampling_method: str = "random",
+        init_indices: Optional[List[int]] = None,
+        objective_thresholds: Optional[List[float]] = None,
+        scaler_features=None,
+        scaler_objectives=None,
+    ) -> None:
+        """Optimize reaction conditions using EDBO+ (Experimental Design via Bayesian Optimization).
+
+        This method implements the EDBO+ algorithm with separate data loading, normalization,
+        and optimization steps. It uses Botorch for Bayesian Optimization with EHVI/NoisyEHVI
+        acquisition functions for multi-objective optimization.
+
+        Args:
+            batch_size: Number of conditions to recommend
+            acquisition_function: Acquisition function to use ('EHVI', 'NoisyEHVI', 'EI')
+            init_sampling_method: Method for initial sampling when no previous data exists
+                ('random', 'with_index', etc.)
+            init_indices: Optional list of indices to use for initialization when
+                init_sampling_method='with_index'
+            objective_thresholds: List of threshold values for each objective.
+                If None, uses minimum observed values as reference point.
+            scaler_features: Scaler for features (default: MinMaxScaler)
+            scaler_objectives: Scaler for objectives (default: EDBOStandardScaler)
+
+        Raises:
+            ValueError: If condition space or descriptors are not loaded
+        """
+        from sklearn.preprocessing import MinMaxScaler
+
+        # Check prerequisites
+        if not self.condition_dict:
+            raise ValueError("Reaction condition space must be loaded before optimization. Call load_rxn_space() first.")
+
+        if not self.desc_dict:
+            raise ValueError("Descriptors must be loaded before optimization. Call load_desc() first.")
+
+        # Determine optimization mode
+        has_prev_data = getattr(self, "_load_prev_rxn_called", False) and hasattr(self, "prev_rxn_info")
+
+        if has_prev_data:
+            self.opt_type = "opt"
+            self.batch_id = self.prev_rxn_info["batch"].max() + 1
+        else:
+            self.opt_type = "init"
+
+        self.opt_console.print(Rule(title="🚀 Running EDBO+ Optimization", style="bold"))
+        self.opt_console.print(
+            f"Running settings:\n"
+            f"_ Optimization type: [bold]{'Optimization' if has_prev_data else 'Initialization'}[/bold]\n"
+            f"_ Batch size: [bold]{batch_size}[/bold]\n"
+            f"_ Acquisition function: [bold]{acquisition_function}[/bold]\n"
+            f"_ Init sampling: [bold]{init_sampling_method}[/bold]\n"
+        )
+
+        # Set default scalers if not provided
+        if scaler_features is None:
+            scaler_features = MinMaxScaler()
+        if scaler_objectives is None:
+            scaler_objectives = EDBOStandardScaler()
+
+        # Prepare objective modes from opt_metric_settings
+        objective_modes = [setting["opt_direct"] for setting in self.opt_metric_settings]
+
+        # Generate the full reaction scope DataFrame
+        # This creates a DataFrame with all possible combinations of conditions
+        scope_df = self._generate_scope_dataframe()
+
+        # Create a temporary CSV file for EDBO+
+        import tempfile
+
+        temp_dir = tempfile.mkdtemp()
+        temp_filename = "edbo_scope.csv"
+
+        # If we have previous data, merge it into the scope
+        if has_prev_data:
+            scope_df = self._merge_prev_data_into_scope(scope_df)
+
+        # Save scope to temporary CSV
+        scope_df.to_csv(f"{temp_dir}/{temp_filename}", index=False)
+
+        # Initialize EDBO+ optimizer
+        edbo = EDBOplus()
+
+        # Run EDBO+ optimization
+        result_df = edbo.run(
+            objectives=self.opt_metrics,
+            objective_mode=objective_modes,
+            objective_thresholds=objective_thresholds,
+            directory=temp_dir,
+            filename=temp_filename,
+            columns_features="all",  # Use all available features
+            batch=batch_size,
+            init_sampling_method=init_sampling_method,
+            seed=self.random_seed,
+            scaler_features=scaler_features,
+            scaler_objectives=scaler_objectives,
+            acquisition_function=acquisition_function,
+            acquisition_function_sampler="SobolQMCNormalSampler",
+            init_indices=init_indices,
+        )
+
+        # Extract selected conditions from results
+        # Priority >= 0.5 indicates selected samples
+        selected_df = result_df[result_df["priority"] >= 0.5].copy()
+
+        # Get only the condition type columns (reagent space), not descriptor columns
+        # condition_types contains the reagent names like ['base', 'ligand', 'solvent', ...]
+        condition_cols = [c for c in self.condition_types if c in selected_df.columns]
+
+        # Also include 'index' column if it exists for tracking
+        if "index" in selected_df.columns:
+            condition_cols = ["index"] + condition_cols
+
+        self.selected_conditions = scope_df.loc[selected_df.index, ["temperature", "concentration", "base", "ligand", "solvent"]]
+
+        # Store predictions if available
+        self.pred_mean = None
+        self.pred_std = None
+
+        if has_prev_data and any(f"{m}_predicted_mean" in result_df.columns for m in self.opt_metrics):
+            # Extract predictions for selected conditions
+            pred_means = []
+            pred_stds = []
+            for metric in self.opt_metrics:
+                mean_col = f"{metric}_predicted_mean"
+                std_col = f"{metric}_predicted_std_dev"
+                if mean_col in selected_df.columns and std_col in selected_df.columns:
+                    pred_means.append(selected_df[mean_col].values)
+                    pred_stds.append(selected_df[std_col].values)
+
+            if pred_means:
+                self.pred_mean = np.array(pred_means).T
+                self.pred_std = np.array(pred_stds).T
+
+        # Set recommendation types (all EDBO+ recommendations are considered exploitation)
+        self.recommend_type = ["exploit"] * len(self.selected_conditions)
+
+        # Clean up temporary files
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        # Display results
+        self.opt_console.print(
+            Panel(
+                f"[green]EDBO+ Optimization Complete![/green]\n"
+                f"Recommended: {len(self.selected_conditions)} conditions\n"
+                f"Acquisition: {acquisition_function}",
+                title="🎯 Results Summary",
+            )
+        )
+
+
+    def _generate_scope_dataframe(self) -> pd.DataFrame:
+        """Generate a DataFrame with all possible reaction scope combinations.
+
+        Returns:
+            DataFrame with all condition combinations
+        """
+        from itertools import product
+
+        # Get all condition values
+        condition_values = [self.condition_dict[ct] for ct in self.condition_types]
+
+        # Generate all combinations
+        all_combinations = list(product(*condition_values))
+
+        # Create DataFrame
+        scope_df = pd.DataFrame(all_combinations, columns=self.condition_types)
+
+        # Add index column for tracking
+        scope_df["index"] = range(len(scope_df))
+
+        # Add descriptor features for each condition type
+        for condition_type in self.condition_types:
+            desc_df = self.desc_dict[condition_type]
+            # Merge descriptors
+            scope_df = scope_df.merge(desc_df, left_on=condition_type, right_index=True, how="left")
+
+        # from IPython import embed; embed(); exit()
+
+        return scope_df
+
+    def _merge_prev_data_into_scope(self, scope_df: pd.DataFrame) -> pd.DataFrame:
+        """Merge previous reaction data into the scope DataFrame.
+
+        Args:
+            scope_df: DataFrame with reaction scope
+
+        Returns:
+            DataFrame with previous data merged
+        """
+        # Create a copy to avoid modifying original
+        result_df = scope_df.copy()
+
+        # Add objective columns with 'PENDING' as default
+        for metric in self.opt_metrics:
+            result_df[metric] = "PENDING"
+
+        # Merge previous data
+        for _, row in self.prev_rxn_info.iterrows():
+            # Find matching row in scope
+            match_mask = pd.Series([True] * len(result_df))
+            for condition_type in self.condition_types:
+                match_mask &= result_df[condition_type].astype(str) == str(row[condition_type])
+
+            # Update objective values
+            if match_mask.any():
+                idx = result_df[match_mask].index[0]
+                for metric in self.opt_metrics:
+                    result_df.at[idx, metric] = str(row[metric])
+
+        return result_df
 
     def save_results(
         self,

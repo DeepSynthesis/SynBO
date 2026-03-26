@@ -51,6 +51,8 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
+        "use_edbo": True,  # Set to True to use EDBO+ optimization instead of default BO
+        "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
@@ -344,15 +346,30 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                         print(f"  Continuing with full reaction space")
                         constraints = None
 
-                rxn_opt.optimize(
-                    batch_size=CONFIG["batch_size"],
-                    optimize_method=CONFIG["optimization_settings"]["optimize_method"],
-                    desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                    refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                    # temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
-                    constraints=constraints,
-                    **CONFIG["optimization_settings"]["kwargs"],
-                )
+                # Check if EDBO+ optimization should be used
+                use_edbo = CONFIG["optimization_settings"].get("use_edbo", False)
+                
+                if use_edbo:
+                    # Use EDBO+ optimization
+                    print(f"\n[Using EDBO+ Optimization]")
+                    print(f"  - Acquisition function: {CONFIG['optimization_settings'].get('edbo_acquisition', 'NoisyEHVI')}")
+                    
+                    rxn_opt.optimize_edbo(
+                        batch_size=CONFIG["batch_size"],
+                        acquisition_function=CONFIG["optimization_settings"].get("edbo_acquisition", "NoisyEHVI"),
+                        init_sampling_method="random",
+                    )
+                else:
+                    # Use default Bayesian Optimization
+                    rxn_opt.optimize(
+                        batch_size=CONFIG["batch_size"],
+                        optimize_method=CONFIG["optimization_settings"]["optimize_method"],
+                        desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
+                        refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                        # temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
+                        constraints=constraints,
+                        **CONFIG["optimization_settings"]["kwargs"],
+                    )
 
             rxn_opt.save_results()
 

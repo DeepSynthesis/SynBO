@@ -137,6 +137,11 @@ if __name__ == "__main__":
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
+        "MyEDBOplus": {
+            "results_path": "results/multiple_20260326_150451/all_batches_final_round_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+        },
     }
 
     full_space_file = "datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"

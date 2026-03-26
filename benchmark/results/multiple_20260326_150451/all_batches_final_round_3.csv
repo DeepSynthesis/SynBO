@@ -1,0 +1,51 @@
+batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost,batch_index,round_index
+0,1,explore,0.1,90,KOPiv,BrettPhos,DMAc,-,-,0.0,0.144665413,0,3
+0,2,explore,0.153,90,CsOAc,JackiePhos,DMAc,-,-,11.77,0.3968953220000001,0,3
+0,3,explore,0.153,120,CsOPiv,tBPh-CPhos,DMAc,-,-,9.96,0.35066413,0,3
+0,4,explore,0.057,105,KOAc,BrettPhos,BuOAc,-,-,16.39,0.1761264139999999,0,3
+0,5,explore,0.1,105,CsOAc,JackiePhos,BuCN,-,-,26.69,0.41953911,0,3
+1,1,exploit,0.057,105,CsOAc,BrettPhos,BuOAc,-,-,27.71,0.22169053,1,3
+1,2,exploit,0.057,105,CsOAc,BrettPhos,p-Xylene,-,-,36.14,0.205486991,1,3
+1,3,exploit,0.057,105,CsOAc,GorlosPhos HBF4,BuCN,-,-,36.9,0.124869449,1,3
+1,4,exploit,0.057,105,CsOAc,GorlosPhos HBF4,p-Xylene,-,-,0.0,0.098000862,1,3
+1,5,exploit,0.057,105,KOAc,BrettPhos,BuCN,-,-,6.0,0.186485974,1,3
+2,1,exploit,0.153,120,CsOAc,BrettPhos,BuCN,-,-,69.03,0.199116404,2,3
+2,2,exploit,0.153,90,CsOAc,GorlosPhos HBF4,BuOAc,-,-,4.16,0.087124381,2,3
+2,3,exploit,0.057,105,CsOPiv,GorlosPhos HBF4,BuCN,-,-,46.17,0.165813892,2,3
+2,4,exploit,0.057,105,CsOAc,GorlosPhos HBF4,DMAc,-,-,12.61,0.094069915,2,3
+2,5,exploit,0.057,105,KOAc,GorlosPhos HBF4,BuCN,-,-,13.79,0.07919156,2,3
+3,1,exploit,0.153,120,CsOPiv,BrettPhos,BuCN,-,-,53.81,0.239872808,3,3
+3,2,exploit,0.153,120,CsOPiv,GorlosPhos HBF4,DMAc,-,-,54.83,0.12028677,3,3
+3,3,exploit,0.153,120,CsOAc,BrettPhos,DMAc,-,-,7.43,0.186631088,3,3
+3,4,exploit,0.057,105,KOPiv,GorlosPhos HBF4,BuCN,-,-,49.19,0.078369068,3,3
+3,5,exploit,0.057,90,CsOAc,BrettPhos,BuCN,-,-,36.72,0.232222295,3,3
+4,1,exploit,0.153,120,CsOPiv,GorlosPhos HBF4,p-Xylene,-,-,8.39,0.121732406,4,3
+4,2,exploit,0.1,120,CsOPiv,GorlosPhos HBF4,BuOAc,-,-,42.04,0.136732274,4,3
+4,3,exploit,0.1,105,KOPiv,GorlosPhos HBF4,DMAc,-,-,38.15,0.037421164,4,3
+4,4,exploit,0.057,120,KOPiv,GorlosPhos HBF4,BuOAc,-,-,38.63,0.067802977,4,3
+4,5,exploit,0.057,105,KOPiv,GorlosPhos HBF4,p-Xylene,-,-,24.06,0.051493928,4,3
+5,1,exploit,0.153,120,KOPiv,GorlosPhos HBF4,BuCN,-,-,45.37,0.044985764,5,3
+5,2,exploit,0.153,90,KOPiv,GorlosPhos HBF4,BuOAc,-,-,5.65,0.040538016,5,3
+5,3,exploit,0.057,120,KOPiv,GorlosPhos HBF4,DMAc,-,-,36.29,0.047543433,5,3
+5,4,exploit,0.057,120,KOAc,GorlosPhos HBF4,BuOAc,-,-,0.0,0.0686799999999999,5,3
+5,5,exploit,0.057,90,CsOPiv,GorlosPhos HBF4,DMAc,-,-,11.07,0.134938742,5,3
+6,1,exploit,0.153,120,CsOPiv,GorlosPhos HBF4,BuCN,-,-,39.2,0.132406402,6,3
+6,2,exploit,0.153,120,KOPiv,GorlosPhos HBF4,DMAc,-,-,61.33,0.032837496,6,3
+6,3,exploit,0.153,90,KOPiv,GorlosPhos HBF4,BuCN,-,-,14.99,0.0447525009999999,6,3
+6,4,exploit,0.057,120,CsOAc,BrettPhos,BuCN,-,-,54.26,0.23235697,6,3
+6,5,exploit,0.057,105,CsOAc,P(fur)3,BuCN,-,-,20.05,0.12492666,6,3
+7,1,exploit,0.153,120,KOPiv,PPh2Me,BuCN,-,-,0.0,0.033582385,7,3
+7,2,exploit,0.153,120,KOPiv,PPhMe2,BuCN,-,-,0.0,0.034838214,7,3
+7,3,exploit,0.153,120,KOAc,PPh3,p-Xylene,-,-,5.22,0.023233406,7,3
+7,4,exploit,0.153,120,KOAc,PPhMe2,DMAc,-,-,2.78,0.023963818,7,3
+7,5,exploit,0.057,90,KOAc,PPh3,DMAc,-,-,19.55,0.036475757,7,3
+8,1,exploit,0.153,90,KOAc,PPh3,BuCN,-,-,2.66,0.03363841,8,3
+8,2,exploit,0.153,90,KOAc,PPh3,BuOAc,-,-,1.39,0.029494637,8,3
+8,3,exploit,0.153,90,KOAc,PPhMe2,p-Xylene,-,-,0.0,0.025528882,8,3
+8,4,exploit,0.057,90,KOPiv,PPhMe2,DMAc,-,-,0.0,0.037639626,8,3
+8,5,exploit,0.057,90,KOAc,PPhMe2,BuCN,-,-,0.0,0.069286487,8,3
+9,1,exploit,0.153,120,KOPiv,PPhMe2,p-Xylene,-,-,0.0,0.024434582,9,3
+9,2,exploit,0.153,90,KOAc,PPh2Me,p-Xylene,-,-,0.0,0.024273053,9,3
+9,3,exploit,0.057,120,CsOAc,PPh3,DMAc,-,-,89.71,0.082178459,9,3
+9,4,exploit,0.057,120,KOPiv,PPh3,DMAc,-,-,91.27,0.03558821,9,3
+9,5,exploit,0.057,90,KOPiv,PPh2Me,DMAc,-,-,5.02,0.036398269,9,3

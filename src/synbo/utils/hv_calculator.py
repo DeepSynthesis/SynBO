@@ -11,6 +11,7 @@ def calculate_hypervolume_for_batch(
     opt_metric_settings: List[Dict[str, any]],
     batch_id: Optional[int] = None,
     reference_point_multiplier: float = 1.0,
+    cummax: bool = True,
 ) -> Dict[str, any]:
     """
     Calculate hypervolume (HV) for reaction optimization results.
@@ -53,9 +54,14 @@ def calculate_hypervolume_for_batch(
 
     # Filter data up to specified batch if provided
     if batch_id is not None:
-        df_filtered = prev_rxn_info[prev_rxn_info["batch"] <= batch_id].copy()
+        if cummax:
+            df_filtered = prev_rxn_info[prev_rxn_info["batch"] <= batch_id].copy()
+        else:
+            df_filtered = prev_rxn_info[prev_rxn_info["batch"] == batch_id].copy()
     else:
         df_filtered = prev_rxn_info.copy()
+
+    # df_filtered = df_filtered[df_filtered["cost"] < 0.1]
 
     if len(df_filtered) == 0:
         raise ValueError(f"No data found for batch_id {batch_id}")
@@ -134,6 +140,7 @@ def calculate_hypervolume_by_batch(
     opt_metrics: List[str],
     opt_metric_settings: List[Dict[str, any]],
     reference_point_multiplier: float = 1.0,
+    cummax: bool = True,
 ) -> pd.DataFrame:
     """
     Calculate hypervolume for each batch cumulatively.
@@ -162,25 +169,23 @@ def calculate_hypervolume_by_batch(
     results = []
 
     for batch_id in batch_ids:
-        try:
-            hv_result = calculate_hypervolume_for_batch(
-                prev_rxn_info=prev_rxn_info,
-                opt_metrics=opt_metrics,
-                opt_metric_settings=opt_metric_settings,
-                batch_id=batch_id,
-                reference_point_multiplier=reference_point_multiplier,
-            )
+    
+        hv_result = calculate_hypervolume_for_batch(
+            prev_rxn_info=prev_rxn_info,
+            opt_metrics=opt_metrics,
+            opt_metric_settings=opt_metric_settings,
+            batch_id=batch_id,
+            reference_point_multiplier=reference_point_multiplier,
+            cummax=cummax,
+        )
 
-            results.append(
-                {
-                    "batch": hv_result["batch_id"],
-                    "hv": hv_result["hv"],
-                    "hv_normalized": hv_result["hv_normalized"],
-                    "num_points": hv_result["num_points"],
-                }
-            )
-        except Exception as e:
-            print(f"Warning: Could not calculate HV for batch {batch_id}: {e}")
-            continue
+        results.append(
+            {
+                "batch": hv_result["batch_id"],
+                "hv": hv_result["hv"],
+                "hv_normalized": hv_result["hv_normalized"],
+                "num_points": hv_result["num_points"],
+            }
+        )
 
     return pd.DataFrame(results)

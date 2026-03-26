@@ -7,7 +7,7 @@ from pathlib import Path
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
-def plot_optimization_curves(model_data, target_columns, direction_tags, range_tags, experiment_dir):
+def plot_optimization_curves(model_data, target_columns, direction_tags, experiment_dir):
     """
     Plot optimization curves for multiple models with confidence intervals.
 
@@ -19,7 +19,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
         range_tags: Theoretical range list
         experiment_dir: Image save directory
     """
-    if not (len(target_columns) == len(direction_tags) == len(range_tags)):
+    if not (len(target_columns) == len(direction_tags)):
         raise ValueError("target_columns, direction_tags, and range_tags must have same length.")
 
     all_best_records = []
@@ -73,7 +73,6 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
     for i, col in enumerate(target_columns):
         ax = axes[i]
         direction = direction_tags[i]
-        y_range = range_tags[i]
 
         col_best_data = best_df[best_df["target"] == col]
         col_actual_data = actual_df[actual_df["target"] == col]
@@ -118,13 +117,13 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
         for label in ax.get_xticklabels() + ax.get_yticklabels():
             label.set_fontname("Arial")
 
-        if y_range is not None:
-            if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
-                y_min, y_max = y_range
-                current_ylim = ax.get_ylim()
-                new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
-                new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
-                ax.set_ylim(new_min, new_max)
+        # if y_range is not None:
+        #     if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
+        #         y_min, y_max = y_range
+        #         current_ylim = ax.get_ylim()
+        #         new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
+        #         new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
+        #         ax.set_ylim(new_min, new_max)
 
         ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
         ax.spines["top"].set_linewidth(1.2)
@@ -140,7 +139,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
     print(f"Plot 1 saved: {save_path}")
 
 
-def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
+def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_space_file, experiment_dir):
     """
     Plot hypervolume coverage percentage across all models and runs.
 
@@ -163,100 +162,56 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
         full_space_file: Full space data file path.
         experiment_dir: Image save directory (Path object or string).
     """
-    from synbo.utils.hv_calculator import calculate_hypervolume_for_batch, calculate_hypervolume_by_batch
+    from synbo.utils.hv_calculator import calculate_hypervolume_by_batch
 
-    if len(target_columns) != len(direction_tags) or len(target_columns) != len(range_tags):
-        print("Error: The length of 'target_columns', 'direction_tags', and 'range_tags' must be same.")
-        return
+    if len(opt_metrics) != len(direction_tags):
+        raise Exception()
 
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    # Convert direction_tags and range_tags to opt_metric_settings format for synbo
-    opt_metric_settings = [
-        {"opt_direct": direction, "opt_range": list(range_val)} for direction, range_val in zip(direction_tags, range_tags)
-    ]
+    full_df = pd.read_csv(full_space_file) if str(full_space_file).endswith(".csv") else pd.read_excel(full_space_file)
 
-    # Load full space data
-    if str(full_space_file).endswith(".csv"):
-        full_df = pd.read_csv(full_space_file)
-    else:
-        full_df = pd.read_excel(full_space_file)
+    # Convert direction_tags and range_tags to opt_metric_settings format for synbo
+    opt_metric_settings = [{"opt_direct": direction} for direction in direction_tags]
+
+    for i in range(len(opt_metric_settings)):
+        opt_metric_settings[i]["opt_range"] = [full_df[opt_metrics[i]].min(), full_df[opt_metrics[i]].max()]
 
     # Add batch column if not present for full space (use batch=-1 to indicate it's full space)
     if "batch" not in full_df.columns:
         full_df["batch"] = -1
 
-    # Calculate total hypervolume using synbo method
-    try:
-        total_hv_result = calculate_hypervolume_for_batch(
-            prev_rxn_info=full_df,
-            opt_metrics=target_columns,
-            opt_metric_settings=opt_metric_settings,
-            batch_id=None,
-            reference_point_multiplier=1.1,
-        )
-        total_hv = total_hv_result["total_hv"]
-    except Exception as e:
-        print(f"Warning: Could not calculate total hypervolume: {e}")
-        print("Using reference point calculation instead.")
-        total_hv = np.prod([1.1] * len(target_columns))
-
-    if total_hv == 0:
-        print("Warning: Total Hypervolume is 0. Check your range_tags or data.")
-        return
-
-    print(f"Total Theoretical HV: {total_hv:.4f}")
+    # Calculate total hypervolume using synbo metho
 
     all_best_records = []
     all_actual_records = []
 
     for model_name, dfs in model_data.items():
         for df in dfs:
-            df = df.sort_values("batch").copy()
+            df = df.sort_values("batch")
 
-            # Calculate HV for each batch using synbo method
-            try:
-                hv_by_batch_df = calculate_hypervolume_by_batch(
-                    prev_rxn_info=df, opt_metrics=target_columns, opt_metric_settings=opt_metric_settings, reference_point_multiplier=1.1
-                )
-                
-                hv_by_batch_df = hv_by_batch_df[:6]
+            hv_by_batch_df = calculate_hypervolume_by_batch(
+                prev_rxn_info=df,
+                opt_metrics=opt_metrics,
+                opt_metric_settings=opt_metric_settings,
+                reference_point_multiplier=1.1,
+                cummax=False,
+            )
 
-                # Convert to dictionary for easier processing
-                batch_hv_values = {}
-                for _, row in hv_by_batch_df.iterrows():
-                    batch_id = int(row["batch"])
-                    hv_value = row["hv"]
-                    hv_percentage = (hv_value / total_hv) * 100
-                    batch_hv_values[batch_id] = hv_percentage
+            if model_name == "EDBOplus" or model_name == "SynBO(GP_boost)":
+                print(model_name, round(float(hv_by_batch_df.loc[5, "hv_normalized"]), 3))
+            cumulative_best_hv = hv_by_batch_df["hv_normalized"].cummax()
 
-                # Convert to series for cummax
-                batch_hv_series = pd.Series(batch_hv_values)
+            for batch_idx, hv_value in cumulative_best_hv.items():
+                all_best_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
 
-                # Calculate cumulative best HV (hypervolume should be maximized)
-                cumulative_best_hv = batch_hv_series.cummax()
-
-                # Add cumulative best records (best HV up to and including current batch)
-                for batch_idx, hv_value in cumulative_best_hv.items():
-                    all_best_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
-
-                # Add batch HV records (HV at each batch)
-                for batch_idx, hv_value in batch_hv_series.items():
-                    all_actual_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
-
-            except Exception as e:
-                print(f"Warning: Could not calculate HV for model {model_name}: {e}")
-                continue
+            # Add batch HV records (HV at each batch)
+            for batch_idx, hv_value in hv_by_batch_df["hv_normalized"].items():
+                all_actual_records.append({"batch": batch_idx, "value": hv_value, "model": model_name})
 
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
-
-    # from IPython import embed; embed()
-    
-    if best_df.empty or actual_df.empty:
-        print("No data to plot.")
-        return
 
     plt.figure(figsize=(10, 6))
 
@@ -293,7 +248,7 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
         fontname="Arial",
         fontweight="bold",
     )
-    plt.xlabel("Batch Iteration", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.xlabel("Batch", fontsize=14, fontname="Arial", fontweight="bold")
     plt.ylabel("Hypervolume Coverage (%)", fontsize=14, fontname="Arial", fontweight="bold")
 
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
@@ -302,7 +257,6 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
         label.set_fontname("Arial")
 
-    plt.ylim(0, 105)
     plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
     ax = plt.gca()
     ax.spines["top"].set_linewidth(1.2)
@@ -318,7 +272,7 @@ def plot_hypervolume_coverage(model_data, target_columns, direction_tags, range_
     print(f"Plot 2 saved: {save_path}")
 
 
-def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, range_tags, experiment_dir):
+def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, experiment_dir):
     """
     绘制美化版箱型图：所有模型最后优化到的最佳值分布。
 
@@ -332,7 +286,6 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
     # 1. 提取每一个df的最终最佳值
     final_best_records = []
     dir_map = dict(zip(target_columns, direction_tags))
-    range_map = dict(zip(target_columns, range_tags))
 
     for model_name, dfs in model_data.items():
         for df_idx, df in enumerate(dfs):
@@ -363,7 +316,6 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
     for i, col in enumerate(target_columns):
         ax = axes[i]
         direction = direction_tags[i]
-        y_range = range_tags[i]
 
         col_data = melted_df[melted_df["Target"] == col]
 
@@ -402,14 +354,6 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
         for label in ax.get_xticklabels() + ax.get_yticklabels():
             label.set_fontname("Arial")
 
-        if y_range is not None:
-            if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
-                y_min, y_max = y_range
-                current_ylim = ax.get_ylim()
-                new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
-                new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
-                ax.set_ylim(new_min, new_max)
-
         ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
         ax.spines["top"].set_linewidth(1.2)
         ax.spines["right"].set_linewidth(1.2)
@@ -424,7 +368,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
     print(f"Plot 3 saved: {save_path}")
 
 
-def plot_optimization_process_scatter(model_data, target_columns, direction_tags, range_tags, full_space_file, experiment_dir):
+def plot_optimization_process_scatter(model_data, target_columns, direction_tags, full_space_file, experiment_dir):
     """
     绘制优化过程散点图：
     1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，连线+绘制节点
@@ -495,7 +439,7 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
     # 3. 开始绘图（所有前沿在同一张图上）
     # ==========================================
     if n_targets == 2:
-        _plot_2d_scatter(true_pf_data_sorted, all_empirical_pfs, target_columns, range_tags, direction_tags, experiment_dir)
+        _plot_2d_scatter(true_pf_data_sorted, all_empirical_pfs, target_columns, direction_tags, experiment_dir)
     elif n_targets == 3:
         pass
     else:
@@ -504,13 +448,12 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
             true_pf_data_sorted,
             all_empirical_pfs,
             target_columns[:2],
-            range_tags[:2],
             direction_tags[:2],
             experiment_dir,
         )
 
 
-def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directions, save_dir):
+def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, directions, save_dir):
     """
     内部辅助函数：绘制 2D 图（所有前沿在同一张图上）
     Args:
@@ -564,15 +507,6 @@ def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, ranges, directi
         alpha=0.9,
         zorder=1,
     )
-
-    # 设置坐标轴范围
-    if ranges:
-        x_min, x_max = ranges[0]
-        y_min, y_max = ranges[1]
-        x_padding = (x_max - x_min) * 0.05
-        y_padding = (y_max - y_min) * 0.05
-        plt.xlim(x_min - x_padding, x_max + x_padding)
-        plt.ylim(y_min - y_padding, y_max + y_padding)
 
     # 标签与标题
     plt.xlabel(f"{targets[0]}", fontsize=14, fontname="Arial", fontweight="bold")

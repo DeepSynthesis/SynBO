@@ -28,7 +28,6 @@ def plot_comparison(
                     "results_path": "path/to/results.csv",  # 支持通配符，如 "results/multiple_*/all_batches_final_round_*.csv"
                     "target_columns": ["yield", "cost"],    # 需要评估的目标值列名
                     "direction_tags": ["max", "min"],       # 优化方向: "max" 或 "min"
-                    "range_tags": [[0, 100], [0, 0.1]],     # 目标值的范围
                 },
                 ...
             }
@@ -90,25 +89,24 @@ def plot_comparison(
     model_config = model_results[first_model]
     target_columns = model_config["target_columns"]
     direction_tags = model_config["direction_tags"]
-    range_tags = model_config["range_tags"]
 
     print(f"\n{'-'*20} Generating combined comparison plots {'-'*20}")
 
     # 1. 绘制优化曲线（所有模型在同一张图上，带置信区间）
     if "curves" in plot_types:
-        plot_optimization_curves(all_model_data, target_columns, direction_tags, range_tags, output_dir)
+        plot_optimization_curves(all_model_data, target_columns, direction_tags, output_dir)
 
     # 2. 绘制超体积占比（所有模型在同一张图上）
     if "hv" in plot_types and full_space_file and Path(full_space_file).exists():
-        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags, range_tags, Path(full_space_file), output_dir)
+        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags, Path(full_space_file), output_dir)
 
     # 3. 绘制最终最佳值分布（所有模型在同一张图上）
     if "boxplot" in plot_types:
-        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags, range_tags, output_dir)
+        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags, output_dir)
 
     # 4. 绘制优化过程散点图(Pareto前沿比较)（所有模型在同一张图上）
     if "scatter" in plot_types and full_space_file and Path(full_space_file).exists():
-        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags, range_tags, Path(full_space_file), output_dir)
+        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags, Path(full_space_file), output_dir)
 
     print(f"\n{'='*20} All comparison plots completed {'='*20}")
     print(f"Results saved to: {output_dir}")
@@ -123,25 +121,21 @@ if __name__ == "__main__":
             "results_path": "results/multiple_20260320_153018/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
         },
         "SynBO(GP_boost)": {
             "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
         },
         "SynBO(GP)": {
             "results_path": "results/multiple_20260325_144324/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
-            "range_tags": [[0, 100], [0, 0.1]],
         },
     }
 

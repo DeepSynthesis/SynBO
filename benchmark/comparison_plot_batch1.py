@@ -90,25 +90,24 @@ def plot_comparison(
     model_config = model_results[first_model]
     target_columns = model_config["target_columns"]
     direction_tags = model_config["direction_tags"]
-    range_tags = model_config["range_tags"]
 
     print(f"\n{'-'*20} Generating combined comparison plots {'-'*20}")
 
     # 1. 绘制优化曲线（所有模型在同一张图上，带置信区间）
     if "curves" in plot_types:
-        plot_optimization_curves(all_model_data, target_columns, direction_tags,  output_dir)
+        plot_optimization_curves(all_model_data, target_columns, direction_tags, output_dir)
 
     # 2. 绘制超体积占比（所有模型在同一张图上）
     if "hv" in plot_types and full_space_file and Path(full_space_file).exists():
-        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags,  Path(full_space_file), output_dir)
+        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags, Path(full_space_file), output_dir)
 
     # 3. 绘制最终最佳值分布（所有模型在同一张图上）
     if "boxplot" in plot_types:
-        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags,  output_dir)
+        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags, output_dir)
 
     # 4. 绘制优化过程散点图(Pareto前沿比较)（所有模型在同一张图上）
     if "scatter" in plot_types and full_space_file and Path(full_space_file).exists():
-        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags,  Path(full_space_file), output_dir)
+        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags, Path(full_space_file), output_dir)
 
     print(f"\n{'='*20} All comparison plots completed {'='*20}")
     print(f"Results saved to: {output_dir}")
@@ -119,8 +118,8 @@ if __name__ == "__main__":
     # 示例：比较synbo和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
-        "synbo": {
-            "results_path": "results/multiple_20260317_200457/all_batches_final_round_*.csv",
+        "synbo (GP)": {
+            "results_path": "results/multiple_20260326_123718/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
         },
@@ -130,7 +129,7 @@ if __name__ == "__main__":
             "direction_tags": ["max", "max"],
         },
         "SynBO (newest)": {
-            "results_path": "results/multiple_20260326_105503/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260326_113543/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
         },

@@ -305,15 +305,15 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         super().__init__(model, sampler)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        self.acquisition_function = qLogExpectedHypervolumeImprovement(
+        self.acquisition_function = qLogNoisyExpectedHypervolumeImprovement(
             model=model,
             sampler=sampler,
             ref_point=ref_point,
-            partitioning=partitioning,
-            # alpha=0.0,
-            # incremental_nehvi=True,
-            # X_baseline=train_x,
-            # prune_baseline=True,
+            # partitioning=partitioning,
+            alpha=0.0,
+            incremental_nehvi=True,
+            X_baseline=train_x,
+            prune_baseline=True,
         )
 
         print(self.ref_point)

@@ -123,12 +123,13 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
         },
         "SynBO(GP_boost)": {
-            "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
+            # "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260326_190120/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
         "SynBO(GP)": {
-            "results_path": "results/multiple_20260325_144324/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260326_182036/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },

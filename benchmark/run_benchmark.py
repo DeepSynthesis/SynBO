@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization (new?)",
+    "experiment_name": "B-H_Optimization (boost)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -51,7 +51,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "use_edbo": True,  # Set to True to use EDBO+ optimization instead of default BO
+        "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
         "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
@@ -348,12 +348,12 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
                 # Check if EDBO+ optimization should be used
                 use_edbo = CONFIG["optimization_settings"].get("use_edbo", False)
-                
+
                 if use_edbo:
                     # Use EDBO+ optimization
                     print(f"\n[Using EDBO+ Optimization]")
                     print(f"  - Acquisition function: {CONFIG['optimization_settings'].get('edbo_acquisition', 'NoisyEHVI')}")
-                    
+
                     rxn_opt.optimize_edbo(
                         batch_size=CONFIG["batch_size"],
                         acquisition_function=CONFIG["optimization_settings"].get("edbo_acquisition", "NoisyEHVI"),

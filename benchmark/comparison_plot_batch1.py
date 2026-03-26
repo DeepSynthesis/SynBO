@@ -96,19 +96,19 @@ def plot_comparison(
 
     # 1. 绘制优化曲线（所有模型在同一张图上，带置信区间）
     if "curves" in plot_types:
-        plot_optimization_curves(all_model_data, target_columns, direction_tags, range_tags, output_dir)
+        plot_optimization_curves(all_model_data, target_columns, direction_tags,  output_dir)
 
     # 2. 绘制超体积占比（所有模型在同一张图上）
     if "hv" in plot_types and full_space_file and Path(full_space_file).exists():
-        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags, range_tags, Path(full_space_file), output_dir)
+        plot_hypervolume_coverage(all_model_data, target_columns, direction_tags,  Path(full_space_file), output_dir)
 
     # 3. 绘制最终最佳值分布（所有模型在同一张图上）
     if "boxplot" in plot_types:
-        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags, range_tags, output_dir)
+        plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags,  output_dir)
 
     # 4. 绘制优化过程散点图(Pareto前沿比较)（所有模型在同一张图上）
     if "scatter" in plot_types and full_space_file and Path(full_space_file).exists():
-        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags, range_tags, Path(full_space_file), output_dir)
+        plot_optimization_process_scatter(all_model_data, target_columns, direction_tags,  Path(full_space_file), output_dir)
 
     print(f"\n{'='*20} All comparison plots completed {'='*20}")
     print(f"Results saved to: {output_dir}")
@@ -123,25 +123,21 @@ if __name__ == "__main__":
             "results_path": "results/multiple_20260317_200457/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
-            "range_tags": [[0, 1], [0, 1]],
         },
         "synbo(dynamic)": {
             "results_path": "results/multiple_20260317_190359/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
-            "range_tags": [[0, 1], [0, 1]],
         },
         "SynBO (newest)": {
-            "results_path": "results/multiple_20260324_101431/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260326_105503/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
-            "range_tags": [[0, 1], [0, 1]],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_asym_alkylation/batch_*.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],
             "direction_tags": ["max", "max"],
-            "range_tags": [[0, 1], [0, 1]],
         },
     }
 

@@ -56,9 +56,9 @@ CONFIG = {
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
-        "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
-        "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
+        "hv_stagnation_rounds": 2,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
         "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
         "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
@@ -99,14 +99,14 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
     return file_path
 
 
-def cleanup_temp_files(run_dir):
+def cleanup_temp_files(run_dir, round_idx):
     """删除所有的 batch-*.csv 文件和json文件"""
     for temp_file in run_dir.glob("batch-*.csv"):
         temp_file.unlink()
 
     json_file = run_dir / "prohibited_reagent.json"
     if json_file.exists():
-        json_file.unlink()
+        json_file.rename(f"prohibited_reagent_{round_idx}.json")
 
 
 def setup_experiment_dir(base_dir, num_rounds):
@@ -240,7 +240,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
-                quiet=False,
+                quiet=True,
                 save_dir=str(experiment_dir),
             )
 
@@ -392,7 +392,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
             print(f"Saved summary: {final_filename}")
 
         # --- 清理临时文件 ---
-        cleanup_temp_files(experiment_dir)
+        cleanup_temp_files(experiment_dir, round_idx)
         print(f"Cleaned temp files for round {round_idx}")
 
 

@@ -117,11 +117,7 @@ if __name__ == "__main__":
     # 示例：比较synbo和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
-        "SynBO(Full)": {
-            "results_path": "results/multiple_20260327_094215/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "cost"],
-            "direction_tags": ["max", "min"],
-        },
+
         "SynBO(GP_boost)": {
             # "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
             "results_path": "results/multiple_20260326_190120/all_batches_final_round_*.csv",
@@ -135,6 +131,11 @@ if __name__ == "__main__":
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+        },
+        "SynBO(Full)": {
+            "results_path": "results/multiple_20260327_094215/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },

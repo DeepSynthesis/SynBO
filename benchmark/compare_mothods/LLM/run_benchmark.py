@@ -18,7 +18,7 @@ class LLMBenchmark:
         self,
         api_key: str,
         api_url: str = "https://aihubmix.com/v1/chat/completions",
-        model: str = "gemini-3.1-flash-lite-preview",
+        model: str = "qwen3.5-plus",
         dataset_path: str = "benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
         prompt_path: str = "benchmark/compare_mothods/LLM/prompt.md",
         start_point_path: str = "benchmark/datasets/HTE_datasets/B-H_HTE/start_point.json",
@@ -449,7 +449,7 @@ class LLMBenchmark:
                     print(f"    Using predefined indices from start_point.json [{round_key}]: {indices}")
 
                     # Get experiments from dataset using iloc
-                    new_experiments = self.get_experiments_from_indices(indices, round_num + 1, batch_id + 1)
+                    new_experiments = self.get_experiments_from_indices(indices, round_num + 1, batch_id)
                     print(f"    Retrieved {len(new_experiments)} experiments from dataset")
 
                     # The metrics are already in the dataset, no need to fill
@@ -489,7 +489,7 @@ class LLMBenchmark:
 
                     # Add round and batch columns for LLM-generated experiments
                     new_experiments["round"] = round_num + 1
-                    new_experiments["batch"] = batch_id + 1
+                    new_experiments["batch"] = batch_id
 
                     # Check for missing values
                     missing_count = new_experiments["yield"].isna().sum()
@@ -523,18 +523,8 @@ class LLMBenchmark:
 
             print(f"\n  Round {round_num + 1} complete! Saved to: {round_file}")
 
-        # Combine all rounds
-        self.all_results = pd.concat(all_rounds_results, ignore_index=True)
-
-        # Save final results
-        final_file = os.path.join(self.output_dir, "final_results.csv")
-        self.all_results.to_csv(final_file, index=False)
         print(f"\n{'=' * 80}")
         print(f"Benchmark complete!")
-        print(
-            f"Total experiments: {len(self.all_results)} ({self.max_rounds} rounds x {self.batches_per_round} batches x {self.batch_size} experiments)"
-        )
-        print(f"Final results saved to: {final_file}")
 
         return self.all_results
 

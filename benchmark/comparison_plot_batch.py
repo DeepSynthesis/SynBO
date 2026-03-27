@@ -143,8 +143,13 @@ if __name__ == "__main__":
         #     "target_columns": ["yield", "cost"],
         #     "direction_tags": ["max", "min"],
         # },
-        "Gemini-3.1-flash": {
-            "results_path": "compare_mothods/LLM/results/gemini-3.1-flash-lite/round_*.csv",
+        "Gemini-3.1-pro": {
+            "results_path": "compare_mothods/LLM/results/gemini-3.1-pro/round_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+        },
+        "Qwen-3.5-plus": {
+            "results_path": "compare_mothods/LLM/results/qwen-3.5-plus/round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },

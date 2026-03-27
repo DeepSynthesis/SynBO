@@ -327,74 +327,95 @@ class DefaultBO:
     ) -> torch.Tensor:
         """
         Compute boost values for candidates containing unused reagents.
-
-        This method identifies which reagents have already been used in training data
-        and gives a boost to candidates that contain unused reagents, encouraging
-        exploration of the reagent space.
-
-        Args:
-            training_X: Training data descriptors (n_training, n_features)
-            candidate_X: Candidate descriptors (n_candidates, n_features)
-            total_name_arr: Array of all condition name combinations (n_total, n_condition_types)
-            total_desc_arr: Array of all condition descriptors (n_total, n_features)
-            condition_types: List of condition type names
-            device: PyTorch device
-            boost_value: Value to add to acquisition function for candidates with unused reagents (default: 0.5)
-
-        Returns:
-            Tensor of boost values for each candidate (n_candidates,)
+        (Optimized with KDTree, Vectorization, and 10% Progress Bar)
         """
+        from scipy.spatial import cKDTree
+        import numpy as np
+        import math
+
         # Convert tensors to numpy for easier comparison
         training_X_np = training_X.cpu().numpy()
         candidate_X_np = candidate_X.cpu().numpy()
 
-        # Find training indices by matching descriptors in total_desc_arr
-        training_indices = set()
-        for train_desc in training_X_np:
-            matches = np.all(np.abs(total_desc_arr - train_desc) < 1e-6, axis=1)
-            matching_indices = np.where(matches)[0]
-            if len(matching_indices) > 0:
-                training_indices.add(matching_indices[0])
+        # 1. Build a KDTree for extremely fast spatial queries
+        self.console.print("[dim]Building KDTree for fast spatial matching...[/dim]")
+        tree = cKDTree(total_desc_arr)
 
-        # Get used reagents for each condition type
+        # 2. Find training indices
+        dists_train, train_idx = tree.query(training_X_np, k=1, p=np.inf, distance_upper_bound=1e-5)
+        valid_train_mask = dists_train <= 1e-6
+        training_indices = train_idx[valid_train_mask]
+
+        # 3. Get used reagents for each condition type (Vectorized)
         used_reagents = {ct: set() for ct in condition_types}
-        for idx in training_indices:
+        if len(training_indices) > 0:
+            train_names = total_name_arr[training_indices].astype(str)
             for j, ct in enumerate(condition_types):
-                used_reagents[ct].add(str(total_name_arr[idx, j]))
+                used_reagents[ct] = set(train_names[:, j])
 
-        # Log which reagents are used/unused
+        # 4. Log which reagents are used/unused
         self.console.print("[bold cyan]Reagent usage analysis:[/bold cyan]")
         for j, ct in enumerate(condition_types):
-            all_reagents = set(str(x) for x in total_name_arr[:, j])
+            all_reagents = set(np.unique(total_name_arr[:, j].astype(str)))
             unused = all_reagents - used_reagents[ct]
             self.console.print(f"  {ct}: {len(used_reagents[ct])} used, {len(unused)} unused", style="cyan")
 
-        # Find candidate indices and compute boosts
-        boosts = []
-        for cand_desc in candidate_X_np:
-            # Find matching index in total_desc_arr
-            matches = np.all(np.abs(total_desc_arr - cand_desc) < 1e-6, axis=1)
-            matching_indices = np.where(matches)[0]
+        # 5. Process Candidates in 10 chunks to print "10%... 20%..." progress
+        num_candidates = len(candidate_X_np)
+        boosts_np = np.zeros(num_candidates, dtype=np.float64)
 
-            if len(matching_indices) == 0:
-                # No match found, no boost
-                boosts.append(0.0)
-                continue
+        num_chunks = 10
+        chunk_size = max(1, math.ceil(num_candidates / num_chunks))
 
-            cand_idx = matching_indices[0]
+        self.console.print("[bold yellow]Calculating candidate boosts: [/bold yellow]", end="")
 
-            # Check if this candidate contains any unused reagent
-            has_unused_reagent = False
-            for j, ct in enumerate(condition_types):
-                reagent_name = str(total_name_arr[cand_idx, j])
-                if reagent_name not in used_reagents[ct]:
-                    has_unused_reagent = True
-                    break
+        for i in range(num_chunks):
+            start_idx = i * chunk_size
+            end_idx = min((i + 1) * chunk_size, num_candidates)
 
-            boosts.append(boost_value if has_unused_reagent else 0.0)
+            if start_idx >= num_candidates:
+                break
 
-        # Count how many candidates get a boost
-        num_boosted = sum(1 for b in boosts if b > 0)
-        self.console.print(f"[bold green]{num_boosted}/{len(boosts)} candidates receive unused reagent boost (+{boost_value})[/bold green]")
+            # Get current chunk
+            cand_chunk = candidate_X_np[start_idx:end_idx]
 
-        return torch.tensor(boosts, dtype=torch.double, device=device)
+            # Query KDTree for this chunk
+            dists_cand, cand_idx = tree.query(cand_chunk, k=1, p=np.inf, distance_upper_bound=1e-5)
+            valid_cand_mask = dists_cand <= 1e-6
+            matched_cand_indices = cand_idx[valid_cand_mask]
+
+            if len(matched_cand_indices) > 0:
+                cand_names = total_name_arr[matched_cand_indices].astype(str)
+                has_unused_reagent = np.zeros(len(matched_cand_indices), dtype=bool)
+
+                # Vectorized unused check
+                for j, ct in enumerate(condition_types):
+                    used_set_list = list(used_reagents[ct])
+                    if len(used_set_list) > 0:
+                        is_used = np.isin(cand_names[:, j], used_set_list)
+                        has_unused_reagent |= ~is_used
+                    else:
+                        has_unused_reagent[:] = True
+
+                valid_boosts = np.where(has_unused_reagent, boost_value, 0.0)
+
+                # Assign back to local chunk array
+                chunk_boosts = np.zeros(len(cand_chunk), dtype=np.float64)
+                chunk_boosts[valid_cand_mask] = valid_boosts
+                # Assign chunk results to global array
+                boosts_np[start_idx:end_idx] = chunk_boosts
+
+            # ----- Print Progress (10%... 20%... ) -----
+            progress_pct = int(min(100, ((i + 1) / num_chunks) * 100))
+            self.console.print(f"{progress_pct}%...", end=" ")
+
+        # Print a newline after progress bar finishes
+        self.console.print()
+
+        # 6. Count how many candidates get a boost
+        num_boosted = np.sum(boosts_np > 0)
+        self.console.print(
+            f"[bold green]{num_boosted}/{len(boosts_np)} candidates receive unused reagent boost (+{boost_value})[/bold green]"
+        )
+
+        return torch.tensor(boosts_np, dtype=torch.double, device=device)

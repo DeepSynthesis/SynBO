@@ -73,6 +73,7 @@ class Optimizer:
             )
 
             selected_indices = [np.argwhere(np.all(self.total_desc_arr == best_sample, axis=1)).flatten() for best_sample in best_samples]
+            # from IPython import embed; embed()
             selected_indices = np.array(selected_indices).squeeze()
             selected_conditions = self.total_name_data[selected_indices].squeeze()
 

@@ -633,8 +633,6 @@ class ReactionOptimizer:
             # Merge descriptors
             scope_df = scope_df.merge(desc_df, left_on=condition_type, right_index=True, how="left")
 
-        # from IPython import embed; embed(); exit()
-
         return scope_df
 
     def _merge_prev_data_into_scope(self, scope_df: pd.DataFrame) -> pd.DataFrame:

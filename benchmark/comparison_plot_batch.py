@@ -117,33 +117,37 @@ if __name__ == "__main__":
     # 示例：比较synbo和EDBOplus的结果
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
-
         "SynBO(GP_boost)": {
             # "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
             "results_path": "results/multiple_20260326_190120/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
-        "SynBO(GP)": {
-            "results_path": "results/multiple_20260326_182036/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "cost"],
-            "direction_tags": ["max", "min"],
-        },
+        # "SynBO(GP)": {
+        #     "results_path": "results/multiple_20260326_182036/all_batches_final_round_*.csv",
+        #     "target_columns": ["yield", "cost"],
+        #     "direction_tags": ["max", "min"],
+        # },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
-        "SynBO(Full)": {
-            "results_path": "results/multiple_20260327_094215/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "cost"],
-            "direction_tags": ["max", "min"],
-        },
+        # "SynBO(Full)": {
+        #     "results_path": "results/multiple_20260327_094215/all_batches_final_round_*.csv",
+        #     "target_columns": ["yield", "cost"],
+        #     "direction_tags": ["max", "min"],
+        # },
         # "MyEDBOplus": {
         #     "results_path": "results/multiple_20260326_150451/all_batches_final_round_*.csv",
         #     "target_columns": ["yield", "cost"],
         #     "direction_tags": ["max", "min"],
         # },
+        "Gemini-3.1-flash": {
+            "results_path": "compare_mothods/LLM/results/gemini-3.1-flash-lite/round_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+        },
     }
 
     full_space_file = "datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"

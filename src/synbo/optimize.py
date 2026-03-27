@@ -56,11 +56,7 @@ class Optimizer:
                 training_y[i] = -training_y[i]
 
         training_y = training_y.T
-        # training_y_dict = training_y.copy()
-        # if isinstance(training_y, dict):
-        #     training_y = np.array(list(training_y.values())).T
-
-        # from IPython import embed; embed()
+        
         if self.method in ["default_BO"]:  # , "random_select", "evolution", "particle_swarm"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,

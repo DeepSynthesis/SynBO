@@ -93,141 +93,142 @@ class DefaultBO:
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
 
-        # with Progress(
-        #     TextColumn("[bold cyan]{task.description}"),
-        #     BarColumn(bar_width=None),
-        #     MofNCompleteColumn(),
-        #     TimeRemainingColumn(),
-        #     console=self.console,
-        # ) as progress:
-        num_models = training_y_t.shape[1]
-        # task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
+        with Progress(
+            TextColumn("[bold cyan]{task.description}"),
+            BarColumn(bar_width=None),
+            MofNCompleteColumn(),
+            TimeRemainingColumn(),
+            console=self.console,
+        ) as progress:
+            num_models = training_y_t.shape[1]
+            task_train = progress.add_task(description="Training surrogate models", total=num_models, start=True)
 
-        models = []
-        for i in range(num_models):
-            # key = list(training_y_dict.keys())[i]
-            #   progress.log(f"Fitting model for [bold]{key}[/bold]...", style="yellow")
+            models = []
+            for i in range(num_models):
+                # key = list(training_y_dict.keys())[i]
+                progress.log(f"Fitting model for {i+1}th model...", style="yellow")
 
-            # Instantiate model with random_seed for reproducibility
-            if self.surrogate_model_class in [RFSurrogateModel, BNNEnsembleSurrogateModel]:
-                model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1], random_seed=self.random_seed)
+                # Instantiate model with random_seed for reproducibility
+                if self.surrogate_model_class in [RFSurrogateModel, BNNEnsembleSurrogateModel]:
+                    model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1], random_seed=self.random_seed)
+                else:
+                    model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
+
+                if isinstance(model_i, GPSurrogateModel):
+                    model_i.fit(training_X_t, training_y_t[:, i].unsqueeze(-1))
+                    models.append(model_i.model)
+                else:
+                    wrapper = SklearnModelWrapper(model_i)
+                    wrapper.fit_surrogate(training_X_t, training_y_t[:, i].unsqueeze(-1))
+                    models.append(wrapper)
+
+                progress.update(task_train, advance=1)
+
+            self.global_model = ModelListGP(*models)
+
+            task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
+            training_y_np = training_y_t.cpu().numpy()
+            self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
+            # self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np).to(device=self.device)
+
+            # 基于训练数据动态计算参考点（EDBO+风格）
+            # 获取训练数据的最小值和最大值（已经过权重和方向调整）
+            y_min = training_y_t.min(dim=0).values
+            y_max = training_y_t.max(dim=0).values
+            y_range = y_max - y_min
+
+            # 参考点 = 最小值 - 10%的范围（确保参考点在Pareto前沿下方/更差位置）
+            ref_point_values = []
+            for i, omi in enumerate(opt_metric_settings):
+                if y_range[i] > 0:
+                    ref_val = y_min[i]  # - 0.1 * y_range[i]
+                else:
+                    # 如果所有值相同，给一个小的偏移
+                    ref_val = y_min[i] - 0.1
+                ref_point_values.append(ref_val)
+
+            self.ref_point = torch.tensor(ref_point_values, dtype=torch.double, device=self.device)
+
+            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
+            if self.acquisition_function_class == EHVIAcquisitionFunction:
+                partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model,
+                    sampler=sampler,
+                    ref_point=self.ref_point,
+                    partitioning=partitioning,
+                    train_x=torch.Tensor(training_X).to(self.device),
+                )
+            elif self.acquisition_function_class == UCBAcquisitionFunction:
+                weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model,
+                    sampler=sampler,
+                    beta=2.0,
+                    weights=weights,
+                )
+            elif self.acquisition_function_class == ParEGOAcquisitionFunction:
+
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
+                )
+            elif self.acquisition_function_class == NEIAcquisitionFunction:
+                weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights
+                )
+            elif self.acquisition_function_class == MOGIBBONAcquisitionFunction:
+                # weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
+                # bounds = torch.stack([candidate_X_t.min(dim=0).values, candidate_X_t.max(dim=0).values])
+                partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+                acq_func = self.acquisition_function_class(
+                    model=self.global_model,
+                    sampler=sampler,
+                    ref_point=self.ref_point,
+                    partitioning=partitioning,
+                )  # , bounds=bounds)
             else:
-                model_i = self.surrogate_model_class(device=self.device, num_dims=training_X_t.shape[1])
+                raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
-            if isinstance(model_i, GPSurrogateModel):
-                # from IPython import embed; embed(); exit()
-                model_i.fit(training_X_t, training_y_t[:, i].unsqueeze(-1))
-                models.append(model_i.model)
-            else:
-                wrapper = SklearnModelWrapper(model_i)
-                wrapper.fit_surrogate(training_X_t, training_y_t[:, i].unsqueeze(-1))
-                models.append(wrapper)
+            # Generate constraint mask if constraints are provided
+            constraint_mask_t = None
 
-            # progress.update(task_train, advance=1)
+            if constraints is not None and total_name_arr is not None and condition_types is not None:
+                constraint_mask = generate_constraint_mask(
+                    total_name_arr=total_name_arr,
+                    condition_types=condition_types,
+                    constraints=constraints,
+                )
+                constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
+                progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
 
-        self.global_model = ModelListGP(*models)
+            # TODO: need to Re-implementate reagent boost mechanism.
+            # # Generate unused reagent boost if total_name_arr is provided
+            unused_reagent_boost = None
+            if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
+                unused_reagent_boost = self._compute_unused_reagent_boost(
+                    training_X=training_X_t,
+                    candidate_X=candidate_X_t,
+                    total_name_arr=total_name_arr,
+                    total_desc_arr=total_desc_arr,
+                    condition_types=condition_types,
+                    device=self.device,
+                )
 
-        # task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
-        training_y_np = training_y_t.cpu().numpy()
-        # self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
-        self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np).to(device=self.device)
-
-        # 基于训练数据动态计算参考点（EDBO+风格）
-        # 获取训练数据的最小值和最大值（已经过权重和方向调整）
-        y_min = training_y_t.min(dim=0).values
-        y_max = training_y_t.max(dim=0).values
-        y_range = y_max - y_min
-
-        # 参考点 = 最小值 - 10%的范围（确保参考点在Pareto前沿下方/更差位置）
-        ref_point_values = []
-        for i, omi in enumerate(opt_metric_settings):
-            if y_range[i] > 0:
-                ref_val = y_min[i]  # - 0.1 * y_range[i]
-            else:
-                # 如果所有值相同，给一个小的偏移
-                ref_val = y_min[i] - 0.1
-            ref_point_values.append(ref_val)
-
-        self.ref_point = torch.tensor(ref_point_values, dtype=torch.double, device=self.device)
-
-        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
-        if self.acquisition_function_class == EHVIAcquisitionFunction:
-            partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
-            acq_func = self.acquisition_function_class(
-                model=self.global_model,
-                sampler=sampler,
-                ref_point=self.ref_point,
-                partitioning=partitioning,
-                train_x=torch.Tensor(training_X).to(self.device),
+            task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
+            self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
+                q=batch_size,
+                choices=candidate_X_t,
+                max_batch_size=self.max_batch_size,
+                unique=True,
+                exclude_points=training_X_t,
+                min_distance=1e-6,
+                progress=progress,
+                task=task_acq_opt,
+                temperature=temperature,
+                constraint_mask=constraint_mask_t,
+                unused_reagent_boost=unused_reagent_boost,
             )
-        elif self.acquisition_function_class == UCBAcquisitionFunction:
-            weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
-            acq_func = self.acquisition_function_class(
-                model=self.global_model,
-                sampler=sampler,
-                beta=2.0,
-                weights=weights,
-            )
-        elif self.acquisition_function_class == ParEGOAcquisitionFunction:
-
-            acq_func = self.acquisition_function_class(
-                model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
-            )
-        elif self.acquisition_function_class == NEIAcquisitionFunction:
-            weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
-            acq_func = self.acquisition_function_class(model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights)
-        elif self.acquisition_function_class == MOGIBBONAcquisitionFunction:
-            # weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
-            # bounds = torch.stack([candidate_X_t.min(dim=0).values, candidate_X_t.max(dim=0).values])
-            partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
-            acq_func = self.acquisition_function_class(
-                model=self.global_model,
-                sampler=sampler,
-                ref_point=self.ref_point,
-                partitioning=partitioning,
-            )  # , bounds=bounds)
-        else:
-            raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
-
-        # Generate constraint mask if constraints are provided
-        constraint_mask_t = None
-
-        if constraints is not None and total_name_arr is not None and condition_types is not None:
-            constraint_mask = generate_constraint_mask(
-                total_name_arr=total_name_arr,
-                condition_types=condition_types,
-                constraints=constraints,
-            )
-            constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
-            # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
-
-        # TODO: need to Re-implementate reagent boost mechanism.
-        # # Generate unused reagent boost if total_name_arr is provided
-        unused_reagent_boost = None
-        if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
-            unused_reagent_boost = self._compute_unused_reagent_boost(
-                training_X=training_X_t,
-                candidate_X=candidate_X_t,
-                total_name_arr=total_name_arr,
-                total_desc_arr=total_desc_arr,
-                condition_types=condition_types,
-                device=self.device,
-            )
-
-        # task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
-        self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
-            q=batch_size,
-            choices=candidate_X_t,
-            max_batch_size=self.max_batch_size,
-            unique=True,
-            exclude_points=training_X_t,
-            min_distance=1e-6,
-            # progress=progress,
-            # task=task_acq_opt,
-            temperature=temperature,
-            constraint_mask=constraint_mask_t,
-            unused_reagent_boost=unused_reagent_boost,
-        )
 
         if self.device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]

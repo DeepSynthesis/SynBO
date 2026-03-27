@@ -18,13 +18,14 @@ class LLMBenchmark:
         self,
         api_key: str,
         api_url: str = "https://aihubmix.com/v1/chat/completions",
-        model: str = "gemini-3-flash-preview",
+        model: str = "gemini-3.1-flash-lite-preview",
         dataset_path: str = "benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
         prompt_path: str = "benchmark/compare_mothods/LLM/prompt.md",
         start_point_path: str = "benchmark/datasets/HTE_datasets/B-H_HTE/start_point.json",
         output_dir: str = "benchmark/compare_mothods/LLM/results",
         batch_size: int = 5,
         max_rounds: int = 10,
+        batches_per_round: int = 10,
     ):
         """
         Initialize the LLM benchmark.
@@ -38,7 +39,8 @@ class LLMBenchmark:
             start_point_path: Path to the start_point.json file with predefined indices
             output_dir: Directory to save results
             batch_size: Number of experiments per batch
-            max_rounds: Maximum number of conversation rounds
+            max_rounds: Maximum number of rounds
+            batches_per_round: Number of batches per round
         """
         self.api_key = api_key
         self.api_url = api_url
@@ -48,6 +50,7 @@ class LLMBenchmark:
         self.output_dir = output_dir
         self.batch_size = batch_size
         self.max_rounds = max_rounds
+        self.batches_per_round = batches_per_round
 
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
@@ -111,7 +114,7 @@ class LLMBenchmark:
         """
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
 
-        payload = {"model": self.model, "messages": messages, "temperature": 0.7, "max_tokens": 10000}
+        payload = {"model": self.model, "messages": messages, "temperature": 0.5, "max_tokens": 20000}
 
         for attempt in range(max_retries):
             try:
@@ -132,11 +135,9 @@ class LLMBenchmark:
                 print(f"  Request error: {e}")
                 # Try to get more details from response
                 if hasattr(e, "response") and e.response is not None:
-                    try:
-                        print(f"  Response status: {e.response.status_code}")
-                        print(f"  Response content: {e.response.text[:500]}")
-                    except:
-                        pass
+                    print(f"  Response status: {e.response.status_code}")
+                    print(f"  Response content: {e.response.text[:500]}")
+
                 if attempt < max_retries - 1:
                     wait_time = (attempt + 1) * 5
                     print(f"  Waiting {wait_time}s before retry...")
@@ -194,6 +195,12 @@ class LLMBenchmark:
         lines = response.strip().split("\n")
         csv_lines = []
 
+        start = 0
+        for l in lines:
+            if l == "```csv":
+                start = lines.index(l)
+
+        lines = lines[start:]
         for line in lines:
             line = line.strip()
             if line and not line.startswith("```") and "," in line:
@@ -230,21 +237,24 @@ class LLMBenchmark:
 
         return df
 
-    def get_experiments_from_indices(self, indices: List[int]) -> pd.DataFrame:
+    def get_experiments_from_indices(self, indices: List[int], round_num: int = 1, batch_id: int = 1) -> pd.DataFrame:
         """
         Get experiments from reference dataset using iloc indices.
 
         Args:
             indices: List of integer indices to fetch from the dataset
+            round_num: Round number to set in the result
+            batch_id: Batch ID to set in the result
 
         Returns:
             DataFrame containing the selected experiments
         """
         selected_rows = self.reference_df.iloc[indices].copy()
 
-        # Add batch and index columns
+        # Add round, batch and index columns
         selected_rows = selected_rows.reset_index(drop=True)
-        selected_rows["batch"] = 1  # First batch
+        selected_rows["round"] = round_num
+        selected_rows["batch"] = batch_id
         selected_rows["index"] = indices
 
         return selected_rows
@@ -320,121 +330,235 @@ class LLMBenchmark:
 
         return message
 
+    def load_progress(self) -> tuple:
+        """
+        Load existing progress to support resume functionality.
+        Checks for completed rounds and partial rounds.
+
+        Returns:
+            Tuple of (completed_rounds: list, current_round: int, current_batch: int, all_rounds_results: list)
+            - completed_rounds: list of completed round numbers
+            - current_round: round to resume from (0-indexed), -1 if all completed
+            - current_batch: batch to resume from (0-indexed), 0 if starting new round
+            - all_rounds_results: list of DataFrames for completed rounds
+        """
+        completed_rounds = []
+        all_rounds_results = []
+        current_round = -1
+        current_batch = 0
+
+        # Check for existing round files
+        for round_num in range(1, self.max_rounds + 1):
+            round_file = os.path.join(self.output_dir, f"round_{round_num}_results.csv")
+            if os.path.exists(round_file):
+                try:
+                    df = pd.read_csv(round_file)
+                    # Check if this round is complete (has expected number of experiments)
+                    expected_experiments = self.batches_per_round * self.batch_size
+                    if len(df) >= expected_experiments:
+                        completed_rounds.append(round_num)
+                        all_rounds_results.append(df)
+                        print(f"  Round {round_num}: COMPLETE ({len(df)} experiments)")
+                    else:
+                        # Partial round - calculate how many batches are done
+                        completed_batches = len(df) // self.batch_size
+                        current_round = round_num - 1  # Convert to 0-indexed
+                        current_batch = completed_batches
+                        all_rounds_results.append(df)
+                        print(f"  Round {round_num}: PARTIAL ({len(df)} experiments, {completed_batches}/{self.batches_per_round} batches)")
+                        break
+                except Exception as e:
+                    print(f"  Warning: Could not read round {round_file}: {e}")
+                    current_round = round_num - 1
+                    current_batch = 0
+                    break
+            else:
+                # This round doesn't exist yet
+                if current_round == -1:
+                    current_round = round_num - 1
+                    current_batch = 0
+                break
+
+        if len(completed_rounds) == self.max_rounds:
+            print(f"\nAll {self.max_rounds} rounds already completed!")
+            current_round = -1
+
+        return completed_rounds, current_round, current_batch, all_rounds_results
+
     def run_benchmark(self) -> pd.DataFrame:
         """
         Run the complete benchmark for the specified number of rounds.
-        Supports resume functionality by checking for existing results.
+        Each round is independent and starts fresh. First batch of each round uses start_point,
+        subsequent batches use LLM for optimization based on current round's data only.
+        Supports resume functionality.
 
         Returns:
             DataFrame containing all results from all rounds
         """
-        print(f"Starting LLM benchmark with {self.max_rounds} rounds...")
+        print(f"Starting LLM benchmark with {self.max_rounds} rounds, {self.batches_per_round} batches per round...")
         print(f"Batch size: {self.batch_size}")
         print(f"Model: {self.model}")
         print("-" * 80)
 
-        # Check for existing results to support resume
-        start_round = self.load_existing_results()
+        # Check for existing progress
+        completed_rounds, resume_round, resume_batch, all_rounds_results = self.load_progress()
 
-        if start_round > 0:
-            print(f"\nResuming from round {start_round + 1}/{self.max_rounds}")
-            print("=" * 80)
-        elif start_round == 0:
+        if resume_round == -1:
+            print(f"\nAll rounds already completed! Loading existing results.")
+            self.all_results = pd.concat(all_rounds_results, ignore_index=True) if all_rounds_results else None
+            return self.all_results
+
+        if len(completed_rounds) > 0:
+            print(f"\nResuming from Round {resume_round + 1}, Batch {resume_batch + 1}")
+            print(f"Completed rounds: {completed_rounds}")
+        else:
             print(f"\nStarting fresh benchmark")
-            print("=" * 80)
 
-        for round_num in range(start_round, self.max_rounds):
-            print(f"\n=== Round {round_num + 1}/{self.max_rounds} ===")
+        print("=" * 80)
 
-            # Check if this is the first round (round_num == 0)
-            # If yes, use predefined indices from start_point.json instead of calling LLM
-            if round_num == 0:
-                print(f"First round: Using predefined indices from start_point.json")
-                round_key = "round1"
-                indices = self.start_point[round_key]
-                print(f"Using indices: {indices}")
+        for round_num in range(resume_round, self.max_rounds):
+            print(f"\n{'=' * 80}")
+            print(f"=== Round {round_num + 1}/{self.max_rounds} ===")
+            print(f"{'=' * 80}")
 
-                # Get experiments from dataset using iloc
-                new_experiments = self.get_experiments_from_indices(indices)
-                print(f"Retrieved {len(new_experiments)} experiments from dataset")
-
-                # The metrics are already in the dataset, no need to fill
-                print(f"Batch statistics:")
-                print(f"  - Mean yield: {new_experiments['yield'].mean():.2f}")
-                print(f"  - Max yield: {new_experiments['yield'].max():.2f}")
-                print(f"  - Mean cost: {new_experiments['cost'].mean():.4f}")
+            # Each round starts fresh - reset round-specific results
+            # If resuming a partial round, load existing progress
+            if round_num == resume_round and resume_batch > 0:
+                # Continue from where we left off
+                round_results = all_rounds_results[-1] if all_rounds_results else None
+                start_batch = resume_batch
+                print(f"\n  Resuming round {round_num + 1} from batch {start_batch + 1}")
             else:
-                # Subsequent rounds: use LLM to generate new experiments
-                # Construct user message
-                user_message = self.construct_user_message(round_num)
+                # Start fresh round
+                round_results = None
+                start_batch = 0
 
-                # Build messages list
-                # Only send system prompt and current user message
-                # Do not add conversation history to avoid "assistant message prefill" error
-                # Previous results are already included in the user message
-                messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]
+            for batch_id in range(start_batch, self.batches_per_round):
+                print(f"\n  --- Batch {batch_id + 1}/{self.batches_per_round} ---")
 
-                # Call LLM API
-                print(f"Calling LLM API...")
-                assistant_response = self.call_llm_api(messages)
+                # Check if this is the first batch of the round
+                # If yes, use predefined indices from start_point.json
+                if batch_id == 0:
+                    round_key = f"round{round_num + 1}"
+                    if round_key in self.start_point:
+                        indices = self.start_point[round_key]
+                    else:
+                        # Fallback to round1 if specific round not found
+                        print(f"    Warning: {round_key} not found in start_point, using round1")
+                        indices = self.start_point["round1"]
+                    print(f"    Using predefined indices from start_point.json [{round_key}]: {indices}")
 
-                print("--------response-------")
-                print(assistant_response)
-                print("----end response-------")
+                    # Get experiments from dataset using iloc
+                    new_experiments = self.get_experiments_from_indices(indices, round_num + 1, batch_id + 1)
+                    print(f"    Retrieved {len(new_experiments)} experiments from dataset")
 
-                # Store conversation
-                self.conversation_history.append({"role": "user", "content": user_message})
-                self.conversation_history.append({"role": "assistant", "content": assistant_response})
+                    # The metrics are already in the dataset, no need to fill
+                    print(f"    Batch statistics:")
+                    print(f"      - Mean yield: {new_experiments['yield'].mean():.2f}")
+                    print(f"      - Max yield: {new_experiments['yield'].max():.2f}")
+                    print(f"      - Mean cost: {new_experiments['cost'].mean():.4f}")
+                else:
+                    # Subsequent batches: use LLM to generate new experiments
+                    # Construct user message based on current round's results only
+                    user_message = self.construct_user_message_for_round(round_results)
 
-                # Parse response
-                print(f"Parsing LLM response...")
-                try:
-                    new_experiments = self.parse_llm_response(assistant_response)
-                    print(f"Received {len(new_experiments)} experiment suggestions")
-                except Exception as e:
-                    print(f"Error parsing response: {e}")
-                    print(f"Response content: {assistant_response}")
-                    continue
+                    # Build messages list
+                    messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]
 
-                # Fill metrics from reference dataset
-                print(f"Looking up yield and cost values...")
+                    # Call LLM API
+                    print(f"    Calling LLM API...")
+                    assistant_response = self.call_llm_api(messages)
 
-                new_experiments = self.fill_metrics(new_experiments)
+                    print("    --------response-------")
+                    print(f"    {assistant_response[:500]}..." if len(assistant_response) > 500 else f"    {assistant_response}")
+                    print("    ----end response-------")
 
-                # Check for missing values
-                missing_count = new_experiments["yield"].isna().sum()
-                if missing_count > 0:
-                    print(f"Warning: {missing_count} experiments had no match in reference dataset")
+                    # Parse response
+                    print(f"    Parsing LLM response...")
+                    try:
+                        new_experiments = self.parse_llm_response(assistant_response)
+                        print(f"    Received {len(new_experiments)} experiment suggestions")
+                    except Exception as e:
+                        print(f"    Error parsing response: {e}")
+                        print(f"    Response content: {assistant_response}")
+                        raise Exception(f"Error parsing response: {e}")
 
-                print(f"Batch statistics:")
-                print(f"  - Mean yield: {new_experiments['yield'].mean():.2f}")
-                print(f"  - Max yield: {new_experiments['yield'].max():.2f}")
-                print(f"  - Mean cost: {new_experiments['cost'].mean():.4f}")
+                    # Fill metrics from reference dataset
+                    print(f"    Looking up yield and cost values...")
+                    new_experiments = self.fill_metrics(new_experiments)
 
-            # Concatenate with existing results
-            if self.all_results is None:
-                self.all_results = new_experiments
+                    # Add round and batch columns for LLM-generated experiments
+                    new_experiments["round"] = round_num + 1
+                    new_experiments["batch"] = batch_id + 1
+
+                    # Check for missing values
+                    missing_count = new_experiments["yield"].isna().sum()
+                    if missing_count > 0:
+                        print(f"    Warning: {missing_count} experiments had no match in reference dataset")
+
+                    print(f"    Batch statistics:")
+                    print(f"      - Mean yield: {new_experiments['yield'].mean():.2f}")
+                    print(f"      - Max yield: {new_experiments['yield'].max():.2f}")
+                    print(f"      - Mean cost: {new_experiments['cost'].mean():.4f}")
+
+                # Concatenate with round results
+                if round_results is None:
+                    round_results = new_experiments
+                else:
+                    round_results = pd.concat([round_results, new_experiments], ignore_index=True)
+
+                print(f"    Total experiments in current round: {len(round_results)}")
+
+            # Save round results after each batch for crash recovery
+            if round_results is not None:
+                round_file = os.path.join(self.output_dir, f"round_{round_num + 1}_results.csv")
+                round_results.to_csv(round_file, index=False)
+                print(f"\n  Saved round {round_num + 1} progress ({len(round_results)} experiments)")
+
+            # Add to all rounds results (avoid duplicates when resuming)
+            if round_num >= len(all_rounds_results):
+                all_rounds_results.append(round_results)
             else:
-                # Update batch number for new experiments
-                new_experiments["batch"] = round_num + 1
-                self.all_results = pd.concat([self.all_results, new_experiments], ignore_index=True)
+                all_rounds_results[round_num] = round_results
 
-            print(f"Total experiments so far: {len(self.all_results)}")
+            print(f"\n  Round {round_num + 1} complete! Saved to: {round_file}")
 
-            # Save intermediate results
-            intermediate_file = os.path.join(self.output_dir, f"round_{round_num + 1}_results.csv")
-            self.all_results.to_csv(intermediate_file, index=False)
-            print(f"Saved intermediate results to: {intermediate_file}")
+        # Combine all rounds
+        self.all_results = pd.concat(all_rounds_results, ignore_index=True)
 
         # Save final results
         final_file = os.path.join(self.output_dir, "final_results.csv")
         self.all_results.to_csv(final_file, index=False)
         print(f"\n{'=' * 80}")
         print(f"Benchmark complete!")
-        print(f"Total experiments: {len(self.all_results)}")
+        print(
+            f"Total experiments: {len(self.all_results)} ({self.max_rounds} rounds x {self.batches_per_round} batches x {self.batch_size} experiments)"
+        )
         print(f"Final results saved to: {final_file}")
 
         return self.all_results
+
+    def construct_user_message_for_round(self, round_results: Optional[pd.DataFrame]) -> str:
+        """
+        Construct the user message for the current batch within a round.
+        Only uses current round's results, not previous rounds.
+
+        Args:
+            round_results: Current round's results so far
+
+        Returns:
+            The user message as a string
+        """
+        if round_results is None or len(round_results) == 0:
+            # First batch - send configuration only
+            message = f"For this optimization:\n\n{json.dumps(self.config, indent=4)}\n"
+        else:
+            # Subsequent batches - send configuration and current round's results
+            csv_str = round_results.to_csv(index=False)
+            message = f"For this optimization:\n\n{json.dumps(self.config, indent=4)}\n\n"
+            message += f"Previous optimization results in current round:\n\n{csv_str}\n"
+
+        return message
 
 
 def main():
@@ -462,30 +586,11 @@ def main():
         output_dir="results",
         batch_size=5,
         max_rounds=10,
+        batches_per_round=10,
     )
 
     # Run the benchmark
-    results = benchmark.run_benchmark()
-
-    # Print summary statistics
-    print("\n" + "=" * 80)
-    print("FINAL SUMMARY")
-    print("=" * 80)
-    print(f"Total experiments: {len(results)}")
-    print(
-        f"Unique condition combinations tested: {results[['base', 'ligand', 'solvent', 'concentration', 'temperature']].drop_duplicates().shape[0]}"
-    )
-    print(f"\nOverall statistics:")
-    print(f"  - Mean yield: {results['yield'].mean():.2f}")
-    print(f"  - Max yield: {results['yield'].max():.2f}")
-    print(f"  - Min yield: {results['yield'].min():.2f}")
-    print(f"  - Mean cost: {results['cost'].mean():.4f}")
-    print(f"  - Min cost: {results['cost'].min():.4f}")
-
-    # Show top 5 best yields
-    print(f"\nTop 5 best yields:")
-    top_5 = results.nlargest(5, "yield")[["batch", "index", "base", "ligand", "solvent", "concentration", "temperature", "yield", "cost"]]
-    print(top_5.to_string(index=False))
+    benchmark.run_benchmark()
 
 
 if __name__ == "__main__":

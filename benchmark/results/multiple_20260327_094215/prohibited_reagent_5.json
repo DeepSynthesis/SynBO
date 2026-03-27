@@ -1,0 +1,18 @@
+{
+  "base": [
+    "KOPiv"
+  ],
+  "solvent": [
+    "DMAc",
+    "BuOAc"
+  ],
+  "ligand": [
+    "PPhtBu2",
+    "PPhMe2",
+    "P(fur)3",
+    "BrettPhos",
+    "GorlosPhos HBF4",
+    "tBPh-CPhos",
+    "PCy3 HBF4"
+  ]
+}

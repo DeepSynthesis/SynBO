@@ -58,11 +58,11 @@ CONFIG = {
     "constraint_settings": {
         "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
-        "hv_stagnation_rounds": 2,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
+        "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
         "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
         "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
-        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
+        "llm_model": "gemini-3.1-flash-lite-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
         "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
         "llm_base_url": "https://aihubmix.com/v1",
         "llm_temperature": 0.0,  # Temperature parameter for LLM generation

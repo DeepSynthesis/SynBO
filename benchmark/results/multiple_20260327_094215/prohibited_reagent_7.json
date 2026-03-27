@@ -1,0 +1,14 @@
+{
+  "base": [
+    "KOAc",
+    "CsOPiv"
+  ],
+  "ligand": [
+    "PPh2Me",
+    "PPhtBu2",
+    "PPhMe2"
+  ],
+  "solvent": [
+    "BuOAc"
+  ]
+}

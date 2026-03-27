@@ -308,7 +308,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
 
     # 3. 绘图初始化
     n_cols = len(target_columns)
-    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), constrained_layout=True)
+    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 4), constrained_layout=True)
 
     if n_cols == 1:
         axes = [axes]
@@ -344,6 +344,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
         )
 
         ax.set_title(col, fontsize=16, fontname="Arial", fontweight="bold")
+        ax.tick_params(axis='x', rotation=45)
         ax.set_xlabel("", fontsize=14, fontname="Arial", fontweight="bold")
 
         ax.set_ylabel(f"Best Found {col}", fontsize=14, fontname="Arial", fontweight="bold")

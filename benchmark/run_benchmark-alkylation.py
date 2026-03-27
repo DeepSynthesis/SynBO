@@ -15,7 +15,6 @@ from utils.plots import (
 from utils.metrics import get_average_optimal_targets, get_auc_of_opt, get_hypervolume, get_average_optimal_targets_hv, get_auc_of_opt_hv
 from synbo import ReactionOptimizer
 from synbo.utils import load_desc_dict, get_prev_rxn
-from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
 
 # =================================================CONFIG=================================================
 global_dir = Path(__file__).parent
@@ -51,23 +50,25 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
+        "use_edbo": True,  # Set to True to use EDBO+ optimization instead of default BO
+        "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
-        "hv_stagnation_rounds": 2,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
-        "hv_improvement_threshold": 0.05,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
+        "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
+        "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
         "reduce_ratio": 0.1,  # Ratio of reagents to eliminate during space reduction (0.0-1.0, adjustable parameter)
         # Additional LLM parameters
-        "llm_model": "gemini-3-flash-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
+        "llm_model": "gemini-3.1-flash-lite-preview",  # LLM model to use for analysis (use "gpt-4", "gemini-2.5-flash", etc.)
         "llm_api_key": "sk-Pnmf5IgIJYMBEY8Z7078E31cAbC8437e83B4DdE3CaA72e78",  # OpenAI API key (set to environment variable or provide here)
         "llm_base_url": "https://aihubmix.com/v1",
         "llm_temperature": 0.0,  # Temperature parameter for LLM generation
     },
 }
 
-CONFIG["reaction_space"]["index_col"] = ["index" for r in CONFIG["reaction_space"]["reagent_types"]]
+CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
 # ===========================================================================================================
 
 
@@ -97,13 +98,14 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
     return file_path
 
 
-def cleanup_temp_files(run_dir):
-    """删除所有的 batch-*.csv 文件"""
+def cleanup_temp_files(run_dir, round_idx):
+    """删除所有的 batch-*.csv 文件和json文件"""
     for temp_file in run_dir.glob("batch-*.csv"):
-        try:
-            temp_file.unlink()
-        except OSError as e:
-            print(f"Error deleting {temp_file}: {e}")
+        temp_file.unlink()
+
+    json_file = run_dir / "prohibited_reagent.json"
+    if json_file.exists():
+        json_file.rename(f"prohibited_reagent_{round_idx}.json")
 
 
 def setup_experiment_dir(base_dir, num_rounds):
@@ -185,6 +187,8 @@ def load_start_points(start_point_path):
 
 def run_simulation(experiment_dir, desc_dict, condition_dict):
     """执行主要的优化计算循环"""
+    from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
+
     base_seed = CONFIG["base_seed"]
 
     # 保存配置
@@ -194,7 +198,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     print(f"Experiment Directory: {experiment_dir}")
 
     # 加载 start_point.json
-    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/asym_alkylation/start_point.json"
+    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/B-H_HTE/start_point.json"
     start_points = load_start_points(start_point_path)
     print(f"Loaded start points from: {start_point_path}")
 
@@ -310,7 +314,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     print(f"  Initial HV: {current_hv:.4f}")
 
                 # Generate constraints if enabled and HV has stagnated for k rounds
-                should_reduce_space = enable_constraints and stagnation_count >= hv_stagnation_rounds
+                should_reduce_space = enable_constraints and stagnation_count >= hv_stagnation_rounds and i > 2
 
                 if should_reduce_space:
                     print(f"\n{'='*10} Generating constraints at iteration {i} (HV stagnated for {stagnation_count} rounds) {'='*10}")
@@ -341,14 +345,30 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                         print(f"  Continuing with full reaction space")
                         constraints = None
 
-                rxn_opt.optimize(
-                    batch_size=CONFIG["batch_size"],
-                    optimize_method=CONFIG["optimization_settings"]["optimize_method"],
-                    desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
-                    refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                    constraints=constraints,
-                    **CONFIG["optimization_settings"]["kwargs"],
-                )
+                # Check if EDBO+ optimization should be used
+                use_edbo = CONFIG["optimization_settings"].get("use_edbo", False)
+
+                if use_edbo:
+                    # Use EDBO+ optimization
+                    print(f"\n[Using EDBO+ Optimization]")
+                    print(f"  - Acquisition function: {CONFIG['optimization_settings'].get('edbo_acquisition', 'NoisyEHVI')}")
+
+                    rxn_opt.optimize_edbo(
+                        batch_size=CONFIG["batch_size"],
+                        acquisition_function=CONFIG["optimization_settings"].get("edbo_acquisition", "NoisyEHVI"),
+                        init_sampling_method="random",
+                    )
+                else:
+                    # Use default Bayesian Optimization
+                    rxn_opt.optimize(
+                        batch_size=CONFIG["batch_size"],
+                        optimize_method=CONFIG["optimization_settings"]["optimize_method"],
+                        desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
+                        refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                        # temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
+                        constraints=constraints,
+                        **CONFIG["optimization_settings"]["kwargs"],
+                    )
 
             rxn_opt.save_results()
 
@@ -365,13 +385,13 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
             dfs.append(df)
 
         if dfs:
-            df_all = pd.concat(dfs, ignore_index=False)
+            df_all = pd.concat(dfs, ignore_index=True)
             final_filename = f"all_batches_final_round_{round_idx}.csv"
             df_all.to_csv(experiment_dir / final_filename, index=False)
             print(f"Saved summary: {final_filename}")
 
         # --- 清理临时文件 ---
-        cleanup_temp_files(experiment_dir)
+        cleanup_temp_files(experiment_dir, round_idx)
         print(f"Cleaned temp files for round {round_idx}")
 
 

@@ -205,15 +205,15 @@ class DefaultBO:
             # TODO: need to Re-implementate reagent boost mechanism.
             # # Generate unused reagent boost if total_name_arr is provided
             unused_reagent_boost = None
-            if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
-                unused_reagent_boost = self._compute_unused_reagent_boost(
-                    training_X=training_X_t,
-                    candidate_X=candidate_X_t,
-                    total_name_arr=total_name_arr,
-                    total_desc_arr=total_desc_arr,
-                    condition_types=condition_types,
-                    device=self.device,
-                )
+            # if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
+            #     unused_reagent_boost = self._compute_unused_reagent_boost(
+            #         training_X=training_X_t,
+            #         candidate_X=candidate_X_t,
+            #         total_name_arr=total_name_arr,
+            #         total_desc_arr=total_desc_arr,
+            #         condition_types=condition_types,
+            #         device=self.device,
+            #     )
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(

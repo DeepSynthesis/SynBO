@@ -52,16 +52,16 @@ desc_dict, condition_dict = load_desc_dict(
 )
 
 for i in range(20):
-    rxn_opt = ReactionOptimizer(opt_metrics=["hvi"], opt_metric_settings=opt_direct_info, opt_type="auto")
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
-    rxn_opt.load_desc(desc_dict=desc_dict)
+    sbo = ReactionOptimizer(opt_metrics=["hvi"], opt_metric_settings=opt_direct_info, opt_type="auto")
+    sbo.load_rxn_space(condition_dict=condition_dict)
+    sbo.load_desc(desc_dict=desc_dict)
     if i > 0:
-        rxn_opt.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
+        sbo.load_prev_rxn(prev_rxn_info=get_prev_rxn(file_pattern=f"results/batch-*.csv"))
     if i == 0:
-        rxn_opt.initialize(batch_size=5, desc_normalize="minmax", sampling_method="cvt", refine_desc="filter_0.8")
+        sbo.initialize(batch_size=5, desc_normalize="minmax", sampling_method="cvt", refine_desc="filter_0.8")
     else:
-        rxn_opt.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8")
-    rxn_opt.save_results(save_dir="results")
+        sbo.optimize(batch_size=5, desc_normalize="minmax", mc_num_samples=32, max_batch_size=32, refine_desc="filter_0.8")
+    sbo.save_results(save_dir="results")
 
     fill_done_dir(i, date)
 

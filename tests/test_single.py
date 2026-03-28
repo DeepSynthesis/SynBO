@@ -19,13 +19,10 @@ def test_init():
     print("=" * 50)
     print("Testing Initialization...")
     print("=" * 50)
-    
+
     reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
     name_suffix = ["_dft", "_dft", "_dft", None, None]
-    opt_direct_info = [
-        {"opt_direct": "max", "opt_range": [0, 100]}, 
-        {"opt_direct": "min", "opt_range": [0, 0.5]}
-    ]
+    opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
 
     # Load descriptors
     desc_dict, condition_dict = load_desc_dict(
@@ -38,24 +35,19 @@ def test_init():
     print(f"[PASS] Loaded {len(desc_dict)} descriptor files")
 
     # Create optimizer
-    rxn_opt = ReactionOptimizer(
-        opt_metrics=["yield", "cost"], 
-        opt_metric_settings=opt_direct_info, 
-        opt_type="auto",
-        quiet=True
-    )
+    sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=opt_direct_info, opt_type="auto", quiet=True)
     print("[PASS] Created ReactionOptimizer instance")
 
     # Load reaction space
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
+    sbo.load_rxn_space(condition_dict=condition_dict)
     print("[PASS] Loaded reaction space")
 
     # Load descriptors
-    rxn_opt.load_desc(desc_dict=desc_dict)
+    sbo.load_desc(desc_dict=desc_dict)
     print("[PASS] Loaded descriptors")
 
     print("[SUCCESS] Initialization test passed!\n")
-    return rxn_opt
+    return sbo
 
 
 def test_optimize():
@@ -63,13 +55,10 @@ def test_optimize():
     print("=" * 50)
     print("Testing Optimization...")
     print("=" * 50)
-    
+
     reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
     name_suffix = ["_dft", "_dft", "_dft", None, None]
-    opt_direct_info = [
-        {"opt_direct": "max", "opt_range": [0, 100]}, 
-        {"opt_direct": "min", "opt_range": [0, 0.5]}
-    ]
+    opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
     save_dir = "test_output"
 
     # Load data
@@ -82,26 +71,21 @@ def test_optimize():
     )
 
     # Create optimizer
-    rxn_opt = ReactionOptimizer(
-        opt_metrics=["yield", "cost"], 
-        opt_metric_settings=opt_direct_info, 
-        opt_type="auto",
-        quiet=True
-    )
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
-    rxn_opt.load_desc(desc_dict=desc_dict)
+    sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=opt_direct_info, opt_type="auto", quiet=True)
+    sbo.load_rxn_space(condition_dict=condition_dict)
+    sbo.load_desc(desc_dict=desc_dict)
 
     # Load previous reaction data
     start_file = Path(__file__).parent / "testfile/start_file.csv"
     if start_file.exists():
-        rxn_opt.load_prev_rxn(pd.read_csv(start_file, index_col=False))
+        sbo.load_prev_rxn(pd.read_csv(start_file, index_col=False))
         print(f"[PASS] Loaded previous reactions from {start_file}")
     else:
         print(f"[WARN] Start file not found: {start_file}")
         print("[INFO] Running without previous data")
 
     # Run optimization
-    rxn_opt.optimize(
+    sbo.optimize(
         batch_size=2,
         desc_normalize="minmax",
         refine_desc="auto_select",
@@ -112,11 +96,11 @@ def test_optimize():
     print("[PASS] Optimization completed")
 
     # Save results
-    rxn_opt.save_results(save_dir=save_dir, filetype="csv")
+    sbo.save_results(save_dir=save_dir, filetype="csv")
     print(f"[PASS] Results saved to {save_dir}")
 
     print("[SUCCESS] Optimization test passed!\n")
-    return rxn_opt
+    return sbo
 
 
 def test_initialize_only():
@@ -124,13 +108,10 @@ def test_initialize_only():
     print("=" * 50)
     print("Testing Initialize Only...")
     print("=" * 50)
-    
+
     reagent_types = ["base", "ligand", "solvent", "concentration", "temperature"]
     name_suffix = ["_dft", "_dft", "_dft", None, None]
-    opt_direct_info = [
-        {"opt_direct": "max", "opt_range": [0, 100]}, 
-        {"opt_direct": "min", "opt_range": [0, 0.5]}
-    ]
+    opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
 
     # Load data
     desc_dict, condition_dict = load_desc_dict(
@@ -142,26 +123,16 @@ def test_initialize_only():
     )
 
     # Create optimizer
-    rxn_opt = ReactionOptimizer(
-        opt_metrics=["yield", "cost"], 
-        opt_metric_settings=opt_direct_info, 
-        opt_type="auto",
-        quiet=True
-    )
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
-    rxn_opt.load_desc(desc_dict=desc_dict)
+    sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=opt_direct_info, opt_type="auto", quiet=True)
+    sbo.load_rxn_space(condition_dict=condition_dict)
+    sbo.load_desc(desc_dict=desc_dict)
 
     # Initialize (sampling without previous data)
-    rxn_opt.initialize(
-        batch_size=5, 
-        desc_normalize="minmax", 
-        sampling_method="kmeans", 
-        refine_desc="filter_0.8"
-    )
+    sbo.initialize(batch_size=5, desc_normalize="minmax", sampling_method="kmeans", refine_desc="filter_0.8")
     print("[PASS] Initialized with kmeans sampling")
 
     # Save results
-    rxn_opt.save_results(save_dir="test_output", filetype="csv")
+    sbo.save_results(save_dir="test_output", filetype="csv")
     print("[PASS] Results saved")
 
     print("[SUCCESS] Initialize-only test passed!\n")
@@ -171,23 +142,24 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("Running SynBO Single Tests")
     print("=" * 50 + "\n")
-    
+
     try:
         # Test 1: Basic initialization
         test_init()
-        
+
         # Test 2: Initialize with sampling
         test_initialize_only()
-        
+
         # Test 3: Full optimization
         test_optimize()
-        
+
         print("=" * 50)
         print("ALL TESTS PASSED!")
         print("=" * 50)
-        
+
     except Exception as e:
         print(f"\n[FAILED] Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

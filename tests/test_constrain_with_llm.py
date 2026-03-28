@@ -39,11 +39,11 @@ class TestConstrainWithLLM(unittest.TestCase):
 
     def _setup_optimizer(self):
         """Setup basic optimizer configuration."""
-        rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
-        rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
-        rxn_opt.load_desc(desc_dict=self.desc_dict)
-        rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
-        return rxn_opt
+        sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
+        sbo.load_rxn_space(condition_dict=self.condition_dict)
+        sbo.load_desc(desc_dict=self.desc_dict)
+        sbo.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
+        return sbo
 
     @patch("synbo.analysis.llm_analyzer.OpenAI")
     def test_get_constrains_with_mock_llm(self, mock_openai):
@@ -66,10 +66,10 @@ class TestConstrainWithLLM(unittest.TestCase):
         mock_openai.return_value = mock_client
 
         # Setup optimizer
-        rxn_opt = self._setup_optimizer()
+        sbo = self._setup_optimizer()
 
         # Get constraints
-        constraints = rxn_opt.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key", model="gpt-4", temperature=0.7)
+        constraints = sbo.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key", model="gpt-4", temperature=0.7)
 
         # Verify constraints were generated
         self.assertIsNotNone(constraints, "Constraints should not be None")
@@ -112,13 +112,13 @@ class TestConstrainWithLLM(unittest.TestCase):
         mock_openai.return_value = mock_client
 
         # Setup optimizer
-        rxn_opt = self._setup_optimizer()
+        sbo = self._setup_optimizer()
 
         # Get constraints
-        constraints = rxn_opt.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key")
+        constraints = sbo.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key")
 
         # Run optimization with constraints
-        rxn_opt.optimize(
+        sbo.optimize(
             batch_size=2,
             desc_normalize="minmax",
             refine_desc="auto_select",
@@ -129,11 +129,11 @@ class TestConstrainWithLLM(unittest.TestCase):
         )
 
         # Verify optimization completed
-        self.assertIsNotNone(rxn_opt.selected_conditions)
-        self.assertEqual(len(rxn_opt.selected_conditions), 2)
+        self.assertIsNotNone(sbo.selected_conditions)
+        self.assertEqual(len(sbo.selected_conditions), 2)
 
         # Verify all selected conditions respect constraints
-        for condition in rxn_opt.selected_conditions:
+        for condition in sbo.selected_conditions:
             for i, cond_type in enumerate(self.reagent_types):
                 if cond_type in constraints:
                     value = condition[i]
@@ -170,10 +170,10 @@ class TestConstrainWithLLM(unittest.TestCase):
             mock_openai.return_value = mock_client
 
             # Setup optimizer
-            rxn_opt = self._setup_optimizer()
+            sbo = self._setup_optimizer()
 
             # Get constraints
-            constraints = rxn_opt.get_constrains(method="llm", reduce_ratio=ratio, api_key="test-api-key")
+            constraints = sbo.get_constrains(method="llm", reduce_ratio=ratio, api_key="test-api-key")
 
             # # Verify constraints match expected ratio
             # for cond_type, allowed_values in constraints.items():
@@ -204,11 +204,11 @@ class TestConstrainWithLLM(unittest.TestCase):
         mock_openai.return_value = mock_client
 
         # Setup optimizer
-        rxn_opt = self._setup_optimizer()
+        sbo = self._setup_optimizer()
 
         # Get constraints with custom base URL
         custom_url = "https://custom-endpoint.openai.azure.com/"
-        constraints = rxn_opt.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key", base_url=custom_url, model="gpt-4")
+        constraints = sbo.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key", base_url=custom_url, model="gpt-4")
 
         # Verify custom URL was used
         mock_openai.assert_called_once_with(api_key="test-api-key", base_url=custom_url)
@@ -230,10 +230,10 @@ class TestConstrainWithLLM(unittest.TestCase):
         mock_openai.return_value = mock_client
 
         # Setup optimizer
-        rxn_opt = self._setup_optimizer()
+        sbo = self._setup_optimizer()
 
         # Get constraints - should return None or handle gracefully
-        constraints = rxn_opt.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key")
+        constraints = sbo.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key")
 
         # Should handle invalid JSON gracefully
         self.assertIsNone(constraints, "Should return None for invalid JSON")
@@ -246,11 +246,11 @@ class TestConstrainWithLLM(unittest.TestCase):
         print("\nTest 6: Missing API key error")
 
         # Setup optimizer
-        rxn_opt = self._setup_optimizer()
+        sbo = self._setup_optimizer()
 
         # Should raise ValueError without API key
         with self.assertRaises(ValueError) as context:
-            rxn_opt.get_constrains(method="llm", reduce_ratio=0.3)
+            sbo.get_constrains(method="llm", reduce_ratio=0.3)
 
         self.assertIn("api_key", str(context.exception))
 

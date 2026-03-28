@@ -29,12 +29,12 @@ def setup_optimizer():
     )
 
     # Create optimizer
-    rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=opt_direct_info, opt_type="auto", quiet=True)
-    rxn_opt.load_rxn_space(condition_dict=condition_dict)
-    rxn_opt.load_desc(desc_dict=desc_dict)
-    rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
+    sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=opt_direct_info, opt_type="auto", quiet=True)
+    sbo.load_rxn_space(condition_dict=condition_dict)
+    sbo.load_desc(desc_dict=desc_dict)
+    sbo.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
 
-    return rxn_opt, condition_dict, reagent_types
+    return sbo, condition_dict, reagent_types
 
 
 def test_optimization_with_llm_constraints():
@@ -42,7 +42,7 @@ def test_optimization_with_llm_constraints():
     print("\n=== Testing LLM Constraint Generation and Optimization ===")
 
     # Setup optimizer
-    rxn_opt, condition_dict, reagent_types = setup_optimizer()
+    sbo, condition_dict, reagent_types = setup_optimizer()
 
     # Setup mock response manually
     mock_response = Mock()
@@ -61,7 +61,7 @@ def test_optimization_with_llm_constraints():
     with patch("synbo.analysis.llm_analyzer.OpenAI", return_value=mock_client):
         # Step 1: Get constraints from LLM
         print("\nStep 1: Generating constraints using LLM...")
-        constraints = rxn_opt.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key", model="gpt-4", temperature=0.7)
+        constraints = sbo.get_constrains(method="llm", reduce_ratio=0.3, api_key="test-api-key", model="gpt-4", temperature=0.7)
 
         print(f"✓ Successfully generated constraints for {len(constraints)} condition types:")
         for cond_type, allowed_values in constraints.items():
@@ -72,7 +72,7 @@ def test_optimization_with_llm_constraints():
 
         # Step 2: Run optimization with constraints
         print("\nStep 2: Running optimization with constraints...")
-        rxn_opt.optimize(
+        sbo.optimize(
             batch_size=2,
             desc_normalize="minmax",
             refine_desc="auto_select",
@@ -83,12 +83,12 @@ def test_optimization_with_llm_constraints():
         )
 
         print(f"✓ Optimization completed")
-        print(f"  - Selected {len(rxn_opt.selected_conditions)} conditions")
-        print(f"  - Recommendation type: {rxn_opt.recommend_type}")
+        print(f"  - Selected {len(sbo.selected_conditions)} conditions")
+        print(f"  - Recommendation type: {sbo.recommend_type}")
 
         # Display selected conditions
         print("\nSelected conditions:")
-        for i, condition in enumerate(rxn_opt.selected_conditions, 1):
+        for i, condition in enumerate(sbo.selected_conditions, 1):
             print(f"\n  Condition {i}:")
             for j, cond_type in enumerate(reagent_types):
                 value = condition[j]
@@ -100,7 +100,7 @@ def test_optimization_with_llm_constraints():
                     print(f"      {cond_type}: {value}")
 
         print("\n=== Test Completed Successfully ===")
-        return rxn_opt, constraints
+        return sbo, constraints
 
 
 if __name__ == "__main__":

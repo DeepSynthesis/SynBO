@@ -30,14 +30,14 @@ class TestReactionOptimizer(unittest.TestCase):
         )
 
     def _run_optimization_workflow(self, opt_method, normalize, refine, filetype, **opt_kwargs):
-        rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
-        rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
-        rxn_opt.load_desc(desc_dict=self.desc_dict)
+        sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
+        sbo.load_rxn_space(condition_dict=self.condition_dict)
+        sbo.load_desc(desc_dict=self.desc_dict)
 
         start_file_path = self.save_dir / "start_file.csv"
-        rxn_opt.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
-        rxn_opt.optimize(batch_size=3, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
-        rxn_opt.save_results(save_dir=str(self.save_dir), filetype=filetype)
+        sbo.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
+        sbo.optimize(batch_size=3, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
+        sbo.save_results(save_dir=str(self.save_dir), filetype=filetype)
 
     def test_generate_and_rename_excel(self):
         # 参数设置
@@ -93,18 +93,18 @@ class TestReactionOptimizer(unittest.TestCase):
 
         try:
             # 运行优化流程
-            rxn_opt = ReactionOptimizer(
+            sbo = ReactionOptimizer(
                 opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True, random_seed=100
             )
-            rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
-            rxn_opt.load_desc(desc_dict=self.desc_dict)
+            sbo.load_rxn_space(condition_dict=self.condition_dict)
+            sbo.load_desc(desc_dict=self.desc_dict)
 
             start_file_path = self.save_dir / "start_file.csv"
-            rxn_opt.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
-            rxn_opt.optimize(batch_size=3, desc_normalize=norm, refine_desc=refine, optimize_method=method)
+            sbo.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
+            sbo.optimize(batch_size=3, desc_normalize=norm, refine_desc=refine, optimize_method=method)
 
             # 保存结果时包含图片输出
-            rxn_opt.save_results(save_dir=str(self.save_dir), filetype=ftype, figure_output=figure_output, figure_path=str(figure_path))
+            sbo.save_results(save_dir=str(self.save_dir), filetype=ftype, figure_output=figure_output, figure_path=str(figure_path))
 
         except Exception as e:
             self.fail(f"Optimization with image integration failed: {e}")
@@ -153,18 +153,18 @@ class TestReactionOptimizer(unittest.TestCase):
 
         try:
             # 运行优化流程
-            rxn_opt = ReactionOptimizer(
+            sbo = ReactionOptimizer(
                 opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True, random_seed=100
             )
-            rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
-            rxn_opt.load_desc(desc_dict=self.desc_dict)
+            sbo.load_rxn_space(condition_dict=self.condition_dict)
+            sbo.load_desc(desc_dict=self.desc_dict)
 
             start_file_path = self.save_dir / "start_file.csv"
-            rxn_opt.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
-            rxn_opt.optimize(batch_size=5, desc_normalize=norm, refine_desc=refine, optimize_method=method)
+            sbo.load_prev_rxn(pd.read_csv(start_file_path, index_col=False))
+            sbo.optimize(batch_size=5, desc_normalize=norm, refine_desc=refine, optimize_method=method)
 
             # 保存结果时包含图片输出
-            rxn_opt.save_results(
+            sbo.save_results(
                 save_dir=str(self.save_dir), filetype=ftype, figure_output=figure_output, figure_path=str(figure_path), transpose=True
             )
 

@@ -31,15 +31,13 @@ class TestReactionOptimizer(unittest.TestCase):
 
     def _run_optimization_workflow(self, opt_method, normalize, refine, filetype, **opt_kwargs):
         # core code
-        rxn_opt = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
-        rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
-        rxn_opt.load_desc(desc_dict=self.desc_dict)
-        rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
+        sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
+        sbo.load_rxn_space(condition_dict=self.condition_dict)
+        sbo.load_desc(desc_dict=self.desc_dict)
+        sbo.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
 
-        rxn_opt.optimize(
-            batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, temperature=0.1, **opt_kwargs
-        )
-        rxn_opt.save_results(save_dir=self.save_dir, filetype=filetype)
+        sbo.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, temperature=0.1, **opt_kwargs)
+        sbo.save_results(save_dir=self.save_dir, filetype=filetype)
 
     def test_combinations(self):
         test_params = [

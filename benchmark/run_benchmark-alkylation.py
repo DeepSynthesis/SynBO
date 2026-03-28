@@ -234,7 +234,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
         stagnation_count = 0  # Count consecutive rounds without improvement
 
         for i in tqdm(range(CONFIG["iterations"]), desc=f"Round {round_idx+1} Calc"):
-            rxn_opt = ReactionOptimizer(
+            sbo = ReactionOptimizer(
                 opt_metrics=CONFIG["optimization_settings"]["opt_metrics"],
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
@@ -243,12 +243,12 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 save_dir=str(experiment_dir),
             )
 
-            rxn_opt.load_rxn_space(condition_dict=condition_dict)
-            rxn_opt.load_desc(desc_dict=desc_dict)
+            sbo.load_rxn_space(condition_dict=condition_dict)
+            sbo.load_desc(desc_dict=desc_dict)
 
             if i > 0:
                 prev_rxns = get_prev_rxn(file_root_dir=experiment_dir, file_pattern=str("batch-*.csv"))
-                rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxns)
+                sbo.load_prev_rxn(prev_rxn_info=prev_rxns)
 
             if i == 0:
                 # Use start points from JSON file for initial batch
@@ -268,13 +268,13 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 prev_rxn_info["batch"] = -1  # Set batch to -1 for initial batch
 
                 # Load selected reactions as previous reactions
-                rxn_opt.load_prev_rxn(prev_rxn_info=prev_rxn_info)
+                sbo.load_prev_rxn(prev_rxn_info=prev_rxn_info)
 
                 # Set selected_conditions from prev_rxn_info
-                rxn_opt.selected_conditions = prev_rxn_info[rxn_opt.condition_types].values
-                rxn_opt.recommend_type = ["explore"] * len(start_indices)
-                rxn_opt.pred_mean = None
-                rxn_opt.pred_std = None
+                sbo.selected_conditions = prev_rxn_info[sbo.condition_types].values
+                sbo.recommend_type = ["explore"] * len(start_indices)
+                sbo.pred_mean = None
+                sbo.pred_std = None
 
                 print(f"Loaded {len(start_indices)} initial conditions from dataset rows")
 
@@ -320,7 +320,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     print(f"\n{'='*10} Generating constraints at iteration {i} (HV stagnated for {stagnation_count} rounds) {'='*10}")
 
                     try:
-                        constraints = rxn_opt.get_constrains(
+                        constraints = sbo.get_constrains(
                             method=constraint_method,
                             reduce_ratio=reduce_ratio,
                             model=llm_model,
@@ -353,14 +353,14 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                     print(f"\n[Using EDBO+ Optimization]")
                     print(f"  - Acquisition function: {CONFIG['optimization_settings'].get('edbo_acquisition', 'NoisyEHVI')}")
 
-                    rxn_opt.optimize_edbo(
+                    sbo.optimize_edbo(
                         batch_size=CONFIG["batch_size"],
                         acquisition_function=CONFIG["optimization_settings"].get("edbo_acquisition", "NoisyEHVI"),
                         init_sampling_method="random",
                     )
                 else:
                     # Use default Bayesian Optimization
-                    rxn_opt.optimize(
+                    sbo.optimize(
                         batch_size=CONFIG["batch_size"],
                         optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                         desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
@@ -370,7 +370,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                         **CONFIG["optimization_settings"]["kwargs"],
                     )
 
-            rxn_opt.save_results()
+            sbo.save_results()
 
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path

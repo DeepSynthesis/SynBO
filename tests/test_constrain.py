@@ -4,6 +4,7 @@ Test constrained Bayesian optimization functionality.
 This test file demonstrates how to use the constraints parameter in ReactionOptimizer
 to limit the search space during optimization.
 """
+
 import unittest
 from pathlib import Path
 import pandas as pd
@@ -38,60 +39,49 @@ class TestConstrainedOptimization(unittest.TestCase):
     def _run_constrained_optimization(self, constraints, batch_size=2, **opt_kwargs):
         """
         Run constrained optimization workflow.
-        
+
         Args:
             constraints: Dictionary of constraints {condition_type: [allowed_values]}
             batch_size: Number of conditions to recommend
             **opt_kwargs: Additional optimization parameters
         """
         # core code
-        rxn_opt = ReactionOptimizer(
-            opt_metrics=["yield", "cost"], 
-            opt_metric_settings=self.opt_direct_info, 
-            opt_type="auto", 
-            quiet=True
-        )
-        rxn_opt.load_rxn_space(condition_dict=self.condition_dict)
-        rxn_opt.load_desc(desc_dict=self.desc_dict)
-        rxn_opt.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
+        sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
+        sbo.load_rxn_space(condition_dict=self.condition_dict)
+        sbo.load_desc(desc_dict=self.desc_dict)
+        sbo.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
 
-        rxn_opt.optimize(
+        sbo.optimize(
             batch_size=batch_size,
             desc_normalize="minmax",
             refine_desc="auto_select",
             optimize_method="default_BO",
             temperature=0.1,
             constraints=constraints,
-            **opt_kwargs
+            **opt_kwargs,
         )
-        
-        return rxn_opt
+
+        return sbo
 
     def test_constrain_base(self):
         """Test constraint on base selection."""
         # Get available bases
         available_bases = self.condition_dict["base"]
-        
+
         # Constrain to only use the first two bases
-        constraints = {
-            "base": available_bases[:2]
-        }
-        
+        constraints = {"base": available_bases[:2]}
+
         print(f"\nTest 1: Constraining to bases: {constraints['base']}")
-        
-        rxn_opt = self._run_constrained_optimization(
-            constraints=constraints,
-            surrogate_model="RF"
-        )
-        
+
+        sbo = self._run_constrained_optimization(constraints=constraints, surrogate_model="RF")
+
         # Verify that all selected conditions use only constrained bases
-        selected_conditions = rxn_opt.selected_conditions
+        selected_conditions = sbo.selected_conditions
         for condition in selected_conditions:
             base_value = condition[self.reagent_types.index("base")]
-            self.assertIn(base_value, constraints["base"], 
-                         f"Selected base {base_value} not in constrained list")
-        
-        rxn_opt.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_base")
+            self.assertIn(base_value, constraints["base"], f"Selected base {base_value} not in constrained list")
+
+        sbo.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_base")
         print(f"✓ All selected bases are within constraints")
 
     def test_constrain_multiple_conditions(self):
@@ -99,137 +89,104 @@ class TestConstrainedOptimization(unittest.TestCase):
         available_bases = self.condition_dict["base"]
         available_solvents = self.condition_dict["solvent"]
         available_temperatures = self.condition_dict["temperature"]
-        
+
         # Constrain multiple condition types
         constraints = {
             "base": available_bases[:2],  # Only first two bases
             "solvent": available_solvents[:3],  # Only first three solvents
-            "temperature": available_temperatures[::2]  # Every other temperature
+            "temperature": available_temperatures[::2],  # Every other temperature
         }
-        
+
         print(f"\nTest 2: Constraining multiple conditions")
         print(f"  - Bases: {len(constraints['base'])} / {len(available_bases)}")
         print(f"  - Solvents: {len(constraints['solvent'])} / {len(available_solvents)}")
         print(f"  - Temperatures: {len(constraints['temperature'])} / {len(available_temperatures)}")
-        
-        rxn_opt = self._run_constrained_optimization(
-            constraints=constraints,
-            batch_size=3,
-            surrogate_model="RF"
-        )
-        
+
+        sbo = self._run_constrained_optimization(constraints=constraints, batch_size=3, surrogate_model="RF")
+
         # Verify all constraints are respected
-        selected_conditions = rxn_opt.selected_conditions
+        selected_conditions = sbo.selected_conditions
         for condition in selected_conditions:
             base_value = condition[self.reagent_types.index("base")]
             solvent_value = condition[self.reagent_types.index("solvent")]
             temp_value = condition[self.reagent_types.index("temperature")]
-            
+
             self.assertIn(base_value, constraints["base"])
             self.assertIn(solvent_value, constraints["solvent"])
             self.assertIn(temp_value, constraints["temperature"])
-        
-        rxn_opt.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_multiple")
+
+        sbo.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_multiple")
         print(f"✓ All selected conditions satisfy multiple constraints")
 
     def test_no_constraints(self):
         """Test optimization without constraints (baseline)."""
         print(f"\nTest 3: No constraints (baseline)")
-        
-        rxn_opt = self._run_constrained_optimization(
-            constraints=None,  # No constraints
-            surrogate_model="RF"
-        )
-        
-        rxn_opt.save_results(save_dir=self.save_dir, filetype="csv", suffix="_no_constraints")
+
+        sbo = self._run_constrained_optimization(constraints=None, surrogate_model="RF")  # No constraints
+
+        sbo.save_results(save_dir=self.save_dir, filetype="csv", suffix="_no_constraints")
         print(f"✓ Completed optimization without constraints")
 
     def test_constrain_single_value(self):
         """Test constraining to a single value per condition type."""
         available_bases = self.condition_dict["base"]
         available_ligands = self.condition_dict["ligand"]
-        
+
         # Constrain to single values
-        constraints = {
-            "base": [available_bases[0]],  # Only first base
-            "ligand": [available_ligands[1]]  # Only second ligand
-        }
-        
+        constraints = {"base": [available_bases[0]], "ligand": [available_ligands[1]]}  # Only first base  # Only second ligand
+
         print(f"\nTest 4: Constraining to single values")
         print(f"  - Base: {constraints['base'][0]}")
         print(f"  - Ligand: {constraints['ligand'][0]}")
-        
-        rxn_opt = self._run_constrained_optimization(
-            constraints=constraints,
-            surrogate_model="RF"
-        )
-        
+
+        sbo = self._run_constrained_optimization(constraints=constraints, surrogate_model="RF")
+
         # Verify all selected conditions use the constrained values
-        selected_conditions = rxn_opt.selected_conditions
+        selected_conditions = sbo.selected_conditions
         for condition in selected_conditions:
             base_value = condition[self.reagent_types.index("base")]
             ligand_value = condition[self.reagent_types.index("ligand")]
-            
+
             self.assertEqual(base_value, constraints["base"][0])
             self.assertEqual(ligand_value, constraints["ligand"][0])
-        
-        rxn_opt.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_single")
+
+        sbo.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_single")
         print(f"✓ All selected conditions use single constrained values")
 
     def test_constrain_with_different_methods(self):
         """Test constraints with different optimization methods."""
         available_bases = self.condition_dict["base"]
-        constraints = {
-            "base": available_bases[:2]
-        }
-        
+        constraints = {"base": available_bases[:2]}
+
         print(f"\nTest 5: Constraints with different acquisition functions")
-        
+
         # Test with EHVI
         print(f"  - Testing with EHVI acquisition function")
-        rxn_opt_ehvi = self._run_constrained_optimization(
-            constraints=constraints,
-            surrogate_model="GP",
-            acq_func="EHVI"
-        )
-        rxn_opt_ehvi.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_ehvi")
+        sbo_ehvi = self._run_constrained_optimization(constraints=constraints, surrogate_model="GP", acq_func="EHVI")
+        sbo_ehvi.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_ehvi")
         print(f"    ✓ EHVI completed")
-        
+
         # Test with UCB
         print(f"  - Testing with UCB acquisition function")
-        rxn_opt_ucb = self._run_constrained_optimization(
-            constraints=constraints,
-            surrogate_model="GP",
-            acq_func="UCB"
-        )
-        rxn_opt_ucb.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_ucb")
+        sbo_ucb = self._run_constrained_optimization(constraints=constraints, surrogate_model="GP", acq_func="UCB")
+        sbo_ucb.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_ucb")
         print(f"    ✓ UCB completed")
-        
+
         # Test with ParEGO
         print(f"  - Testing with ParEGO acquisition function")
-        rxn_opt_parego = self._run_constrained_optimization(
-            constraints=constraints,
-            surrogate_model="GP",
-            acq_func="ParEGO"
-        )
-        rxn_opt_parego.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_parego")
+        sbo_parego = self._run_constrained_optimization(constraints=constraints, surrogate_model="GP", acq_func="ParEGO")
+        sbo_parego.save_results(save_dir=self.save_dir, filetype="csv", suffix="_constrain_parego")
         print(f"    ✓ ParEGO completed")
 
     def test_constrain_validation(self):
         """Test that invalid constraint values are handled properly."""
         print(f"\nTest 6: Constraint validation")
-        
+
         # Test with invalid constraint value (should still work, just won't match anything)
-        constraints = {
-            "base": ["nonexistent_base_12345"]
-        }
-        
+        constraints = {"base": ["nonexistent_base_12345"]}
+
         try:
-            rxn_opt = self._run_constrained_optimization(
-                constraints=constraints,
-                batch_size=1,
-                surrogate_model="RF"
-            )
+            sbo = self._run_constrained_optimization(constraints=constraints, batch_size=1, surrogate_model="RF")
             # Should complete but with warning about no valid candidates
             print(f"✓ Handled invalid constraint gracefully")
         except Exception as e:

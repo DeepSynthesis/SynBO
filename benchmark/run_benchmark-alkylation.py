@@ -198,7 +198,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     print(f"Experiment Directory: {experiment_dir}")
 
     # 加载 start_point.json
-    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/B-H_HTE/start_point.json"
+    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/asym_alkylation/start_point.json"
     start_points = load_start_points(start_point_path)
     print(f"Loaded start points from: {start_point_path}")
 

@@ -133,6 +133,11 @@ if __name__ == "__main__":
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
         },
+        "MyEDBO": {
+            "results_path": "results/multiple_20260327_214654/all_batches_final_round_*.csv",
+            "target_columns": ["yield", "ee"],
+            "direction_tags": ["max", "max"],
+        },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_asym_alkylation/batch_*.csv",
             "target_columns": ["yield_collected_values", "cost_collected_values"],

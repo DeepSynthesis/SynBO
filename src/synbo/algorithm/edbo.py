@@ -43,6 +43,7 @@ class EDBOStandardScaler:
     """
     Custom standard scaler for EDBO.
     """
+
     def __init__(self):
         pass
 
@@ -70,12 +71,12 @@ class EDBOStandardScaler:
 
     def inverse_transform_var(self, x):
         std = np.asarray(self.std)
-        return x * (std ** 2)
+        return x * (std**2)
 
 
 def build_and_optimize_model(train_x, train_y):
     """Builds GP model and optimizes it using GPyTorch."""
-    
+
     gp_options = {
         "ls_prior1": 2.0,
         "ls_prior2": 0.2,
@@ -96,15 +97,9 @@ def build_and_optimize_model(train_x, train_y):
             super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
             self.mean_module = gpytorch.means.ConstantMean()
 
-            kernels = MaternKernel(
-                ard_num_dims=n_features, 
-                lengthscale_prior=GammaPrior(gp_options["ls_prior1"], gp_options["ls_prior2"])
-            )
+            kernels = MaternKernel(ard_num_dims=n_features, lengthscale_prior=GammaPrior(gp_options["ls_prior1"], gp_options["ls_prior2"]))
 
-            self.covar_module = ScaleKernel(
-                kernels, 
-                outputscale_prior=GammaPrior(gp_options["out_prior1"], gp_options["out_prior2"])
-            )
+            self.covar_module = ScaleKernel(kernels, outputscale_prior=GammaPrior(gp_options["out_prior1"], gp_options["out_prior2"]))
             try:
                 ls_init = gp_options["ls_prior3"]
                 self.covar_module.base_kernel.lengthscale = ls_init
@@ -119,16 +114,12 @@ def build_and_optimize_model(train_x, train_y):
             return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
     # Initialize likelihood and model
-    likelihood = gpytorch.likelihoods.GaussianLikelihood(
-        GammaPrior(gp_options["noise_prior1"], gp_options["noise_prior2"])
-    )
+    likelihood = gpytorch.likelihoods.GaussianLikelihood(GammaPrior(gp_options["noise_prior1"], gp_options["noise_prior2"]))
 
     likelihood.noise = gp_options["noise_prior3"]
     model = ExactGPModel(train_x, train_y, likelihood).to(**tkwargs)
 
-    model.likelihood.noise_covar.register_constraint(
-        "raw_noise", GreaterThan(gp_options["noise_constraint"])
-    )
+    model.likelihood.noise_covar.register_constraint("raw_noise", GreaterThan(gp_options["noise_constraint"]))
 
     model.train()
     likelihood.train()
@@ -160,7 +151,7 @@ def build_and_optimize_model(train_x, train_y):
 class EDBOplus:
     """
     EDBO+ optimizer class for multi-objective Bayesian optimization.
-    
+
     This class implements the full EDBO+ algorithm including:
     - Initialization sampling
     - Gaussian Process modeling
@@ -178,14 +169,14 @@ class EDBOplus:
     def _init_sampling(df, batch, sampling_method, seed, init_indices=None):
         """
         Initialize sampling for the first batch of experiments.
-        
+
         Args:
             df: DataFrame with reaction scope
             batch: Number of samples to select
             sampling_method: Method for sampling ('random', 'with_index', etc.)
             seed: Random seed
             init_indices: Optional list of indices to use for initialization
-            
+
         Returns:
             DataFrame with 'priority' column indicating selected samples
         """
@@ -195,7 +186,7 @@ class EDBOplus:
         ohe_columns = list(OrderedSet(df.columns) - OrderedSet(numeric_cols))
         if len(ohe_columns) > 0:
             print(f"The following columns are categorical and will be encoded using One-Hot-Encoding: {ohe_columns}")
-        
+
         # Encode OHE
         df_sampling = pd.get_dummies(df, prefix=ohe_columns, columns=ohe_columns, drop_first=True, dtype=np.float64)
 
@@ -248,7 +239,7 @@ class EDBOplus:
             d_i = cdist([sample], df_sampling_matrix, metric="cityblock")
             a = np.argmin(d_i)
             priority_list[a] = 1.0
-        
+
         df["priority"] = priority_list
 
         if sampling_method == "with_index" and init_indices is not None:
@@ -277,7 +268,7 @@ class EDBOplus:
     ):
         """
         Run EDBO+ optimization.
-        
+
         Args:
             objectives: List of objective column names
             objective_mode: List of 'max' or 'min' for each objective
@@ -293,7 +284,7 @@ class EDBOplus:
             acquisition_function: Acquisition function ('EHVI', 'NoisyEHVI', 'EI')
             acquisition_function_sampler: Sampler for acquisition function
             init_indices: Optional indices for initialization
-            
+
         Returns:
             DataFrame with recommendations and priorities
         """
@@ -305,7 +296,7 @@ class EDBOplus:
 
         # 1. Safe checks
         self.objective_names = objectives
-        
+
         # Check whether the columns_features contains the objectives
         if columns_features != "all":
             for objective in objectives:
@@ -327,7 +318,8 @@ class EDBOplus:
         # 2. Load reaction scope
         df = pd.read_csv(f"{csv_filename}")
         df = df.dropna(axis="columns", how="all")
-        df.drop(["base", "ligand", "solvent", "index", "temperature", "concentration"], axis=1, inplace=True)
+        # df.drop(["base", "ligand", "solvent", "index", "temperature", "concentration"], axis=1, inplace=True)
+        df.drop(["reactant2", "catalyst1", "catalyst2"], axis=1, inplace=True)
         original_df = df.copy(deep=True)
 
         # 2.1. Initialize sampling (only in the first iteration)
@@ -353,11 +345,7 @@ class EDBOplus:
         # No objectives columns in the scope? Then random initialization
         if len(obj_in_df) == 0:
             print("There are no experimental observations yet. Random samples will be drawn.")
-            df = self._init_sampling(
-                df=df, batch=batch, seed=seed, 
-                sampling_method=init_sampling_method, 
-                init_indices=init_indices
-            )
+            df = self._init_sampling(df=df, batch=batch, seed=seed, sampling_method=init_sampling_method, init_indices=init_indices)
             original_df["priority"] = df["priority"]
             # Append objectives
             for objective in objectives:
@@ -372,7 +360,7 @@ class EDBOplus:
 
         if columns_features == "all":
             columns_features = list(set(df.columns.tolist()) - set(objectives) - set(["priority"]))
-        
+
         print(f"This run will optimize for the following objectives: {objectives}")
         print(f"The following features will be used: {columns_features[:5]}...")
 
@@ -402,7 +390,7 @@ class EDBOplus:
             data = data.drop(columns=objectives + ["priority"])
         else:
             data = data.drop(columns=objectives)
-        
+
         df_train_x = data.loc[idx_train]
         df_test_x = data.loc[idx_test]
 
@@ -433,7 +421,7 @@ class EDBOplus:
         original_df["priority"] = priority_list
 
         cols_sort = ["priority"] + original_df.columns.values.tolist()
-        
+
         # Attach objectives predictions and expected improvement
         cols_for_preds = []
         for idx_obj in range(0, len(objectives)):
@@ -501,12 +489,7 @@ class EDBOplus:
 
             gp, likelihood = build_and_optimize_model(train_x=train_x, train_y=train_y_i)
 
-            model_i = SingleTaskGP(
-                train_X=train_x, 
-                train_Y=train_y_i, 
-                covar_module=gp.covar_module, 
-                likelihood=likelihood
-            )
+            model_i = SingleTaskGP(train_X=train_x, train_Y=train_y_i, covar_module=gp.covar_module, likelihood=likelihood)
             individual_models.append(model_i)
 
         print("Model generated!")
@@ -559,12 +542,7 @@ class EDBOplus:
             surrogate_model = ModelListGP(*individual_models)
             individual_models = []  # empty to reduce memory
 
-            EHVI = qExpectedHypervolumeImprovement(
-                model=surrogate_model,
-                sampler=sampler,
-                ref_point=ref_point,
-                partitioning=partitioning
-            )
+            EHVI = qExpectedHypervolumeImprovement(model=surrogate_model, sampler=sampler, ref_point=ref_point, partitioning=partitioning)
 
             print(ref_point)
 
@@ -653,13 +631,13 @@ class EDBOplus:
     def expected_improvement(self, train_y, mean, variance, maximizing=False):
         """
         Expected improvement acquisition function.
-        
+
         Args:
             train_y: Numpy array with observed train targets
             mean: Predicted mean of the Gaussian Process
             variance: Predicted variance of the Gaussian Process
             maximizing: Whether to maximize or minimize
-            
+
         Returns:
             Expected improvement values
         """

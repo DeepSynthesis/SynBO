@@ -567,7 +567,7 @@ class ReactionOptimizer:
         if "index" in selected_df.columns:
             condition_cols = ["index"] + condition_cols
 
-        self.selected_conditions = scope_df.loc[selected_df.index, ["temperature", "concentration", "base", "ligand", "solvent"]]
+        self.selected_conditions = scope_df.loc[selected_df.index, ["reactant2", "catalyst1", "catalyst2"]]
 
         # Store predictions if available
         self.pred_mean = None
@@ -605,7 +605,6 @@ class ReactionOptimizer:
                 title="🎯 Results Summary",
             )
         )
-
 
     def _generate_scope_dataframe(self) -> pd.DataFrame:
         """Generate a DataFrame with all possible reaction scope combinations.

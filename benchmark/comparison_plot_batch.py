@@ -122,6 +122,22 @@ if __name__ == "__main__":
             "results_path": "results/multiple_20260326_190120/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
+<<<<<<< Updated upstream
+=======
+            "range_tags": [[0, 100], [0, 0.5]],
+        },
+        "SynBO(BNN_cleanup)": {
+            "results_path": "results/multiple_20260323_163441/all_batches_final_round_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+            "range_tags": [[0, 100], [0, 0.5]],
+        },
+        "SynBO(GP)": {
+            "results_path": "results/multiple_20260325_094536/all_batches_final_round_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+            "range_tags": [[0, 100], [0, 0.5]],
+>>>>>>> Stashed changes
         },
         # "SynBO(GP)": {
         #     "results_path": "results/multiple_20260326_182036/all_batches_final_round_*.csv",

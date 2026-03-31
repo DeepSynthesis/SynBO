@@ -1,5 +1,12 @@
 确保描述符空间中没有相同的分子
 
+调试reagent boost机制
+
+一个batch中，要既有探索，又有利用，避免过度贪婪
+
+建立真实反应的benchmark
+
+
 
 - 相比起探索pareto frontiers，单纯的优化问题或许更希望快速探索到一个特定的结果（for example: yield = 60%, ee = 90%）
 

@@ -363,15 +363,11 @@ class ReactionOptimizer:
 
         check_desc_completeness(self.desc_dict, self.condition_dict)
 
-        # 1. Get total_name_arr and total_desc_arr (without normalization in array_process)
         self.total_name_arr, self.total_desc_arr = array_process(
             self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc
         )
 
-        # 2. Get done_arr_index
         self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
-
-        # 3. Apply standardization: fit on done array, transform on all arrays
         self.total_desc_arr = array_standarization(self.total_desc_arr, self.done_arr_index, desc_normalize)
 
         # TODO: solve this constraints problem!!!!
@@ -427,7 +423,11 @@ class ReactionOptimizer:
             )
 
             # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
-        constraint_mask = constraint_mask[candidate_indices]
+
+            # TODO: there is an mask!!
+            constraint_mask = constraint_mask[candidate_indices]
+        else:
+            constraint_mask = None
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
             training_X=done_arr_desc,

@@ -44,7 +44,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 256, 1024
+            self.mc_num_samples, self.max_batch_size = 16, 16
         self.device = device
 
         if surrogate_model == "GP":
@@ -92,9 +92,8 @@ class DefaultBO:
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
-        constraint_mask_t = torch.tensor(constraints).to(device=self.device)
-        
-        
+        constraint_mask_t = torch.tensor(constraints).to(device=self.device) if constraints is not None else None
+
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
             BarColumn(bar_width=None),
@@ -192,8 +191,6 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
-            
-
             # TODO: need to Re-implementate reagent boost mechanism.
             # # Generate unused reagent boost if total_name_arr is provided
             unused_reagent_boost = None
@@ -207,8 +204,8 @@ class DefaultBO:
             #         device=self.device,
             #     )
 
-            candidate_X_t = candidate_X_t[constraint_mask_t]
-            
+            candidate_X_t = candidate_X_t[constraint_mask_t] if candidate_X_t is not None else None
+
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
                 q=batch_size,

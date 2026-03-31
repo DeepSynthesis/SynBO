@@ -217,6 +217,9 @@ class BaseAcquisitionFunction:
         #     unique=unique,
         #     max_batch_size=max_batch_size,
         # )
+
+        print("aaa")
+
         acq_result = self._new_optimize_acqf_discrete(
             acq_function=acq_func,
             choices=choices,
@@ -752,7 +755,7 @@ class ParetoFrontCalculator:
 
     @staticmethod
     def calculate_target_function(points: np.ndarray, progress: object, task: object) -> np.ndarray:
-    # def calculate_target_function(points: np.ndarray) -> np.ndarray:
+        # def calculate_target_function(points: np.ndarray) -> np.ndarray:
         """
         Calculate Pareto front for points in arbitrary dimensions
 

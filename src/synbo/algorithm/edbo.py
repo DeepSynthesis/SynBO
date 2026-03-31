@@ -319,7 +319,8 @@ class EDBOplus:
         df = pd.read_csv(f"{csv_filename}")
         df = df.dropna(axis="columns", how="all")
         # df.drop(["base", "ligand", "solvent", "index", "temperature", "concentration"], axis=1, inplace=True)
-        df.drop(["reactant2", "catalyst1", "catalyst2"], axis=1, inplace=True)
+        # df.drop(["reactant2", "catalyst1", "catalyst2"], axis=1, inplace=True)
+        df.drop(["alkali", "amine", "cobalt", "oxidant", "solvent"], axis=1, inplace=True)
         original_df = df.copy(deep=True)
 
         # 2.1. Initialize sampling (only in the first iteration)

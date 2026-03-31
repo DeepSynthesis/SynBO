@@ -92,7 +92,9 @@ class DefaultBO:
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
-
+        constraint_mask_t = torch.tensor(constraints).to(device=self.device)
+        
+        
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
             BarColumn(bar_width=None),
@@ -190,17 +192,7 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
-            # Generate constraint mask if constraints are provided
-            constraint_mask_t = None
-
-            if constraints is not None and total_name_arr is not None and condition_types is not None:
-                constraint_mask = generate_constraint_mask(
-                    total_name_arr=total_name_arr,
-                    condition_types=condition_types,
-                    constraints=constraints,
-                )
-                constraint_mask_t = torch.tensor(constraint_mask, dtype=torch.bool, device=self.device)
-                progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+            
 
             # TODO: need to Re-implementate reagent boost mechanism.
             # # Generate unused reagent boost if total_name_arr is provided
@@ -215,6 +207,8 @@ class DefaultBO:
             #         device=self.device,
             #     )
 
+            candidate_X_t = candidate_X_t[constraint_mask_t]
+            
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
                 q=batch_size,

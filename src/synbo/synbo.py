@@ -23,7 +23,7 @@ from synbo.utils.export_data import save_df
 
 from .optimize import Optimizer
 from .descriptor.desc_proc import array_process, done_array_process, array_standarization
-from .utils.util_func import check_desc_completeness, generate_onehot_desc, track_called, get_opt_type
+from .utils.util_func import check_desc_completeness, generate_constraint_mask, generate_onehot_desc, track_called, get_opt_type
 from .initialize import Initializer
 from .utils.write_excel import ExcelWriter
 from .utils.logger import _logger_default, console
@@ -374,6 +374,7 @@ class ReactionOptimizer:
         # 3. Apply standardization: fit on done array, transform on all arrays
         self.total_desc_arr = array_standarization(self.total_desc_arr, self.done_arr_index, desc_normalize)
 
+        # TODO: solve this constraints problem!!!!
         done_arr_desc = self.total_desc_arr[self.done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
 
@@ -418,6 +419,16 @@ class ReactionOptimizer:
 
         candidate_X = self.total_desc_arr[candidate_indices]
 
+        if constraints is not None and self.total_name_arr is not None and self.condition_types is not None:
+            constraint_mask = generate_constraint_mask(
+                total_name_arr=self.total_name_arr,
+                condition_types=self.condition_types,
+                constraints=constraints,
+            )
+
+            # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+        constraint_mask = constraint_mask[candidate_indices]
+
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
             training_X=done_arr_desc,
             training_y=normalized_metrics,
@@ -425,7 +436,7 @@ class ReactionOptimizer:
             opt_metric_settings=self.opt_metric_settings,
             batch_size=batch_size,
             temperature=temperature,
-            constraints=constraints,
+            constraints=constraint_mask,
             total_name_arr=self.total_name_arr,
             condition_types=self.condition_types,
         )
@@ -567,7 +578,7 @@ class ReactionOptimizer:
         if "index" in selected_df.columns:
             condition_cols = ["index"] + condition_cols
 
-        self.selected_conditions = scope_df.loc[selected_df.index, ["reactant2", "catalyst1", "catalyst2"]]
+        self.selected_conditions = scope_df.loc[selected_df.index, ["alkali", "amine", "cobalt", "oxidant", "solvent"]]
 
         # Store predictions if available
         self.pred_mean = None

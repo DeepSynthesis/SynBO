@@ -3,11 +3,12 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.model_selection import train_test_split, cross_val_score, KFold, GridSearchCV
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.feature_selection import SelectFromModel
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem import MACCSkeys, rdMolDescriptors
@@ -96,19 +97,15 @@ def generate_enhanced_features(df):
         descriptors = []
         
         for smiles in df[smiles_col]:
-            # Morgan fingerprints
             morgan = smiles_to_fingerprints(smiles, radius=2, n_bits=2048)
             morgan_fps.append(morgan)
             
-            # MACCS keys
             maccs = smiles_to_maccs(smiles)
             maccs_fps.append(maccs)
             
-            # RDKit topological fingerprints
             rdkit = smiles_to_rdkit_fp(smiles, n_bits=2048)
             rdkit_fps.append(rdkit)
             
-            # Molecular descriptors
             desc = smiles_to_descriptors(smiles)
             descriptors.append(desc)
         
@@ -117,7 +114,6 @@ def generate_enhanced_features(df):
         rdkit_fps = np.array(rdkit_fps)
         descriptors = np.array(descriptors)
         
-        # Apply PCA to reduce dimensionality
         n_comp_morgan = min(100, morgan_fps.shape[1])
         n_comp_rdkit = min(100, rdkit_fps.shape[1])
         n_comp_desc = min(50, descriptors.shape[1])
@@ -130,7 +126,6 @@ def generate_enhanced_features(df):
         rdkit_reduced = pca_rdkit.fit_transform(rdkit_fps)
         desc_reduced = pca_desc.fit_transform(descriptors)
         
-        # Create DataFrames
         morgan_cols = [f"{smiles_col}_morgan_{i}" for i in range(n_comp_morgan)]
         maccs_cols = [f"{smiles_col}_maccs_{i}" for i in range(167)]
         rdkit_cols = [f"{smiles_col}_rdkit_{i}" for i in range(n_comp_rdkit)]
@@ -148,87 +143,102 @@ def generate_enhanced_features(df):
     return X
 
 
-def plot_predictions(y_true, y_pred, target_name, r2, mae, rmse, model_name=""):
-    """Plot predicted vs true values"""
-    plt.figure(figsize=(8, 8))
-    sns.scatterplot(x=y_true, y=y_pred, alpha=0.6, s=60, edgecolor="none")
-    
-    min_val = min(y_true.min(), y_pred.min())
-    max_val = max(y_true.max(), y_pred.max())
-    plt.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=2, label="Perfect Prediction")
-    
-    plt.xlabel("True Values", fontsize=14, fontweight="bold")
-    plt.ylabel("Predicted Values", fontsize=14, fontweight="bold")
-    plt.title(f"{target_name}: Predicted vs True ({model_name})", fontsize=16, fontweight="bold")
-    
-    metrics_text = f"R² = {r2:.4f}\nMAE = {mae:.4f}\nRMSE = {rmse:.4f}"
-    plt.text(0.05, 0.95, metrics_text, transform=plt.gca().transAxes, fontsize=12,
-             verticalalignment="top", bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8))
-    
-    plt.legend(loc="lower right", fontsize=11)
-    plt.tight_layout()
-    filename = f"{target_name.lower().replace(' ', '_')}_{model_name.lower().replace(' ', '_')}_scatter.png"
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
-    print(f"  Plot saved: {filename}")
-    plt.close()
-
-
-def train_and_evaluate(X, y, target_name, random_state=42):
-    """Train and evaluate RandomForest with optimized parameters"""
+def train_and_evaluate_yield(X, y_yield, random_state=42):
+    """Train and evaluate yield prediction with feature selection"""
     # Scale features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.15, random_state=random_state, shuffle=True
+        X_scaled, y_yield, test_size=0.15, random_state=random_state, shuffle=True
     )
     
     print(f"\n  Train: {len(X_train)}, Test: {len(X_test)}")
-    print(f"  Features: {X.shape[1]}")
+    print(f"  Features: {X_scaled.shape[1]}")
     
-    # Optimized RandomForest parameters
-    print("\n  Training RandomForest...")
-    rf_model = RandomForestRegressor(
-        n_estimators=1000,
-        max_depth=25,
-        min_samples_split=2,
-        min_samples_leaf=1,
-        max_features='sqrt',
-        bootstrap=True,
-        random_state=random_state,
-        n_jobs=-1
-    )
-    
+    results = {}
     kf = KFold(n_splits=5, shuffle=True, random_state=random_state)
-    cv_scores = cross_val_score(rf_model, X_train, y_train, cv=kf, scoring='r2')
-    print(f"    CV R²: {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
-    print(f"    CV R² scores: {cv_scores}")
     
-    rf_model.fit(X_train, y_train)
-    y_pred = rf_model.predict(X_test)
+    # 1. RandomForest with feature selection
+    print("\n  1. Training RandomForest with Feature Selection...")
     
-    r2 = r2_score(y_test, y_pred)
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    # First, do feature selection
+    selector = SelectFromModel(RandomForestRegressor(n_estimators=100, random_state=random_state), 
+                               max_features=500, threshold=-np.inf)
+    X_train_selected = selector.fit_transform(X_train, y_train)
+    X_test_selected = selector.transform(X_test)
     
-    print(f"    Test R²: {r2:.4f}, MAE: {mae:.4f}, RMSE: {rmse:.4f}")
+    print(f"     Selected {X_train_selected.shape[1]} features")
     
-    plot_predictions(y_test, y_pred, target_name, r2, mae, rmse, "RandomForest")
-    
-    return {
-        "cv_r2": cv_scores.mean(),
-        "cv_std": cv_scores.std(),
-        "test_r2": r2,
-        "mae": mae,
-        "rmse": rmse
+    rf_params = {
+        'n_estimators': [500, 1000, 1500],
+        'max_depth': [15, 20, 25, None],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2],
+        'max_features': ['sqrt', 'log2', 0.3]
     }
+    
+    rf_base = RandomForestRegressor(random_state=random_state, n_jobs=-1)
+    rf_grid = GridSearchCV(rf_base, rf_params, cv=3, scoring='r2', n_jobs=-1, verbose=0)
+    rf_grid.fit(X_train_selected, y_train)
+    
+    rf_best = rf_grid.best_estimator_
+    cv_scores_rf = cross_val_score(rf_best, X_train_selected, y_train, cv=kf, scoring='r2')
+    y_pred_rf = rf_best.predict(X_test_selected)
+    
+    results['RF_with_Selection'] = {
+        'cv_r2': cv_scores_rf.mean(),
+        'cv_std': cv_scores_rf.std(),
+        'test_r2': r2_score(y_test, y_pred_rf),
+        'best_params': rf_grid.best_params_
+    }
+    print(f"     Best params: {rf_grid.best_params_}")
+    print(f"     CV R²: {cv_scores_rf.mean():.4f} (+/- {cv_scores_rf.std():.4f})")
+    print(f"     Test R²: {r2_score(y_test, y_pred_rf):.4f}")
+    
+    # 2. Gradient Boosting
+    print("\n  2. Training Gradient Boosting...")
+    gb_params = {
+        'n_estimators': [200, 500, 800],
+        'max_depth': [4, 6, 8],
+        'learning_rate': [0.05, 0.1, 0.15],
+        'min_samples_split': [2, 5],
+        'subsample': [0.8, 1.0]
+    }
+    
+    gb_base = GradientBoostingRegressor(random_state=random_state)
+    gb_grid = GridSearchCV(gb_base, gb_params, cv=3, scoring='r2', n_jobs=-1, verbose=0)
+    gb_grid.fit(X_train_selected, y_train)
+    
+    gb_best = gb_grid.best_estimator_
+    cv_scores_gb = cross_val_score(gb_best, X_train_selected, y_train, cv=kf, scoring='r2')
+    y_pred_gb = gb_best.predict(X_test_selected)
+    
+    results['GradientBoosting'] = {
+        'cv_r2': cv_scores_gb.mean(),
+        'cv_std': cv_scores_gb.std(),
+        'test_r2': r2_score(y_test, y_pred_gb),
+        'best_params': gb_grid.best_params_
+    }
+    print(f"     Best params: {gb_grid.best_params_}")
+    print(f"     CV R²: {cv_scores_gb.mean():.4f} (+/- {cv_scores_gb.std():.4f})")
+    print(f"     Test R²: {r2_score(y_test, y_pred_gb):.4f}")
+    
+    # Find best model
+    best_model_name = max(results.keys(), key=lambda k: results[k]['cv_r2'])
+    best_result = results[best_model_name]
+    
+    print(f"\n  Best Model for yield: {best_model_name}")
+    print(f"  Best CV R²: {best_result['cv_r2']:.4f} (+/- {best_result['cv_std']:.4f})")
+    
+    return results, best_model_name
 
 
 def main():
     """Main function"""
     print("=" * 70)
-    print("Optimized Modeling with RDKit Fingerprints for Co-enamine")
+    print("Optimized Yield Modeling with Feature Selection")
     print("=" * 70)
     
     # Load data
@@ -241,19 +251,13 @@ def main():
     X = generate_enhanced_features(df)
     print(f"\nTotal features: {X.shape[1]}")
     
-    # Predict yield
-    print("\n" + "=" * 70)
-    print("Predicting YIELD")
-    print("=" * 70)
     y_yield = df["yield"]
-    yield_results = train_and_evaluate(X, y_yield, "Yield")
     
-    # Predict ee
+    # Predict yield with optimizations
     print("\n" + "=" * 70)
-    print("Predicting ENANTIOMERIC EXCESS (ee)")
+    print("Predicting YIELD with Optimizations")
     print("=" * 70)
-    y_ee = df["ee"]
-    ee_results = train_and_evaluate(X, y_ee, "Enantiomeric Excess")
+    yield_results, yield_best = train_and_evaluate_yield(X, y_yield)
     
     # Final summary
     print("\n" + "=" * 70)
@@ -261,28 +265,20 @@ def main():
     print("=" * 70)
     
     print("\nYield Prediction Results:")
-    marker = " ✓" if yield_results['cv_r2'] >= 0.6 else ""
-    print(f"  RandomForest: CV R² = {yield_results['cv_r2']:.4f} (+/- {yield_results['cv_std']:.4f}), Test R² = {yield_results['test_r2']:.4f}{marker}")
+    for name, res in yield_results.items():
+        marker = " ✓" if res['cv_r2'] >= 0.6 else ""
+        print(f"  {name:25s}: CV R² = {res['cv_r2']:.4f} (+/- {res['cv_std']:.4f}), Test R² = {res['test_r2']:.4f}{marker}")
     
-    print("\nEnantiomeric Excess Prediction Results:")
-    marker = " ✓" if ee_results['cv_r2'] >= 0.6 else ""
-    print(f"  RandomForest: CV R² = {ee_results['cv_r2']:.4f} (+/- {ee_results['cv_std']:.4f}), Test R² = {ee_results['test_r2']:.4f}{marker}")
+    yield_cv_r2 = yield_results[yield_best]['cv_r2']
     
     print(f"\n{'='*70}")
-    print(f"BEST CV R² RESULTS:")
-    print(f"  Yield: {yield_results['cv_r2']:.4f}")
-    print(f"  ee:    {ee_results['cv_r2']:.4f}")
+    print(f"BEST Yield CV R²: {yield_cv_r2:.4f} (using {yield_best})")
     
-    if yield_results['cv_r2'] >= 0.6 and ee_results['cv_r2'] >= 0.6:
-        print("\n  ✅ BOTH TARGETS ACHIEVED CV R² >= 0.6!")
-    elif yield_results['cv_r2'] >= 0.6:
-        print("\n  ⚠️  Only Yield achieved CV R² >= 0.6")
-    elif ee_results['cv_r2'] >= 0.6:
-        print("\n  ⚠️  Only ee achieved CV R² >= 0.6")
+    if yield_cv_r2 >= 0.6:
+        print("\n  ✅ Yield ACHIEVED CV R² >= 0.6!")
     else:
-        print(f"\n  ❌ Neither target achieved CV R² >= 0.6")
-        print(f"     Yield gap: {0.6 - yield_results['cv_r2']:.4f}")
-        print(f"     ee gap:    {0.6 - ee_results['cv_r2']:.4f}")
+        print(f"\n  ❌ Yield did not achieve CV R² >= 0.6")
+        print(f"     Gap: {0.6 - yield_cv_r2:.4f}")
     
     print("=" * 70)
 

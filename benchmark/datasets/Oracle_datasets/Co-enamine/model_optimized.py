@@ -190,8 +190,8 @@ def train_and_evaluate(X, y, target_name, random_state=42):
     # Optimized RandomForest parameters
     print("\n  Training RandomForest...")
     rf_model = RandomForestRegressor(
-        n_estimators=1000,
-        max_depth=25,
+        n_estimators=2000,          # Increased from 1000
+        max_depth=30,               # Increased from 25
         min_samples_split=2,
         min_samples_leaf=1,
         max_features='sqrt',
@@ -214,7 +214,7 @@ def train_and_evaluate(X, y, target_name, random_state=42):
     
     print(f"    Test R²: {r2:.4f}, MAE: {mae:.4f}, RMSE: {rmse:.4f}")
     
-    plot_predictions(y_test, y_pred, target_name, r2, mae, rmse, "RandomForest")
+    plot_predictions(y_test, y_pred, target_name, r2, mae, rmse, "RandomForest_Optimized")
     
     return {
         "cv_r2": cv_scores.mean(),
@@ -228,7 +228,7 @@ def train_and_evaluate(X, y, target_name, random_state=42):
 def main():
     """Main function"""
     print("=" * 70)
-    print("Optimized Modeling with RDKit Fingerprints for Co-enamine")
+    print("Optimized Modeling with RDKit Fingerprints")
     print("=" * 70)
     
     # Load data

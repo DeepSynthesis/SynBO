@@ -2,8 +2,8 @@ import pandas as pd
 
 dict_df = pd.read_csv("descriptors/mappings.csv")
 d = {}
-for info in dict_df["SMILES", "Abbreviation"]:
-    d[info[0]] = info[1]
+for k, v in zip(dict_df["SMILES"], dict_df["Abbreviation"]):
+    d[k] = v
 
 for desc in ["alkali", "amine", "cobalt", "oxidant", "solvent"]:
     df = pd.read_csv(f"descriptors/{desc}_desc.csv")

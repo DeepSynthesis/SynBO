@@ -1,4 +1,4 @@
-round_id,batch_id,amine_smiles,cobalt_smiles,oxidant_smiles,alkali_smiles,solvent_smiles,yield,ee
+round_id,batch_id,amine,cobalt,oxidant,alkali,solvent,yield,ee
 1,0,amine1-TfOH,[Co]-1,KHSO5,AcOH,Chloroform,0,0
 1,0,amine2-TfOH,[Co]-1,AgBF4,BzOH,MeCN,0,0
 1,0,amine3-TfOH,[Co]-2,PhIO,Na2CO3,Et2O,1,22

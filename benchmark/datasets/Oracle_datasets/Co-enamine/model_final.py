@@ -41,8 +41,7 @@ def load_data():
 
     # Load DFT descriptors
     dft_files = {
-        "amine_smiles_ion": "descriptors/amine_ion_desc_dft.csv",
-        "amine_smiles_anion": "descriptors/amine_anion_desc_dft.csv",
+        "amine_smiles": "descriptors/amine_desc_dft.csv",
         "cobalt_smiles": "descriptors/cobalt_desc_dft.csv",
         "oxidant_smiles": "descriptors/oxidant_desc_dft.csv",
         "alkali_smiles": "descriptors/alkali_desc_dft.csv",
@@ -66,7 +65,7 @@ def load_data():
 def generate_features(df, dft_descriptors):
     """Generate features using RDKit descriptors and DFT descriptors only"""
     feature_list = []
-    smiles_cols = ["amine_smiles_ion", "amine_smiles_anion", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
+    smiles_cols = ["amine_smiles", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
 
     print("Generating RDKit descriptors and adding DFT descriptors...")
 

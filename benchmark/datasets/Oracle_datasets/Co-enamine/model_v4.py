@@ -3,13 +3,29 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.model_selection import cross_val_score, KFold, cross_val_predict
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
 from sklearn.feature_selection import SelectFromModel
+from sklearn.neural_network import MLPRegressor
 from rdkit import Chem
 from rdkit.Chem import Descriptors
+
+# Try to import XGBoost and CatBoost
+try:
+    import xgboost as xgb
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+    print("Warning: XGBoost not available")
+
+try:
+    import catboost as cb
+    CATBOOST_AVAILABLE = True
+except ImportError:
+    CATBOOST_AVAILABLE = False
+    print("Warning: CatBoost not available")
 
 warnings.filterwarnings("ignore")
 sns.set_style("whitegrid")
@@ -111,8 +127,8 @@ def generate_features(df, dft_descriptors):
     return X
 
 
-def plot_predictions(y_true, y_pred, target_name, r2, filename):
-    """Plot predicted vs true values"""
+def plot_cv_predictions(y_true, y_pred, target_name, r2, filename):
+    """Plot predicted vs true values from CV predictions"""
     plt.figure(figsize=(8, 8))
     plt.scatter(y_true, y_pred, alpha=0.6, s=60, edgecolor="none")
     
@@ -122,7 +138,7 @@ def plot_predictions(y_true, y_pred, target_name, r2, filename):
     
     plt.xlabel("True Values", fontsize=14, fontweight="bold")
     plt.ylabel("Predicted Values", fontsize=14, fontweight="bold")
-    plt.title(f"{target_name}: Predicted vs True\nR² = {r2:.4f}", fontsize=16, fontweight="bold")
+    plt.title(f"{target_name}: 5-Fold CV Predicted vs True\nR² = {r2:.4f}", fontsize=16, fontweight="bold")
     
     plt.legend(loc="lower right", fontsize=11)
     plt.tight_layout()
@@ -131,14 +147,40 @@ def plot_predictions(y_true, y_pred, target_name, r2, filename):
     plt.close()
 
 
-def train_best_models(X, y_yield, y_ee):
-    """Train best models with optimized parameters"""
+def evaluate_model(model, X, y, model_name, target_name, kf):
+    """Evaluate model using 5-fold CV and return results"""
+    print(f"\n  Training {model_name}...")
+    
+    # 5-fold CV scores
+    cv_scores = cross_val_score(model, X, y, cv=kf, scoring='r2', n_jobs=-1)
+    cv_r2_mean = cv_scores.mean()
+    cv_r2_std = cv_scores.std()
+    
+    # Cross-validated predictions for plotting
+    y_pred = cross_val_predict(model, X, y, cv=kf, n_jobs=-1)
+    overall_r2 = r2_score(y, y_pred)
+    
+    print(f"    5-Fold CV R²: {cv_r2_mean:.4f} (+/- {cv_r2_std:.4f})")
+    print(f"    Overall R² (all data): {overall_r2:.4f}")
+    
+    return {
+        'cv_r2_mean': cv_r2_mean,
+        'cv_r2_std': cv_r2_std,
+        'overall_r2': overall_r2,
+        'y_true': y,
+        'y_pred': y_pred,
+        'model': model
+    }
+
+
+def train_models_5fold_cv(X, y_yield, y_ee):
+    """Train multiple models using 5-fold CV on full dataset"""
     
     # Scale features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Add cross-features
+    # Add cross-features (ee for yield prediction, yield for ee prediction)
     scaler_yield = StandardScaler()
     scaler_ee = StandardScaler()
     yield_scaled = scaler_yield.fit_transform(y_yield.values.reshape(-1, 1))
@@ -149,99 +191,161 @@ def train_best_models(X, y_yield, y_ee):
     
     # ========== YIELD PREDICTION ==========
     print("\n" + "=" * 70)
-    print("YIELD PREDICTION")
+    print("YIELD PREDICTION - 5-Fold CV")
     print("=" * 70)
     
     # Use ee as auxiliary feature
     X_yield = np.hstack([X_scaled, ee_scaled])
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_yield, y_yield, test_size=0.15, random_state=42, shuffle=True
-    )
     
     # Feature selection
+    print("\n  Feature selection...")
     selector = SelectFromModel(ExtraTreesRegressor(n_estimators=200, random_state=42), 
                                max_features=600, threshold=-np.inf)
-    X_train_sel = selector.fit_transform(X_train, y_train)
-    X_test_sel = selector.transform(X_test)
-    print(f"Selected {X_train_sel.shape[1]} features")
+    X_yield_sel = selector.fit_transform(X_yield, y_yield)
+    print(f"  Selected {X_yield_sel.shape[1]} features")
     
-    # Best model for yield
-    print("\nTraining optimized Extra Trees for Yield...")
-    et_yield = ExtraTreesRegressor(
-        n_estimators=2000,
-        max_depth=20,
-        min_samples_split=5,
-        min_samples_leaf=2,
-        max_features=0.5,
-        random_state=42,
-        n_jobs=-1
-    )
-    et_yield.fit(X_train_sel, y_train)
-    y_pred_yield = et_yield.predict(X_test_sel)
-    
-    cv_scores_yield = cross_val_score(et_yield, X_train_sel, y_train, cv=kf, scoring='r2')
-    r2_yield = r2_score(y_test, y_pred_yield)
-    
-    print(f"  CV R²: {cv_scores_yield.mean():.4f} (+/- {cv_scores_yield.std():.4f})")
-    print(f"  Test R²: {r2_yield:.4f}")
-    
-    results['Yield'] = {
-        'cv_r2': cv_scores_yield.mean(),
-        'cv_std': cv_scores_yield.std(),
-        'test_r2': r2_yield,
-        'y_true': y_test,
-        'y_pred': y_pred_yield
+    # Define models for yield
+    yield_models = {
+        'ExtraTrees': ExtraTreesRegressor(
+            n_estimators=2000, max_depth=20, min_samples_split=5, 
+            min_samples_leaf=2, max_features=0.5, random_state=42, n_jobs=-1
+        ),
+        'RandomForest': RandomForestRegressor(
+            n_estimators=1500, max_depth=20, min_samples_split=5, 
+            min_samples_leaf=2, max_features=0.3, random_state=42, n_jobs=-1
+        ),
+        'GradientBoosting': GradientBoostingRegressor(
+            n_estimators=500, max_depth=6, learning_rate=0.05, 
+            min_samples_split=5, random_state=42
+        )
     }
     
-    plot_predictions(y_test, y_pred_yield, "Yield", r2_yield, "yield_v4.png")
+    # Add XGBoost if available
+    if XGBOOST_AVAILABLE:
+        yield_models['XGBoost'] = xgb.XGBRegressor(
+            n_estimators=1000, max_depth=8, learning_rate=0.05,
+            subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1
+        )
+    
+    # Add CatBoost if available
+    if CATBOOST_AVAILABLE:
+        yield_models['CatBoost'] = cb.CatBoostRegressor(
+            iterations=1000, depth=8, learning_rate=0.05,
+            verbose=False, random_state=42
+        )
+    
+    # Add Neural Network
+    yield_models['NeuralNetwork'] = MLPRegressor(
+        hidden_layer_sizes=(256, 128, 64), max_iter=1000,
+        early_stopping=True, validation_fraction=0.1,
+        random_state=42
+    )
+    
+    # Evaluate all models
+    yield_results = {}
+    best_yield_r2 = -np.inf
+    best_yield_model_name = None
+    
+    for name, model in yield_models.items():
+        result = evaluate_model(model, X_yield_sel, y_yield, name, "Yield", kf)
+        yield_results[name] = result
+        
+        if result['cv_r2_mean'] > best_yield_r2:
+            best_yield_r2 = result['cv_r2_mean']
+            best_yield_model_name = name
+    
+    # Plot best model
+    best_result = yield_results[best_yield_model_name]
+    plot_cv_predictions(
+        best_result['y_true'], best_result['y_pred'], 
+        f"Yield ({best_yield_model_name})", best_result['overall_r2'], 
+        "yield_v4.png"
+    )
+    
+    results['Yield'] = {
+        'best_model': best_yield_model_name,
+        'best_cv_r2': best_yield_r2,
+        'all_results': yield_results
+    }
     
     # ========== EE PREDICTION ==========
     print("\n" + "=" * 70)
-    print("ENANTIOMERIC EXCESS PREDICTION")
+    print("ENANTIOMERIC EXCESS PREDICTION - 5-Fold CV")
     print("=" * 70)
     
     # Use yield as auxiliary feature
     X_ee = np.hstack([X_scaled, yield_scaled])
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_ee, y_ee, test_size=0.15, random_state=42, shuffle=True
-    )
     
     # Feature selection
+    print("\n  Feature selection...")
     selector = SelectFromModel(RandomForestRegressor(n_estimators=200, random_state=42), 
                                max_features=500, threshold=-np.inf)
-    X_train_sel = selector.fit_transform(X_train, y_train)
-    X_test_sel = selector.transform(X_test)
-    print(f"Selected {X_train_sel.shape[1]} features")
+    X_ee_sel = selector.fit_transform(X_ee, y_ee)
+    print(f"  Selected {X_ee_sel.shape[1]} features")
     
-    # Best model for ee
-    print("\nTraining optimized RandomForest for ee...")
-    rf_ee = RandomForestRegressor(
-        n_estimators=1500,
-        max_depth=20,
-        min_samples_split=10,
-        min_samples_leaf=2,
-        max_features=0.3,
-        random_state=42,
-        n_jobs=-1
-    )
-    rf_ee.fit(X_train_sel, y_train)
-    y_pred_ee = rf_ee.predict(X_test_sel)
-    
-    cv_scores_ee = cross_val_score(rf_ee, X_train_sel, y_train, cv=kf, scoring='r2')
-    r2_ee = r2_score(y_test, y_pred_ee)
-    
-    print(f"  CV R²: {cv_scores_ee.mean():.4f} (+/- {cv_scores_ee.std():.4f})")
-    print(f"  Test R²: {r2_ee:.4f}")
-    
-    results['ee'] = {
-        'cv_r2': cv_scores_ee.mean(),
-        'cv_std': cv_scores_ee.std(),
-        'test_r2': r2_ee,
-        'y_true': y_test,
-        'y_pred': y_pred_ee
+    # Define models for ee
+    ee_models = {
+        'RandomForest': RandomForestRegressor(
+            n_estimators=1500, max_depth=20, min_samples_split=10, 
+            min_samples_leaf=2, max_features=0.3, random_state=42, n_jobs=-1
+        ),
+        'ExtraTrees': ExtraTreesRegressor(
+            n_estimators=2000, max_depth=20, min_samples_split=5, 
+            min_samples_leaf=2, max_features=0.5, random_state=42, n_jobs=-1
+        ),
+        'GradientBoosting': GradientBoostingRegressor(
+            n_estimators=500, max_depth=6, learning_rate=0.05, 
+            min_samples_split=5, random_state=42
+        )
     }
     
-    plot_predictions(y_test, y_pred_ee, "Enantiomeric Excess", r2_ee, "ee_v4.png")
+    # Add XGBoost if available
+    if XGBOOST_AVAILABLE:
+        ee_models['XGBoost'] = xgb.XGBRegressor(
+            n_estimators=1000, max_depth=8, learning_rate=0.05,
+            subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1
+        )
+    
+    # Add CatBoost if available
+    if CATBOOST_AVAILABLE:
+        ee_models['CatBoost'] = cb.CatBoostRegressor(
+            iterations=1000, depth=8, learning_rate=0.05,
+            verbose=False, random_state=42
+        )
+    
+    # Add Neural Network
+    ee_models['NeuralNetwork'] = MLPRegressor(
+        hidden_layer_sizes=(256, 128, 64), max_iter=1000,
+        early_stopping=True, validation_fraction=0.1,
+        random_state=42
+    )
+    
+    # Evaluate all models
+    ee_results = {}
+    best_ee_r2 = -np.inf
+    best_ee_model_name = None
+    
+    for name, model in ee_models.items():
+        result = evaluate_model(model, X_ee_sel, y_ee, name, "ee", kf)
+        ee_results[name] = result
+        
+        if result['cv_r2_mean'] > best_ee_r2:
+            best_ee_r2 = result['cv_r2_mean']
+            best_ee_model_name = name
+    
+    # Plot best model
+    best_result = ee_results[best_ee_model_name]
+    plot_cv_predictions(
+        best_result['y_true'], best_result['y_pred'], 
+        f"Enantiomeric Excess ({best_ee_model_name})", best_result['overall_r2'], 
+        "ee_v4.png"
+    )
+    
+    results['ee'] = {
+        'best_model': best_ee_model_name,
+        'best_cv_r2': best_ee_r2,
+        'all_results': ee_results
+    }
     
     return results
 
@@ -249,7 +353,7 @@ def train_best_models(X, y_yield, y_ee):
 def main():
     """Main function"""
     print("=" * 70)
-    print("Model v4 - RDKit Descriptors + DFT Descriptors (No Fingerprints)")
+    print("Model v4 - RDKit Descriptors + DFT Descriptors (5-Fold CV)")
     print("=" * 70)
     
     # Load data
@@ -265,43 +369,48 @@ def main():
     y_yield = df["yield"]
     y_ee = df["ee"]
     
-    # Train best models
-    results = train_best_models(X, y_yield, y_ee)
+    # Train models with 5-fold CV
+    results = train_models_5fold_cv(X, y_yield, y_ee)
     
     # Final summary
     print("\n" + "=" * 70)
-    print("FINAL SUMMARY")
+    print("FINAL SUMMARY - 5-Fold CV Results")
     print("=" * 70)
     
-    yield_cv = results['Yield']['cv_r2']
-    yield_std = results['Yield']['cv_std']
-    yield_test = results['Yield']['test_r2']
+    # Yield results
+    print("\nYield Prediction Results:")
+    yield_best = results['Yield']['best_model']
+    yield_best_r2 = results['Yield']['best_cv_r2']
+    print(f"  Best Model: {yield_best}")
+    print(f"  Best CV R²: {yield_best_r2:.4f}")
     
-    ee_cv = results['ee']['cv_r2']
-    ee_std = results['ee']['cv_std']
-    ee_test = results['ee']['test_r2']
+    print("\n  All Models:")
+    for name, result in results['Yield']['all_results'].items():
+        status = "✅" if result['cv_r2_mean'] >= 0.6 else "⚠️"
+        print(f"    {status} {name:20s}: CV R² = {result['cv_r2_mean']:.4f} (+/- {result['cv_r2_std']:.4f})")
     
-    print(f"\nYield Prediction:")
-    print(f"  CV R²:  {yield_cv:.4f} (+/- {yield_std:.4f})")
-    print(f"  Test R²: {yield_test:.4f}")
-    status_yield = "✅ >= 0.7" if yield_cv >= 0.7 else ("✅ >= 0.6" if yield_cv >= 0.6 else "⚠️ < 0.6")
-    print(f"  Status: {status_yield}")
+    # ee results
+    print("\nEnantiomeric Excess Prediction Results:")
+    ee_best = results['ee']['best_model']
+    ee_best_r2 = results['ee']['best_cv_r2']
+    print(f"  Best Model: {ee_best}")
+    print(f"  Best CV R²: {ee_best_r2:.4f}")
     
-    print(f"\nEnantiomeric Excess Prediction:")
-    print(f"  CV R²:  {ee_cv:.4f} (+/- {ee_std:.4f})")
-    print(f"  Test R²: {ee_test:.4f}")
-    status_ee = "✅ >= 0.7" if ee_cv >= 0.7 else ("✅ >= 0.6" if ee_cv >= 0.6 else "⚠️ < 0.6")
-    print(f"  Status: {status_ee}")
+    print("\n  All Models:")
+    for name, result in results['ee']['all_results'].items():
+        status = "✅" if result['cv_r2_mean'] >= 0.6 else "⚠️"
+        print(f"    {status} {name:20s}: CV R² = {result['cv_r2_mean']:.4f} (+/- {result['cv_r2_std']:.4f})")
     
+    # Overall status
     print(f"\n{'='*70}")
-    print("Comparison with v3 (RDKit + Fingerprints):")
-    print(f"  Yield: {yield_cv:.4f} vs 0.6345 (v3)")
-    print(f"  ee:    {ee_cv:.4f} vs 0.6447 (v3)")
-    
-    if yield_cv >= 0.6 and ee_cv >= 0.6:
-        print("\n🎉 SUCCESS! Both targets achieved R² >= 0.6!")
+    if yield_best_r2 >= 0.6 and ee_best_r2 >= 0.6:
+        print("🎉 SUCCESS! Both targets achieved 5-Fold CV R² >= 0.6!")
     else:
-        print(f"\nNote: Using RDKit Descriptors + DFT only")
+        print("⚠️  Some targets did not reach R² >= 0.6")
+        if yield_best_r2 < 0.6:
+            print(f"   Yield gap: {0.6 - yield_best_r2:.4f}")
+        if ee_best_r2 < 0.6:
+            print(f"   ee gap: {0.6 - ee_best_r2:.4f}")
     print("=" * 70)
 
 

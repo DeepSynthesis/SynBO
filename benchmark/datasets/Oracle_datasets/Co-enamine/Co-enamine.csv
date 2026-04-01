@@ -59,10 +59,10 @@ round_id,batch_id,amine_smiles_ion,amine_smiles_anion,cobalt_smiles,oxidant_smil
 1,13,C[n+]1ccn(C[C@@H]([NH3+])C(C)(C)C)c1,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCCN1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)[O][K],ClCCCl,5,20
 1,13,C[n+]1ccn(C[C@@H]([NH3+])C(C)(C)C)c1,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)C(C)(C)C(C)(C)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)[O][K],ClCCl,0,0
 1,13,C[n+]1ccn(C[C@@H]([NH3+])C(C)(C)C)c1,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,CN(C)c1ccncc1,ClCCl,6,29
-1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,C1=N2[Co]3(N(=Cc4cc5ccccc5cc4O3)CC2)Oc2cc3ccccc3cc21,O=C1CCC(=O)N1Cl,c1ccncc1,ClCCCl,17,-13
-1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)[O][K],ClCCl,43,-25
+1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,C1=N2[Co]3(N(=Cc4cc5ccccc5cc4O3)CC2)Oc2cc3ccccc3cc21,O=C1CCC(=O)N1Cl,c1ccncc1,ClCCCl,17,13
+1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)[O][K],ClCCl,43,25
 1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)[O][Na],ClCCCl,59,83
-1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,8,-9
+1,14,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,8,9
 1,14,CC(C)(C)[NH2+]C[C@@H](N)C(C)(C)C,O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCCN1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,c1ccncc1,ClCCl,28,85
 1,15,CC(C)(C)[NH2+]C[C@@H](N)C(C)(C)C,O=S(=O)([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)C(C)(C)C(C)(C)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)[O][Na],ClCCCl,46,90
 1,15,CC(C)(C)[NH2+]C[C@@H](N)C(C)(C)C,O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,F[n+]1ccccc1,O=C(O)[O][Na],ClCCl,48,83
@@ -191,7 +191,7 @@ round_id,batch_id,amine_smiles_ion,amine_smiles_anion,cobalt_smiles,oxidant_smil
 3,13,CC(C)(C)[C@H](N)C[NH+]1CCC(F)(F)C1,O=C([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,47,65
 3,13,C[NH+](C[C@@H](N)C(C)(C)C)c1ccncc1,O=S(=O)([O-])C(F)(F)F,Cl[Co]1(Cl)[P](c2ccccc2)(c2ccccc2)CC[P]1(c1ccccc1)c1ccccc1,Cc1cc(C)[n+](F)c(C)c1,blanck_cell,ClCCl,0,0
 3,13,CC(C)(C)[C@H](N)C[NH+]1CCOCC1,O=C([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCl,42,66
-3,13,N[C@@H]1CCCC[C@H]1[NH+](Cc1ccccc1)Cc1ccccc1,O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,F[N+]12CC[N+](CCl)(CC1)CC2,blanck_cell,ClCCCl,44,-4
+3,13,N[C@@H]1CCCC[C@H]1[NH+](Cc1ccccc1)Cc1ccccc1,O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,F[N+]12CC[N+](CCl)(CC1)CC2,blanck_cell,ClCCCl,44,4
 3,14,CC(C)(C)[C@H](N)C[NH+]1CCCCC1,O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,34,74
 3,14,CC(C)(C)[C@H](N)C[NH2+]C12C[C@H]3C[C@@H](C1)C[C@@H](C2)C3,O=C([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,27,73
 3,14,CC(C)(C)[NH2+]C[C@@H](N)C(C)(C)C,O=S(=O)([N-]S(=O)(=O)C(F)(F)F)C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,CC#N,28,33
@@ -206,7 +206,7 @@ round_id,batch_id,amine_smiles_ion,amine_smiles_anion,cobalt_smiles,oxidant_smil
 3,16,CC(C)[C@H](N)C[NH+]1CCOCC1,O=S(=O)([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,24,70
 3,16,CC(C)(C)[C@H](N)C[NH+]1CCOCC1,O=C([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,37,63
 3,16,CC(C)(C)[C@H](N)C[NH+]1CCCCC1,O=S(=O)([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,33,58
-3,16,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,20,-24
+3,16,[NH3+][C@@H]1CCCC[C@H]1NC(=O)C(F)(F)F,O=S(=O)([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,O=C(O)c1ccccc1,ClCCCl,20,24
 3,17,CC(C)(C)[C@H](N)C[NH+]1CCC(F)(F)C1,O=C([O-])C(F)(F)F,CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,blanck_cell,ClCCl,43,63
 3,17,CC(C)(C)[C@H](N)C[NH+]1CCOCC1,O=C([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1CCC(=O)N1Cl,blanck_cell,ClCCCl,37,71
 3,17,CC(C)(C)[C@H](N)C[NH+]1CCC(F)(F)C1,O=C([O-])C(F)(F)F,COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,O=C1c2ccccc2C(=O)N1Cl,blanck_cell,ClC(Cl)Cl,25,20

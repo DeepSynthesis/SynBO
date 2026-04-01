@@ -62,6 +62,78 @@ def load_data():
     return df, dft_descriptors
 
 
+def get_rdkit_descriptor_names():
+    """Get RDKit descriptor names"""
+    return [desc_name for desc_name, _ in Descriptors._descList]
+
+
+def generate_and_save_combined_descriptors(df, dft_descriptors, output_dir="descriptors"):
+    """Generate RDKit descriptors, combine with DFT descriptors, and save to files"""
+    smiles_cols = ["amine_smiles", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
+    
+    # Mapping from column names to output file names
+    output_files = {
+        "amine_smiles": "amine_desc_combined.csv",
+        "cobalt_smiles": "cobalt_desc_combined.csv",
+        "oxidant_smiles": "oxidant_desc_combined.csv",
+        "alkali_smiles": "alkali_desc_combined.csv",
+        "solvent_smiles": "solvent_desc_combined.csv",
+    }
+    
+    # Get RDKit descriptor names
+    rdkit_names = get_rdkit_descriptor_names()
+    
+    print("Generating and saving combined descriptors (RDKit + DFT)...")
+    
+    for smiles_col in smiles_cols:
+        print(f"  Processing {smiles_col}...")
+        
+        # Get unique SMILES for this column
+        unique_smiles = df[smiles_col].unique()
+        
+        # Generate RDKit descriptors for unique SMILES
+        rdkit_descs = []
+        for smiles in unique_smiles:
+            desc = smiles_to_descriptors(smiles)
+            rdkit_descs.append(desc)
+        
+        rdkit_descs = np.array(rdkit_descs)
+        
+        # Create DataFrame with SMILES as index, using actual RDKit descriptor names
+        rdkit_cols = [f"rdkit_{name}" for name in rdkit_names]
+        combined_df = pd.DataFrame(data=rdkit_descs, index=unique_smiles, columns=rdkit_cols)
+        combined_df.index.name = "SMILES"
+        
+        # Add DFT descriptors if available
+        if dft_descriptors[smiles_col] is not None:
+            dft_df = dft_descriptors[smiles_col]
+            dft_features = []
+            for smiles in unique_smiles:
+                if smiles in dft_df.index:
+                    dft_features.append(dft_df.loc[smiles].values)
+                else:
+                    dft_features.append(np.zeros(dft_df.shape[1]))
+            
+            dft_features = np.array(dft_features)
+            # Use actual DFT descriptor names from the original DFT file
+            dft_cols = [f"dft_{name}" for name in dft_df.columns]
+            dft_feature_df = pd.DataFrame(data=dft_features, index=unique_smiles, columns=dft_cols)
+            dft_feature_df.index.name = "SMILES"
+            
+            # Combine RDKit and DFT descriptors
+            combined_df = pd.concat([combined_df, dft_feature_df], axis=1)
+            print(f"    RDKit: {rdkit_descs.shape[1]} features, DFT: {dft_features.shape[1]} features, Total: {combined_df.shape[1]} features")
+        else:
+            print(f"    RDKit: {rdkit_descs.shape[1]} features, DFT: 0 features, Total: {combined_df.shape[1]} features")
+        
+        # Save to file
+        output_path = f"{output_dir}/{output_files[smiles_col]}"
+        combined_df.to_csv(output_path)
+        print(f"    Saved to {output_path}")
+    
+    print("Combined descriptors generation completed!\n")
+
+
 def generate_features(df, dft_descriptors):
     """Generate features using RDKit descriptors and DFT descriptors only"""
     feature_list = []
@@ -213,6 +285,9 @@ def main():
     print("\nLoading data...")
     df, dft_descriptors = load_data()
     print(f"\nDataset: {df.shape[0]} samples")
+
+    # Generate and save combined descriptors
+    generate_and_save_combined_descriptors(df, dft_descriptors, output_dir="descriptors")
 
     # Generate features
     print("\nGenerating Features (RDKit Descriptors + DFT)...")

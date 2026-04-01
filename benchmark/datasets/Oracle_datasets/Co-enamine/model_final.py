@@ -14,38 +14,17 @@ import xgboost as xgb
 sns.set_style("whitegrid")
 
 
-def smiles_to_descriptors(smiles):
-    """Generate RDKit molecular descriptors only"""
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return np.zeros(len(Descriptors._descList))
-
-        desc_list = []
-        for _, desc_func in Descriptors._descList:
-            try:
-                val = desc_func(mol)
-                if np.isnan(val) or np.isinf(val):
-                    val = 0
-                desc_list.append(val)
-            except:
-                desc_list.append(0)
-        return np.array(desc_list)
-    except:
-        return np.zeros(len(Descriptors._descList))
-
-
 def load_data():
     """Load main dataset and DFT descriptor files"""
     df = pd.read_csv("Co-enamine.csv")
 
     # Load DFT descriptors
     dft_files = {
-        "amine_smiles": "descriptors/amine_desc_dft.csv",
-        "cobalt_smiles": "descriptors/cobalt_desc_dft.csv",
-        "oxidant_smiles": "descriptors/oxidant_desc_dft.csv",
-        "alkali_smiles": "descriptors/alkali_desc_dft.csv",
-        "solvent_smiles": "descriptors/solvent_desc_dft.csv",
+        "amine_smiles": "descriptors/amine_desc.csv",
+        "cobalt_smiles": "descriptors/cobalt_desc.csv",
+        "oxidant_smiles": "descriptors/oxidant_desc.csv",
+        "alkali_smiles": "descriptors/alkali_desc.csv",
+        "solvent_smiles": "descriptors/solvent_desc.csv",
     }
 
     dft_descriptors = {}
@@ -70,7 +49,7 @@ def get_rdkit_descriptor_names():
 def generate_and_save_combined_descriptors(df, dft_descriptors, output_dir="descriptors"):
     """Generate RDKit descriptors, combine with DFT descriptors, and save to files"""
     smiles_cols = ["amine_smiles", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
-    
+
     # Mapping from column names to output file names
     output_files = {
         "amine_smiles": "amine_desc_combined.csv",
@@ -79,31 +58,31 @@ def generate_and_save_combined_descriptors(df, dft_descriptors, output_dir="desc
         "alkali_smiles": "alkali_desc_combined.csv",
         "solvent_smiles": "solvent_desc_combined.csv",
     }
-    
+
     # Get RDKit descriptor names
     rdkit_names = get_rdkit_descriptor_names()
-    
+
     print("Generating and saving combined descriptors (RDKit + DFT)...")
-    
+
     for smiles_col in smiles_cols:
         print(f"  Processing {smiles_col}...")
-        
+
         # Get unique SMILES for this column
         unique_smiles = df[smiles_col].unique()
-        
+
         # Generate RDKit descriptors for unique SMILES
         rdkit_descs = []
         for smiles in unique_smiles:
             desc = smiles_to_descriptors(smiles)
             rdkit_descs.append(desc)
-        
+
         rdkit_descs = np.array(rdkit_descs)
-        
+
         # Create DataFrame with SMILES as index, using actual RDKit descriptor names
         rdkit_cols = [f"rdkit_{name}" for name in rdkit_names]
         combined_df = pd.DataFrame(data=rdkit_descs, index=unique_smiles, columns=rdkit_cols)
         combined_df.index.name = "SMILES"
-        
+
         # Add DFT descriptors if available
         if dft_descriptors[smiles_col] is not None:
             dft_df = dft_descriptors[smiles_col]
@@ -113,24 +92,26 @@ def generate_and_save_combined_descriptors(df, dft_descriptors, output_dir="desc
                     dft_features.append(dft_df.loc[smiles].values)
                 else:
                     dft_features.append(np.zeros(dft_df.shape[1]))
-            
+
             dft_features = np.array(dft_features)
             # Use actual DFT descriptor names from the original DFT file
             dft_cols = [f"dft_{name}" for name in dft_df.columns]
             dft_feature_df = pd.DataFrame(data=dft_features, index=unique_smiles, columns=dft_cols)
             dft_feature_df.index.name = "SMILES"
-            
+
             # Combine RDKit and DFT descriptors
             combined_df = pd.concat([combined_df, dft_feature_df], axis=1)
-            print(f"    RDKit: {rdkit_descs.shape[1]} features, DFT: {dft_features.shape[1]} features, Total: {combined_df.shape[1]} features")
+            print(
+                f"    RDKit: {rdkit_descs.shape[1]} features, DFT: {dft_features.shape[1]} features, Total: {combined_df.shape[1]} features"
+            )
         else:
             print(f"    RDKit: {rdkit_descs.shape[1]} features, DFT: 0 features, Total: {combined_df.shape[1]} features")
-        
+
         # Save to file
         output_path = f"{output_dir}/{output_files[smiles_col]}"
         combined_df.to_csv(output_path)
         print(f"    Saved to {output_path}")
-    
+
     print("Combined descriptors generation completed!\n")
 
 

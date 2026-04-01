@@ -5,56 +5,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split, cross_val_score, KFold
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
 from sklearn.feature_selection import SelectFromModel
 from rdkit import Chem
-from rdkit.Chem import AllChem, Descriptors
-from rdkit.Chem import MACCSkeys, rdMolDescriptors
+from rdkit.Chem import Descriptors
 
 warnings.filterwarnings("ignore")
 sns.set_style("whitegrid")
 
 
-def smiles_to_fingerprints(smiles, radius=2, n_bits=2048):
-    """Convert SMILES to Morgan fingerprints"""
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return np.zeros(n_bits)
-        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=radius, nBits=n_bits)
-        return np.array(fp)
-    except:
-        return np.zeros(n_bits)
-
-
-def smiles_to_maccs(smiles):
-    """Convert SMILES to MACCS keys"""
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return np.zeros(167)
-        fp = MACCSkeys.GenMACCSKeys(mol)
-        return np.array(fp)
-    except:
-        return np.zeros(167)
-
-
-def smiles_to_rdkit_fp(smiles, n_bits=2048):
-    """Convert SMILES to RDKit topological fingerprints"""
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return np.zeros(n_bits)
-        fp = rdMolDescriptors.GetHashedTopologicalTorsionFingerprintAsBitVect(mol, nBits=n_bits)
-        return np.array(fp)
-    except:
-        return np.zeros(n_bits)
-
-
 def smiles_to_descriptors(smiles):
-    """Generate RDKit molecular descriptors"""
+    """Generate RDKit molecular descriptors only"""
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
@@ -103,66 +65,26 @@ def load_data():
     return df, dft_descriptors
 
 
-def generate_enhanced_features(df, dft_descriptors):
-    """Generate enhanced features using RDKit fingerprints and DFT descriptors"""
+def generate_features(df, dft_descriptors):
+    """Generate features using RDKit descriptors and DFT descriptors only"""
     feature_list = []
     smiles_cols = ['amine_smiles_ion', 'amine_smiles_anion', 'cobalt_smiles', 
                    'oxidant_smiles', 'alkali_smiles', 'solvent_smiles']
     
-    print("Generating molecular fingerprints and adding DFT descriptors...")
+    print("Generating RDKit descriptors and adding DFT descriptors...")
     
     for smiles_col in smiles_cols:
         print(f"  Processing {smiles_col}...")
         
-        # RDKit fingerprints
-        morgan_fps = []
-        maccs_fps = []
-        rdkit_fps = []
+        # RDKit descriptors only (no fingerprints)
         rdkit_descs = []
-        
         for smiles in df[smiles_col]:
-            morgan = smiles_to_fingerprints(smiles, radius=2, n_bits=2048)
-            morgan_fps.append(morgan)
-            
-            maccs = smiles_to_maccs(smiles)
-            maccs_fps.append(maccs)
-            
-            rdkit = smiles_to_rdkit_fp(smiles, n_bits=2048)
-            rdkit_fps.append(rdkit)
-            
             desc = smiles_to_descriptors(smiles)
             rdkit_descs.append(desc)
         
-        morgan_fps = np.array(morgan_fps)
-        maccs_fps = np.array(maccs_fps)
-        rdkit_fps = np.array(rdkit_fps)
         rdkit_descs = np.array(rdkit_descs)
-        
-        # PCA reduction for high-dimensional features
-        n_comp_morgan = min(100, morgan_fps.shape[1])
-        n_comp_rdkit = min(100, rdkit_fps.shape[1])
-        n_comp_desc = min(50, rdkit_descs.shape[1])
-        
-        pca_morgan = PCA(n_components=n_comp_morgan, random_state=42)
-        pca_rdkit = PCA(n_components=n_comp_rdkit, random_state=42)
-        pca_desc = PCA(n_components=n_comp_desc, random_state=42)
-        
-        morgan_reduced = pca_morgan.fit_transform(morgan_fps)
-        rdkit_reduced = pca_rdkit.fit_transform(rdkit_fps)
-        desc_reduced = pca_desc.fit_transform(rdkit_descs)
-        
-        # Combine RDKit features
-        morgan_cols = [f"{smiles_col}_morgan_{i}" for i in range(n_comp_morgan)]
-        maccs_cols = [f"{smiles_col}_maccs_{i}" for i in range(167)]
-        rdkit_cols = [f"{smiles_col}_rdkit_{i}" for i in range(n_comp_rdkit)]
-        desc_cols = [f"{smiles_col}_desc_{i}" for i in range(n_comp_desc)]
-        
-        morgan_df = pd.DataFrame(data=morgan_reduced, columns=morgan_cols)
-        maccs_df = pd.DataFrame(data=maccs_fps, columns=maccs_cols)
-        rdkit_df = pd.DataFrame(data=rdkit_reduced, columns=rdkit_cols)
-        desc_df = pd.DataFrame(data=desc_reduced, columns=desc_cols)
-        
-        combined = pd.concat([morgan_df, maccs_df, rdkit_df, desc_df], axis=1)
+        desc_cols = [f"{smiles_col}_rdkitdesc_{i}" for i in range(rdkit_descs.shape[1])]
+        desc_df = pd.DataFrame(data=rdkit_descs, columns=desc_cols)
         
         # Add DFT descriptors if available
         if dft_descriptors[smiles_col] is not None:
@@ -177,8 +99,11 @@ def generate_enhanced_features(df, dft_descriptors):
             dft_features = np.array(dft_features)
             dft_cols = [f"{smiles_col}_dft_{i}" for i in range(dft_features.shape[1])]
             dft_feature_df = pd.DataFrame(data=dft_features, columns=dft_cols)
-            combined = pd.concat([combined, dft_feature_df], axis=1)
-            print(f"    Added {dft_features.shape[1]} DFT features")
+            combined = pd.concat([desc_df, dft_feature_df], axis=1)
+            print(f"    RDKit: {rdkit_descs.shape[1]} features, DFT: {dft_features.shape[1]} features")
+        else:
+            combined = desc_df
+            print(f"    RDKit: {rdkit_descs.shape[1]} features, DFT: 0 features")
         
         feature_list.append(combined)
     
@@ -324,7 +249,7 @@ def train_best_models(X, y_yield, y_ee):
 def main():
     """Main function"""
     print("=" * 70)
-    print("Model v4 - DFT + RDKit Descriptors")
+    print("Model v4 - RDKit Descriptors + DFT Descriptors (No Fingerprints)")
     print("=" * 70)
     
     # Load data
@@ -332,9 +257,9 @@ def main():
     df, dft_descriptors = load_data()
     print(f"\nDataset: {df.shape[0]} samples")
     
-    # Generate enhanced features
-    print("\nGenerating Enhanced Features (RDKit + DFT)...")
-    X = generate_enhanced_features(df, dft_descriptors)
+    # Generate features
+    print("\nGenerating Features (RDKit Descriptors + DFT)...")
+    X = generate_features(df, dft_descriptors)
     print(f"\nTotal features: {X.shape[1]}")
     
     y_yield = df["yield"]
@@ -369,14 +294,14 @@ def main():
     print(f"  Status: {status_ee}")
     
     print(f"\n{'='*70}")
-    print("Comparison with v3 (no DFT):")
+    print("Comparison with v3 (RDKit + Fingerprints):")
     print(f"  Yield: {yield_cv:.4f} vs 0.6345 (v3)")
     print(f"  ee:    {ee_cv:.4f} vs 0.6447 (v3)")
     
     if yield_cv >= 0.6 and ee_cv >= 0.6:
         print("\n🎉 SUCCESS! Both targets achieved R² >= 0.6!")
     else:
-        print(f"\nNote: DFT descriptors added {X.shape[1] - 2502} extra features")
+        print(f"\nNote: Using RDKit Descriptors + DFT only")
     print("=" * 70)
 
 

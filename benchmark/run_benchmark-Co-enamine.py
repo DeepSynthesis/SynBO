@@ -51,12 +51,12 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
+        "use_edbo": True,  # Set to True to use EDBO+ optimization instead of default BO
         "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
-        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
         "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
         "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)

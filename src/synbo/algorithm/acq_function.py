@@ -267,6 +267,7 @@ class BaseAcquisitionFunction:
 
                 best_idx = torch.argmax(acq_values)
 
+                
                 candidate_list.append(choices_batched[best_idx])
                 acq_value_list.append(acq_values[best_idx])
                 # set pending points

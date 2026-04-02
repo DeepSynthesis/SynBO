@@ -1,0 +1,6 @@
+batch,index,type,alkali,amine,cobalt,oxidant,solvent,pred yield,pred ee,yield,ee
+0,1,explore,Cs2CO3,amine1-TfOH,[Co]-1,KHSO5,PhMe,-,-,10.272321998605582,42.968624381539016
+0,2,explore,blanck_cell,amine1-TfOH,[Co]-1,IBA,Et2O,-,-,22.789212801096507,17.660291338862805
+0,3,explore,Py,amine1-TfOH,[Co]-1,N-Chlorosaccharin,Chloroform,-,-,14.80187908903086,42.60609587397097
+0,4,explore,DBU,amine1-TfOH,[Co]-1,KHSO5,Et2O,-,-,7.210816067100797,19.37493778748937
+0,5,explore,Na2CO3,amine1-TfOH,[Co]-1,NFPy,HFIP,-,-,4.156282100673436,38.94736755818182

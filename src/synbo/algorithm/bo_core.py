@@ -44,7 +44,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 16, 16
+            self.mc_num_samples, self.max_batch_size = 64, 2048
         self.device = device
 
         if surrogate_model == "GP":
@@ -204,7 +204,7 @@ class DefaultBO:
             #         device=self.device,
             #     )
 
-            candidate_X_t = candidate_X_t[constraint_mask_t] if candidate_X_t is not None else None
+            candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(

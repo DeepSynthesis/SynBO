@@ -218,8 +218,6 @@ class BaseAcquisitionFunction:
         #     max_batch_size=max_batch_size,
         # )
 
-        print("aaa")
-
         acq_result = self._new_optimize_acqf_discrete(
             acq_function=acq_func,
             choices=choices,
@@ -227,6 +225,8 @@ class BaseAcquisitionFunction:
             unique=unique,
             max_batch_size=max_batch_size,
             unused_reagent_boost=unused_reagent_boost,
+            progress=progress,
+            task=task,
         )
 
         # acq_result is a tuple of (candidates, acquisition_values)
@@ -236,7 +236,7 @@ class BaseAcquisitionFunction:
 
         return selected_candidates, acquisition_values
 
-    def _new_optimize_acqf_discrete(self, acq_function, q, choices, max_batch_size, unique, unused_reagent_boost: Tensor = None):
+    def _new_optimize_acqf_discrete(self, acq_function, q, choices, max_batch_size, unique, unused_reagent_boost: Tensor = None, progress: object = None, task: object = None):
 
         def _split_batch_eval_acqf(acq_function, X, max_batch_size):
             return torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
@@ -246,6 +246,8 @@ class BaseAcquisitionFunction:
             candidate_list, acq_value_list = [], []
             base_X_pending = acq_function.X_pending
             for q_i in range(q):
+                if progress and task:
+                    progress.update(task, advance=1)
                 with torch.no_grad():
                     acq_values = _split_batch_eval_acqf(
                         acq_function=acq_function,
@@ -771,7 +773,8 @@ class ParetoFrontCalculator:
             return np.array([])
         pareto_front = [points[0]]  # Initialize list of Pareto optimal points
         for point in points[1:]:
-            # progress.update(task, advance=1)
+            if progress and task:
+                progress.update(task, advance=1)
             is_pareto = True
             to_remove = []
             # Compare with all points in current Pareto front

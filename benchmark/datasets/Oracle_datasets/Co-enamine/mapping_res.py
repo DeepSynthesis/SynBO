@@ -41,11 +41,11 @@ def load_data():
     df = pd.read_csv("Co-enamine.csv")
 
     dft_files = {
-        "amine_smiles": "descriptors/amine_desc_dft.csv",
-        "cobalt_smiles": "descriptors/cobalt_desc_dft.csv",
-        "oxidant_smiles": "descriptors/oxidant_desc_dft.csv",
-        "alkali_smiles": "descriptors/alkali_desc_dft.csv",
-        "solvent_smiles": "descriptors/solvent_desc_dft.csv",
+        "amine": "descriptors/amine_desc_dft.csv",
+        "cobalt": "descriptors/cobalt_desc_dft.csv",
+        "oxidant": "descriptors/oxidant_desc_dft.csv",
+        "alkali": "descriptors/alkali_desc_dft.csv",
+        "solvent": "descriptors/solvent_desc_dft.csv",
     }
 
     dft_descriptors = {}
@@ -64,7 +64,7 @@ def load_data():
 
 def get_unique_reagents(df):
     """Get unique reagents for each column"""
-    smiles_cols = ["amine_smiles", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
+    smiles_cols = ["amine", "cobalt", "oxidant", "alkali", "solvent"]
     unique_reagents = {}
     for col in smiles_cols:
         unique_reagents[col] = df[col].unique()
@@ -103,7 +103,7 @@ def precompute_features(unique_reagents, dft_descriptors):
 # ================== 核心优化 2：向量化拼接特征 ==================
 def assemble_features_fast(df, precomputed_dict):
     """Assemble feature matrix using precomputed dictionaries (orders of magnitude faster)"""
-    smiles_cols = ["amine_smiles", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
+    smiles_cols = ["amine", "cobalt", "oxidant", "alkali", "solvent"]
 
     parts = []
     for col in smiles_cols:
@@ -118,7 +118,7 @@ def assemble_features_fast(df, precomputed_dict):
 
 def create_cartesian_product(unique_reagents):
     """Create cartesian product of all reagent combinations"""
-    smiles_cols = ["amine_smiles", "cobalt_smiles", "oxidant_smiles", "alkali_smiles", "solvent_smiles"]
+    smiles_cols = ["amine", "cobalt", "oxidant", "alkali", "solvent"]
     reagent_lists = [unique_reagents[col] for col in smiles_cols]
     all_combinations = list(product(*reagent_lists))
     df_cartesian = pd.DataFrame(all_combinations, columns=smiles_cols)
@@ -129,26 +129,28 @@ def create_cartesian_product(unique_reagents):
 def train_models(X, y_yield, y_ee):
     """Train yield and ee models with optimized parameters"""
     yield_params = {
-        "n_estimators": 300,
-        "max_depth": 8,
-        "learning_rate": 0.0476,
-        "subsample": 0.991,
-        "colsample_bytree": 0.930,
-        "reg_alpha": 0.228,
-        "reg_lambda": 0.907,
-        "min_child_weight": 2,
-        "gamma": 0.152,
+        "n_estimators": 2650,
+        "max_depth": 14,
+        "learning_rate": 0.0013881177423179518,
+        "subsample": 0.8832263299249901,
+        "colsample_bytree": 0.7903362550905764,
+        "reg_alpha": 1.3089861430282985,
+        "reg_lambda": 1.5737502114895576,
+        "min_child_weight": 8,
+        "gamma": 0.7509204269440869,
+        "n_features": 200,
     }
     ee_params = {
-        "n_estimators": 2000,
-        "max_depth": 14,
-        "learning_rate": 0.0186,
-        "subsample": 0.842,
-        "colsample_bytree": 0.869,
-        "reg_alpha": 0.988,
-        "reg_lambda": 0.330,
-        "min_child_weight": 1,
-        "gamma": 0.497,
+        "n_estimators": 2450,
+        "max_depth": 11,
+        "learning_rate": 0.0013346474415975344,
+        "subsample": 0.933922897579847,
+        "colsample_bytree": 0.869612716429276,
+        "reg_alpha": 1.5160690367861887,
+        "reg_lambda": 0.9174612897194362,
+        "min_child_weight": 4,
+        "gamma": 0.606792312408108,
+        "n_features": 200,
     }
 
     scaler = StandardScaler()

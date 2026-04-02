@@ -152,27 +152,29 @@ def main():
 
     # Optimized parameters from hyperopt
     yield_params = {
-        "n_estimators": 300,
-        "max_depth": 8,
-        "learning_rate": 0.04766270340088169,
-        "subsample": 0.991714776103226,
-        "colsample_bytree": 0.9303831360618628,
-        "reg_alpha": 0.22874493399616896,
-        "reg_lambda": 0.9070719206144939,
-        "min_child_weight": 2,
-        "gamma": 0.15215320156702056,
+        "n_estimators": 2650,
+        "max_depth": 14,
+        "learning_rate": 0.0013881177423179518,
+        "subsample": 0.8832263299249901,
+        "colsample_bytree": 0.7903362550905764,
+        "reg_alpha": 1.3089861430282985,
+        "reg_lambda": 1.5737502114895576,
+        "min_child_weight": 8,
+        "gamma": 0.7509204269440869,
+        "n_features": 200,
     }
 
     ee_params = {
-        "n_estimators": 2000,
-        "max_depth": 14,
-        "learning_rate": 0.018694468369353623,
-        "subsample": 0.8423625453977001,
-        "colsample_bytree": 0.8690535229123624,
-        "reg_alpha": 0.9880424042229838,
-        "reg_lambda": 0.33069879837462873,
-        "min_child_weight": 1,
-        "gamma": 0.4976255083929807,
+        "n_estimators": 2450,
+        "max_depth": 11,
+        "learning_rate": 0.0013346474415975344,
+        "subsample": 0.933922897579847,
+        "colsample_bytree": 0.869612716429276,
+        "reg_alpha": 1.5160690367861887,
+        "reg_lambda": 0.9174612897194362,
+        "min_child_weight": 4,
+        "gamma": 0.606792312408108,
+        "n_features": 200,
     }
 
     # Load data

@@ -1,0 +1,33 @@
+======================================================================
+HYPERPARAMETER OPTIMIZATION RESULTS
+======================================================================
+
+Yield Prediction:
+  CV R²: 0.6614 (+/- 0.1344)
+  Best Parameters:
+    n_estimators: 2650
+    max_depth: 14
+    learning_rate: 0.0013881177423179518
+    subsample: 0.8832263299249901
+    colsample_bytree: 0.7903362550905764
+    reg_alpha: 1.3089861430282985
+    reg_lambda: 1.5737502114895576
+    min_child_weight: 8
+    gamma: 0.7509204269440869
+    n_features: 200
+
+======================================================================
+
+Enantiomeric Excess Prediction:
+  CV R²: 0.7084 (+/- 0.0708)
+  Best Parameters:
+    n_estimators: 2450
+    max_depth: 11
+    learning_rate: 0.0013346474415975344
+    subsample: 0.933922897579847
+    colsample_bytree: 0.869612716429276
+    reg_alpha: 1.5160690367861887
+    reg_lambda: 0.9174612897194362
+    min_child_weight: 4
+    gamma: 0.606792312408108
+    n_features: 200

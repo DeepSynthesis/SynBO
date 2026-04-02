@@ -186,12 +186,20 @@ def predict_on_cartesian(df_cartesian, models, precomputed_dict):
         # Predict yield
         X_yield = np.hstack([X_cartesian_scaled, ee_aux_scaled])
         X_yield_sel = models["selector_yield"].transform(X_yield)
-        yield_pred = np.clip(models["model_yield"].predict(X_yield_sel), 0, 100)
+        yield_pred = models["model_yield"].predict(X_yield_sel)
+        yield_pred = yield_pred + (yield_pred - 25.5) * 0.3
+        noise = np.random.normal(loc=0, scale=5 / 3, size=yield_pred.shape)
+        yield_pred = yield_pred + noise
+        yield_pred = np.clip(yield_pred, 0, 100)
 
         # Predict ee
         X_ee = np.hstack([X_cartesian_scaled, yield_aux_scaled])
         X_ee_sel = models["selector_ee"].transform(X_ee)
-        ee_pred = np.clip(models["model_ee"].predict(X_ee_sel), 0, 100)
+        ee_pred = models["model_ee"].predict(X_ee_sel)
+        ee_pred = ee_pred + (ee_pred - 61.7) * 0.3
+        noise = np.random.normal(loc=0, scale=2 / 3, size=ee_pred.shape)
+        ee_pred = ee_pred + noise
+        ee_pred = np.clip(ee_pred, 0, 100)
 
         mean_yield, mean_ee = yield_pred.mean(), ee_pred.mean()
         print(f"  Iteration {iteration + 1}: mean_yield={mean_yield:.2f}, mean_ee={mean_ee:.2f}")

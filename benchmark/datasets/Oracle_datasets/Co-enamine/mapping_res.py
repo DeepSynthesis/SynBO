@@ -5,8 +5,6 @@ import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectFromModel
 from sklearn.ensemble import ExtraTreesRegressor
-from rdkit import Chem
-from rdkit.Chem import Descriptors
 import xgboost as xgb
 from itertools import product
 import os
@@ -15,51 +13,30 @@ import time
 sns.set_style("whitegrid")
 
 
-def smiles_to_descriptors(smiles):
-    """Generate RDKit molecular descriptors only"""
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return np.zeros(len(Descriptors._descList))
-
-        desc_list = []
-        for _, desc_func in Descriptors._descList:
-            try:
-                val = desc_func(mol)
-                if np.isnan(val) or np.isinf(val):
-                    val = 0
-                desc_list.append(val)
-            except:
-                desc_list.append(0)
-        return np.array(desc_list)
-    except:
-        return np.zeros(len(Descriptors._descList))
-
-
 def load_data():
-    """Load main dataset and DFT descriptor files"""
+    """Load main dataset and descriptor files"""
     df = pd.read_csv("Co-enamine.csv")
 
-    dft_files = {
-        "amine": "descriptors/amine_desc_dft.csv",
-        "cobalt": "descriptors/cobalt_desc_dft.csv",
-        "oxidant": "descriptors/oxidant_desc_dft.csv",
-        "alkali": "descriptors/alkali_desc_dft.csv",
-        "solvent": "descriptors/solvent_desc_dft.csv",
+    desc_files = {
+        "amine": "descriptors/amine_desc.csv",
+        "cobalt": "descriptors/cobalt_desc.csv",
+        "oxidant": "descriptors/oxidant_desc.csv",
+        "alkali": "descriptors/alkali_desc.csv",
+        "solvent": "descriptors/solvent_desc.csv",
     }
 
-    dft_descriptors = {}
-    for col, filepath in dft_files.items():
+    descriptors = {}
+    for col, filepath in desc_files.items():
         try:
-            dft_df = pd.read_csv(filepath)
-            dft_df = dft_df.set_index("SMILES")
-            dft_descriptors[col] = dft_df
-            print(f"  Loaded DFT descriptors for {col}: {dft_df.shape[1]} features")
+            desc_df = pd.read_csv(filepath)
+            desc_df = desc_df.set_index("SMILES")
+            descriptors[col] = desc_df
+            print(f"  Loaded descriptors for {col}: {desc_df.shape[1]} features")
         except Exception as e:
-            print(f"  Warning: Could not load DFT descriptors for {col}: {e}")
-            dft_descriptors[col] = None
+            print(f"  Warning: Could not load descriptors for {col}: {e}")
+            descriptors[col] = None
 
-    return df, dft_descriptors
+    return df, descriptors
 
 
 def get_unique_reagents(df):
@@ -73,28 +50,23 @@ def get_unique_reagents(df):
 
 
 # ================== 核心优化 1：预计算分子特征 ==================
-def precompute_features(unique_reagents, dft_descriptors):
-    """Precompute RDKit and DFT features for ONLY the unique molecules (extremely fast)"""
+def precompute_features(unique_reagents, descriptors):
+    """Precompute features for ONLY the unique molecules (extremely fast)"""
     print("\nPrecomputing features for unique molecules...")
     precomputed_dict = {}
 
     for col, smiles_list in unique_reagents.items():
-        dft_df = dft_descriptors[col]
-        dft_dim = dft_df.shape[1] if dft_df is not None else 0
+        desc_df = descriptors[col]
         col_features = {}
 
         for smiles in smiles_list:
-            # 1. RDKit features
-            rdkit_desc = smiles_to_descriptors(smiles)
-
-            # 2. DFT features
-            if dft_df is not None and smiles in dft_df.index:
-                dft_desc = dft_df.loc[smiles].values
+            # Get features from precomputed descriptor CSV
+            if desc_df is not None and smiles in desc_df.index:
+                desc_values = desc_df.loc[smiles].values
             else:
-                dft_desc = np.zeros(dft_dim)
+                desc_values = np.zeros(desc_df.shape[1]) if desc_df is not None else np.zeros(0)
 
-            # Combine
-            col_features[smiles] = np.concatenate([rdkit_desc, dft_desc])
+            col_features[smiles] = desc_values
 
         precomputed_dict[col] = col_features
     return precomputed_dict
@@ -232,17 +204,17 @@ def save_results(df_cartesian, yield_pred, ee_pred, filename="cartesian_predicti
     np.save(filename, results)
 
     df_results = df_cartesian.copy()
-    df_results["yield_pred"] = yield_pred
-    df_results["ee_pred"] = ee_pred
-    df_results.to_csv(filename.replace(".npy", ".csv"), index=False)
+    df_results["yield"] = yield_pred
+    df_results["ee"] = ee_pred
+    df_results.to_csv(filename.replace(".npy", ".csv"))
     print(f"\nResults saved to {filename} and CSV")
     return df_results
 
 
 def plot_density_map(df_results, filename="ee_yield_density.png"):
     plt.figure(figsize=(10, 8))
-    x = df_results["ee_pred"]
-    y = df_results["yield_pred"]
+    x = df_results["ee"]
+    y = df_results["yield"]
     hb = plt.hexbin(x, y, gridsize=30, cmap="YlOrRd", mincnt=1)
     cb = plt.colorbar(hb)
     cb.set_label("Count", fontsize=12)
@@ -262,8 +234,8 @@ def plot_scatter(df_results, filename="ee_yield_scatter.png"):
     """Plot scatter plot of ee vs yield colored by density using fast 2D histogram"""
     plt.figure(figsize=(10, 8))
 
-    x = df_results["ee_pred"].values
-    y = df_results["yield_pred"].values
+    x = df_results["ee"].values
+    y = df_results["yield"].values
 
     # 使用 np.histogram2d 替代极慢的 scipy gaussian_kde
     bins = 50
@@ -298,11 +270,11 @@ def main():
     print("=" * 70)
 
     # 1. Load data & get uniques
-    df, dft_descriptors = load_data()
+    df, descriptors = load_data()
     unique_reagents = get_unique_reagents(df)
 
     # 2. Precompute features ONLY for unique molecules (Fast!)
-    precomputed_dict = precompute_features(unique_reagents, dft_descriptors)
+    precomputed_dict = precompute_features(unique_reagents, descriptors)
 
     # 3. Assemble features for original dataset
     X = assemble_features_fast(df, precomputed_dict)

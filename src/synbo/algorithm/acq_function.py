@@ -20,11 +20,12 @@ from synbo.utils.logger import console
 class BaseAcquisitionFunction:
     """Base class for acquisition functions"""
 
-    def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler):
+    def __init__(self, model: ModelListGP, sampler: SobolQMCNormalSampler, device: torch.device):
         self.model = model
         self.sampler = sampler
         self.acquisition_function = None
         self.console = console
+        self.device = device
 
     @property
     def acq_func(self):
@@ -236,10 +237,26 @@ class BaseAcquisitionFunction:
 
         return selected_candidates, acquisition_values
 
-    def _new_optimize_acqf_discrete(self, acq_function, q, choices, max_batch_size, unique, unused_reagent_boost: Tensor = None, progress: object = None, task: object = None):
+    def _new_optimize_acqf_discrete(
+        self,
+        acq_function,
+        q,
+        choices,
+        max_batch_size,
+        unique,
+        unused_reagent_boost: Tensor = None,
+        progress: object = None,
+        task: object = None,
+    ):
 
         def _split_batch_eval_acqf(acq_function, X, max_batch_size):
-            return torch.cat([acq_function(X_) for X_ in X.split(max_batch_size)])
+            acq_values_list = []
+            for X_batch in X.split(max_batch_size):
+                X_batch_gpu = X_batch.to(device=self.device)  # 仅小批量上 GPU
+                acq_batch = acq_function(X_batch_gpu)
+                acq_values_list.append(acq_batch.cpu())  # 立即移回 CPU
+                del X_batch_gpu  # 显式释放
+            return torch.cat(acq_values_list, dim=0)  # 在 CPU 上连接
 
         choices_batched = choices.unsqueeze(-2)
         if q > 1:
@@ -269,12 +286,11 @@ class BaseAcquisitionFunction:
 
                 best_idx = torch.argmax(acq_values)
 
-                
                 candidate_list.append(choices_batched[best_idx])
                 acq_value_list.append(acq_values[best_idx])
                 # set pending points
                 candidates = torch.cat(candidate_list, dim=-2)
-                acq_function.set_X_pending(torch.cat([base_X_pending, candidates], dim=-2) if base_X_pending is not None else candidates)
+
                 # need to remove choice from choice set if enforcing uniqueness
                 if unique:
                     choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
@@ -308,8 +324,9 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         ref_point: torch.Tensor,
         partitioning,
         train_x,
+        device,
     ):
-        super().__init__(model, sampler)
+        super().__init__(model, sampler, device)
         self.ref_point = ref_point
         self.partitioning = partitioning
         self.acquisition_function = qLogNoisyExpectedHypervolumeImprovement(
@@ -365,10 +382,11 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         self,
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
+        device,
         beta: float = 2.0,
         weights: Tensor = None,
     ):
-        super().__init__(model, sampler)
+        super().__init__(model, sampler, device)
         self.beta = beta
         objective = None
         if weights is not None:
@@ -424,8 +442,9 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         sampler: SobolQMCNormalSampler,
         X_baseline: Tensor,
         num_objectives: int,
+        device,
     ):
-        super().__init__(model, sampler)
+        super().__init__(model, sampler, device)
 
         weights = torch.randn(num_objectives).abs()
         weights /= weights.sum()
@@ -510,10 +529,11 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
         X_baseline: Tensor,  # 必须提供已有的观察点
+        device,
         weights: Tensor = None,
         prune_baseline: bool = True,  # 这是一个通常有用的选项，用于减少计算量
     ):
-        super().__init__(model, sampler)
+        super().__init__(model, sampler, device)
 
         # 处理多目标/多输出的权重聚合
         objective = None

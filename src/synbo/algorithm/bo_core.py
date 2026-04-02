@@ -91,8 +91,8 @@ class DefaultBO:
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
-        candidate_X_t = torch.tensor(candidate_X).double().to(device=self.device)
-        constraint_mask_t = torch.tensor(constraints).to(device=self.device) if constraints is not None else None
+        candidate_X_t = torch.tensor(candidate_X).double()
+        constraint_mask_t = torch.tensor(constraints) if constraints is not None else None
 
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
@@ -156,6 +156,7 @@ class DefaultBO:
                 acq_func = self.acquisition_function_class(
                     model=self.global_model,
                     sampler=sampler,
+                    device=self.device,
                     ref_point=self.ref_point,
                     partitioning=partitioning,
                     train_x=torch.Tensor(training_X).to(self.device),
@@ -167,27 +168,22 @@ class DefaultBO:
                     sampler=sampler,
                     beta=2.0,
                     weights=weights,
+                    device=self.device,
                 )
             elif self.acquisition_function_class == ParEGOAcquisitionFunction:
 
                 acq_func = self.acquisition_function_class(
-                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, num_objectives=len(opt_metric_settings)
+                    model=self.global_model,
+                    sampler=sampler,
+                    device=self.device,
+                    X_baseline=training_X_t,
+                    num_objectives=len(opt_metric_settings),
                 )
             elif self.acquisition_function_class == NEIAcquisitionFunction:
                 weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
                 acq_func = self.acquisition_function_class(
-                    model=self.global_model, sampler=sampler, X_baseline=training_X_t, weights=weights
+                    model=self.global_model, sampler=sampler, device=self.device, X_baseline=training_X_t, weights=weights
                 )
-            elif self.acquisition_function_class == MOGIBBONAcquisitionFunction:
-                # weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
-                # bounds = torch.stack([candidate_X_t.min(dim=0).values, candidate_X_t.max(dim=0).values])
-                partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
-                acq_func = self.acquisition_function_class(
-                    model=self.global_model,
-                    sampler=sampler,
-                    ref_point=self.ref_point,
-                    partitioning=partitioning,
-                )  # , bounds=bounds)
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
@@ -226,7 +222,7 @@ class DefaultBO:
         else:
             best_samples = [res.numpy() for res in self.acq_result]
 
-        recommend_type = self._get_exploit_or_explore()
+        recommend_type = ["Unknown"] * batch_size  # self._get_exploit_or_explore()
         pred_mean, pred_std = self._get_predictions()
 
         for i, d in enumerate(opt_metric_settings):
@@ -237,42 +233,44 @@ class DefaultBO:
         pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
         return best_samples, recommend_type, pred_mean, pred_std
 
-    def _get_exploit_or_explore(self) -> List[str]:
-        with torch.no_grad():
-            posterior = self.global_model.posterior(self.acq_result)
-            pred_mean = posterior.mean
+    # def _get_exploit_or_explore(self) -> List[str]:
 
-        # Handle different shapes from posterior.mean
-        # The posterior.mean from ModelListGP with multiple outputs has shape (batch_size, q)
-        # where each model contributes one dimension
-        # We need to reshape to (batch_size, n_outputs) where batch_size = n_points
-        if pred_mean.dim() == 2:
-            # Already in correct shape (n_points, n_outputs)
-            pass
-        elif pred_mean.dim() == 3:
-            # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
-            pred_mean = pred_mean.squeeze(0)
+    #     posterior = self.global_model.posterior(self.acq_result)
+    #     pred_mean = posterior.mean
 
-        # Ensure pred_mean is 2D
-        if pred_mean.dim() != 2:
-            raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
+    #     # Handle different shapes from posterior.mean
+    #     # The posterior.mean from ModelListGP with multiple outputs has shape (batch_size, q)
+    #     # where each model contributes one dimension
+    #     # We need to reshape to (batch_size, n_outputs) where batch_size = n_points
+    #     if pred_mean.dim() == 2:
+    #         # Already in correct shape (n_points, n_outputs)
+    #         pass
+    #     elif pred_mean.dim() == 3:
+    #         # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
+    #         pred_mean = pred_mean.squeeze(0)
 
-        hvi_values = torch.tensor([compute_hvi(pred_mean[i], self.pareto_y, self.ref_point) for i in range(pred_mean.shape[0])])
-        ehvi_values = self.acq_value.to(device="cpu")
-        exploit_scores = hvi_values / (ehvi_values + 1e-6)
-        explore_scores = 1 - exploit_scores
+    #     # Ensure pred_mean is 2D
+    #     if pred_mean.dim() != 2:
+    #         raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
 
-        for i in range(self.acq_result.shape[0]):
-            self.console.log(
-                f"Point {i}: "
-                f"EHVI = {ehvi_values[i]:.3f}, "
-                f"HVI = {hvi_values[i]:.3f}, "
-                f"Exploit Score = {exploit_scores[i]:.3f}, "
-                f"Explore Score = {explore_scores[i]:.3f}"
-            )
-        return ["exploit" if exploit_scores[i] > explore_scores[i] else "explore" for i in range(self.acq_result.shape[0])]
+    #     hvi_values = torch.tensor([compute_hvi(pred_mean[i], self.pareto_y, self.ref_point) for i in range(pred_mean.shape[0])])
+    #     ehvi_values = self.acq_value.to(device="cpu")
+    #     exploit_scores = hvi_values / (ehvi_values + 1e-6)
+    #     explore_scores = 1 - exploit_scores
+
+    #     for i in range(self.acq_result.shape[0]):
+    #         self.console.log(
+    #             f"Point {i}: "
+    #             f"EHVI = {ehvi_values[i]:.3f}, "
+    #             f"HVI = {hvi_values[i]:.3f}, "
+    #             f"Exploit Score = {exploit_scores[i]:.3f}, "
+    #             f"Explore Score = {explore_scores[i]:.3f}"
+    #         )
+    #     return ["exploit" if exploit_scores[i] > explore_scores[i] else "explore" for i in range(self.acq_result.shape[0])]
 
     def _get_predictions(self) -> Tuple[np.ndarray, np.ndarray]:
+        self.acq_result = self.acq_result.to(device=self.device)
+
         with torch.no_grad():
             posterior = self.global_model.posterior(self.acq_result)
             pred_mean = posterior.mean

@@ -417,6 +417,7 @@ class ReactionOptimizer:
         candidate_indices = np.where(mask)[0]  # 保持原有顺序
 
         candidate_X = self.total_desc_arr[candidate_indices]
+        candidate_name = self.total_name_arr  # [candidate_indices]
 
         if constraints is not None and self.total_name_arr is not None and self.condition_types is not None:
             constraint_mask = generate_constraint_mask(
@@ -440,7 +441,7 @@ class ReactionOptimizer:
             batch_size=batch_size,
             temperature=temperature,
             constraints=constraint_mask,
-            total_name_arr=self.total_name_arr,
+            total_name_arr=candidate_name,
             condition_types=self.condition_types,
         )
 

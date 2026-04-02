@@ -51,7 +51,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "use_edbo": True,  # Set to True to use EDBO+ optimization instead of default BO
+        "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
         "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },

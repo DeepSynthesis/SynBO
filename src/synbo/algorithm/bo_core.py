@@ -187,20 +187,21 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
+            candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
+
             # TODO: need to Re-implementate reagent boost mechanism.
             # # Generate unused reagent boost if total_name_arr is provided
             unused_reagent_boost = None
-            # if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
-            #     unused_reagent_boost = self._compute_unused_reagent_boost(
-            #         training_X=training_X_t,
-            #         candidate_X=candidate_X_t,
-            #         total_name_arr=total_name_arr,
-            #         total_desc_arr=total_desc_arr,
-            #         condition_types=condition_types,
-            #         device=self.device,
-            #     )
 
-            candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
+            if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
+                unused_reagent_boost = self._compute_unused_reagent_boost(
+                    training_X=training_X_t,
+                    candidate_X=candidate_X_t,
+                    total_name_arr=total_name_arr,
+                    total_desc_arr=total_desc_arr,
+                    condition_types=condition_types,
+                    device=self.device,
+                )
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
@@ -318,6 +319,7 @@ class DefaultBO:
         Compute boost values for candidates containing unused reagents.
         (Optimized with KDTree, Vectorization, and 10% Progress Bar)
         """
+        # TODO: check the logic here!!!
         from scipy.spatial import cKDTree
         import numpy as np
         import math
@@ -375,18 +377,18 @@ class DefaultBO:
 
             if len(matched_cand_indices) > 0:
                 cand_names = total_name_arr[matched_cand_indices].astype(str)
-                has_unused_reagent = np.zeros(len(matched_cand_indices), dtype=bool)
+                new_reagent_conbination = np.ones(len(matched_cand_indices), dtype=bool)
 
                 # Vectorized unused check
                 for j, ct in enumerate(condition_types):
                     used_set_list = list(used_reagents[ct])
                     if len(used_set_list) > 0:
                         is_used = np.isin(cand_names[:, j], used_set_list)
-                        has_unused_reagent |= ~is_used
+                        new_reagent_conbination &= ~is_used
                     else:
-                        has_unused_reagent[:] = True
+                        new_reagent_conbination[:] = True
 
-                valid_boosts = np.where(has_unused_reagent, boost_value, 0.0)
+                valid_boosts = np.where(new_reagent_conbination, boost_value, 0.0)
 
                 # Assign back to local chunk array
                 chunk_boosts = np.zeros(len(cand_chunk), dtype=np.float64)

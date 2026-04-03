@@ -62,10 +62,9 @@ class Optimizer:
                 condition_types=condition_types,
             )
 
-            from IPython import embed; embed(); exit()
             
             selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
-            # from IPython import embed; embed()
+            
             selected_indices = np.array(selected_indices).squeeze()
             selected_conditions = candidate_name[selected_indices].squeeze()
 

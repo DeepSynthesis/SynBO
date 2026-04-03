@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization (boost)",
+    "experiment_name": "B-H_Optimization (GP1)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -51,12 +51,13 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
+        "device": "cuda:0",
         "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
         "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
-        "enable_constraints": True,  # Enable/disable constraint-based space reduction (set True to test constraints)
+        "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
         "constraint_method": "llm",  # Method for generating constraints (currently only "llm" supported)
         "hv_stagnation_rounds": 1,  # Number of rounds without HV improvement before triggering space reduction (adjustable parameter)
         "hv_improvement_threshold": 0.01,  # Minimum HV improvement percentage to consider as improvement (0.01 = 0.01%)
@@ -366,7 +367,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                         optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                         desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                         refine_desc=CONFIG["optimization_settings"]["refine_desc"],
-                        # temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
+                        device=CONFIG["optimization_settings"]["device"],
                         constraints=constraints,
                         **CONFIG["optimization_settings"]["kwargs"],
                     )

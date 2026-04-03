@@ -126,7 +126,6 @@ class BaseAcquisitionFunction:
         choices_batched = choices.unsqueeze(-2)
         if q > 1:
             candidate_list, acq_value_list = [], []
-            base_X_pending = acq_function.X_pending
             for q_i in range(q):
                 if progress and task:
                     progress.update(task, advance=1)
@@ -141,11 +140,6 @@ class BaseAcquisitionFunction:
                 if unused_reagent_boost is not None:
                     # Get the current valid indices (choices_batched may have been reduced)
                     num_choices = len(choices_batched)
-                    # Map to original indices based on how many have been removed
-
-                    # Get boost values for current choices
-                    # current_boost = unused_reagent_boost[start_idx:end_idx].to(acq_values.device)
-                    # Add boost to acquisition values
 
                     acq_values = acq_values + unused_reagent_boost.to(acq_values.device)
 
@@ -163,6 +157,8 @@ class BaseAcquisitionFunction:
                 # set pending points
                 candidates = torch.cat(candidate_list, dim=-2)
 
+                acq_function.set_X_pending(candidates.to(self.device))
+
                 # need to remove choice from choice set if enforcing uniqueness
                 if unique:
                     choices_batched = torch.cat([choices_batched[:best_idx], choices_batched[best_idx + 1 :]])
@@ -172,7 +168,6 @@ class BaseAcquisitionFunction:
                         unused_reagent_boost = torch.cat([unused_reagent_boost[:best_idx], unused_reagent_boost[best_idx + 1 :]])
 
             # Reset acq_func to previous X_pending state
-            acq_function.set_X_pending(base_X_pending)
             return candidates, torch.stack(acq_value_list)
 
         with torch.no_grad():
@@ -195,7 +190,7 @@ class BaseAcquisitionFunction:
         if not selected_candidates:
             return torch.zeros(len(choices), device=device)
 
-        selected = torch.cat(selected_candidates, dim=-2)# .squeeze(0)
+        selected = torch.cat(selected_candidates, dim=-2)  # .squeeze(0)
         distances = torch.cdist(choices, selected)
         min_distances = distances.min(dim=1)[0]  # 到最近已选点的距离
 

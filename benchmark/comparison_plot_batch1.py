@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
     model_results = {
         "synbo (GP)": {
-            "results_path": "results/multiple_20260327_202908/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260403_211714/all_batches_final_round_*.csv",
             "target_columns": ["yield", "ee"],
             "direction_tags": ["max", "max"],
         },

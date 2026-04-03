@@ -344,7 +344,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
         )
 
         ax.set_title(col, fontsize=16, fontname="Arial", fontweight="bold")
-        ax.tick_params(axis='x', rotation=45)
+        ax.tick_params(axis="x", rotation=45)
         ax.set_xlabel("", fontsize=14, fontname="Arial", fontweight="bold")
 
         ax.set_ylabel(f"Best Found {col}", fontsize=14, fontname="Arial", fontweight="bold")
@@ -370,15 +370,11 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
 
 
 def plot_optimization_process_scatter(model_data, target_columns, direction_tags, full_space_file, experiment_dir):
-    """
-    绘制优化过程散点图：
-    1. 背景：利用 full_space_file 计算全空间真实帕累托前沿，连线+绘制节点
-    2. 前景：绘制每个模型的帕累托前沿（不用绘制节点，颜色淡一点），所有前沿画在一张图上
-    """
     experiment_dir = Path(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
     n_targets = len(target_columns)
+    nds = NonDominatedSorting()
 
     # ==========================================
     # 1. 处理全空间数据 (True Pareto Front)
@@ -389,63 +385,47 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
         full_df = pd.read_excel(full_space_file)
     full_data_raw = full_df[target_columns].values
 
-    # 准备排序数据 (Pymoo 默认最小化，对 max 目标取反)
     full_sorting_data = full_data_raw.copy()
     for i, direction in enumerate(direction_tags):
         if direction == "max":
             full_sorting_data[:, i] *= -1
 
-    # 全空间非支配排序
-    nds = NonDominatedSorting()
     full_fronts = nds.do(full_sorting_data)
     true_pf_indices = full_fronts[0]
-    true_pf_data = full_data_raw[true_pf_indices]  # 获取真实的 PF 数据
+    true_pf_data = full_data_raw[true_pf_indices]
 
-    # --- 为了画线，按照第一个维度排序 ---
     sorted_indices = np.argsort(true_pf_data[:, 0])
     true_pf_data_sorted = true_pf_data[sorted_indices]
 
     # ==========================================
-    # 2. 处理所有模型的帕累托前沿
+    # 2. 处理所有模型各个 Round 的帕累托前沿
     # ==========================================
     all_empirical_pfs = []
-    model_names = []
 
     for model_name, dfs in model_data.items():
-        # For each model, combine all its dataframes
-        combined_data = None
+        model_round_pfs = []
         for df in dfs:
-            if combined_data is None:
-                combined_data = df[target_columns].values
-            else:
-                combined_data = np.vstack([combined_data, df[target_columns].values])
+            round_data = df[target_columns].values
 
-        if combined_data is not None:
-            # 准备实验数据的排序 (同样处理 max/min)
-            exp_sorting_data = combined_data.copy()
+            exp_sorting_data = round_data.copy()
             for i, direction in enumerate(direction_tags):
                 if direction == "max":
                     exp_sorting_data[:, i] *= -1
 
-            # 实验数据非支配排序
             exp_fronts = nds.do(exp_sorting_data)
-            empirical_pf_indices = exp_fronts[0]  # 获取实验数据中的 Rank 0 (非支配解)
+            empirical_pf_indices = exp_fronts[0]
+            empirical_pf_data = round_data[empirical_pf_indices]
 
-            # 筛选出要绘制的前景数据
-            empirical_pf_data = combined_data[empirical_pf_indices]
-            all_empirical_pfs.append((model_name, empirical_pf_data))
-            model_names.append(model_name)
+            sorted_idx = np.argsort(empirical_pf_data[:, 0])
+            model_round_pfs.append(empirical_pf_data[sorted_idx])
 
-    # ==========================================
-    # 3. 开始绘图（所有前沿在同一张图上）
-    # ==========================================
-    if n_targets == 2:
-        _plot_2d_scatter(true_pf_data_sorted, all_empirical_pfs, target_columns, direction_tags, experiment_dir)
-    elif n_targets == 3:
-        pass
-    else:
-        print(f"Warning: {n_targets} objectives detected. Plotting only the first 2 dimensions for visualization.")
-        _plot_2d_scatter(
+        if model_round_pfs:
+            all_empirical_pfs.append((model_name, model_round_pfs))
+
+    if n_targets >= 2:
+        if n_targets > 2:
+            print(f"Warning: {n_targets} objectives detected. Plotting only the first 2 dimensions.")
+        _plot_2d_scatter_distribution(
             true_pf_data_sorted,
             all_empirical_pfs,
             target_columns[:2],
@@ -454,85 +434,115 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
         )
 
 
-def _plot_2d_scatter(true_pf_sorted, all_empirical_pfs, targets, directions, save_dir):
+def _compute_attainment_surface(pf_list, x_grid, dir_x, dir_y, penalty_y):
     """
-    内部辅助函数：绘制 2D 图（所有前沿在同一张图上）
-    Args:
-        true_pf_sorted: 已按X轴排序的全空间真实帕累托前沿点
-        all_empirical_pfs: 所有实验中找到的非支配点列表，每个元素是(model_name, pf_data)
-        targets: 目标列名列表
-        ranges: 目标范围列表
-        directions: 优化方向列表
-        save_dir: 保存目录
+    计算阶梯状帕累托边界，严格保持单调性。
+    如果某个x没有被满足，则给予 penalty_y (极差的值) 而不是 NaN。
     """
-    plt.figure(figsize=(8, 6))
+    y_grids = []
+    for pf in pf_list:
+        pf_x = pf[:, 0]
+        pf_y = pf[:, 1]
+        y_grid = np.zeros_like(x_grid)
 
-    # Layer 2: 所有 Empirical Pareto Front (前景 - 仅线条，颜色淡一点)
-    for model_idx, (model_name, emp_pf_data) in enumerate(all_empirical_pfs):
-        # 为了画线，按照第一个维度排序
-        emp_sorted_indices = np.argsort(emp_pf_data[:, 0])
-        emp_pf_data_sorted = emp_pf_data[emp_sorted_indices]
+        for i, x_val in enumerate(x_grid):
+            # 找到在当前维度下，满足/支配 x_val 要求的所有点
+            if dir_x == "min":
+                valid_mask = pf_x <= x_val
+            else:
+                valid_mask = pf_x >= x_val
 
-        # 使用不同的颜色绘制每个模型的前沿
+            if not np.any(valid_mask):
+                y_grid[i] = penalty_y  # 没达到该要求，施加惩罚
+            else:
+                valid_y = pf_y[valid_mask]
+                if dir_y == "min":
+                    y_grid[i] = np.min(valid_y)
+                else:
+                    y_grid[i] = np.max(valid_y)
+        y_grids.append(y_grid)
+
+    return np.array(y_grids)
+
+
+def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, directions, save_dir):
+    plt.figure(figsize=(9, 6))
+    dir_x, dir_y = directions[0], directions[1]
+
+    # ==========================================
+    # 核心：计算全局边界，设定画面限制与惩罚值
+    # ==========================================
+    all_points = [true_pf_sorted]
+    for _, model_pfs in all_empirical_pfs:
+        all_points.extend(model_pfs)
+    all_points_stacked = np.vstack(all_points)
+
+    global_min_x, global_min_y = all_points_stacked.min(axis=0)
+    global_max_x, global_max_y = all_points_stacked.max(axis=0)
+
+    x_margin = (global_max_x - global_min_x) * 0.05
+    y_margin = (global_max_y - global_min_y) * 0.05
+    if x_margin == 0:
+        x_margin = 1.0
+    if y_margin == 0:
+        y_margin = 1.0
+
+    # X轴密网格，用于画出完美的直角
+    x_grid = np.linspace(global_min_x - x_margin, global_max_x + x_margin, 2000)
+
+    # 设定惩罚值 (极大地超出屏幕的劣质解)
+    if dir_y == "min":
+        penalty_y = global_max_y + 100 * y_margin
+    else:
+        penalty_y = global_min_y - 100 * y_margin
+
+    # ==========================================
+    # 绘制各模型的分布阴影和中位数线
+    # ==========================================
+    for model_idx, (model_name, model_pfs) in enumerate(all_empirical_pfs):
         color = plt.cm.tab10(model_idx % 10)
-        plt.plot(
-            emp_pf_data_sorted[:, 0],
-            emp_pf_data_sorted[:, 1],
-            c=color,
-            linestyle="-",
-            linewidth=2,
-            alpha=0.8,
-            label=model_name,
-            zorder=5,
-        )
-    # Layer 1: True Pareto Front (背景 - 线条 + 节点)
-    # 绘制线条
-    plt.plot(
-        true_pf_sorted[:, 0],
-        true_pf_sorted[:, 1],
-        c="#11668a",
-        linestyle="-",
-        linewidth=1.5,
-        alpha=0.9,
-        label="True Pareto Front",
-        zorder=0,
-    )
-    # 绘制节点
-    plt.scatter(
-        true_pf_sorted[:, 0],
-        true_pf_sorted[:, 1],
-        c="skyblue",
-        edgecolors="k",
-        linewidth=0.8,
-        s=50,
-        alpha=0.9,
-        zorder=1,
-    )
 
-    # 标签与标题
-    plt.xlabel(f"{targets[0]}", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.ylabel(f"{targets[1]}", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title("Optimization Process: True PF vs synbo PFs", fontsize=16, fontname="Arial", fontweight="bold")
+        y_grids = _compute_attainment_surface(model_pfs, x_grid, dir_x, dir_y, penalty_y)
 
-    # 设置tick参数
+        y_median = np.median(y_grids, axis=0)
+        y_lower = np.percentile(y_grids, 0, axis=0)  # 0%
+        y_upper = np.percentile(y_grids, 100, axis=0)  # 100%
+
+        plt.fill_between(x_grid, y_lower, y_upper, color=color, alpha=0.15, zorder=3)
+        plt.plot(x_grid, y_median, color=color, linestyle="-", linewidth=2.2, alpha=0.9, label=model_name, zorder=4)
+
+    # ==========================================
+    # 绘制真实前沿 (True Pareto Front)
+    # ==========================================
+    true_y_grid = _compute_attainment_surface([true_pf_sorted], x_grid, dir_x, dir_y, penalty_y)[0]
+
+    plt.plot(x_grid, true_y_grid, c="#11668a", linestyle="-", linewidth=2.0, alpha=0.8, label="True Pareto Front", zorder=1)
+    # 把真实节点画在实际位置上
+    plt.scatter(true_pf_sorted[:, 0], true_pf_sorted[:, 1], c="skyblue", edgecolors="k", linewidth=0.8, s=45, alpha=1.0, zorder=5)
+
+    # ==========================================
+    # 格式化与美化
+    # ==========================================
+    # 强制截断 Y 轴范围，将惩罚值(射向无穷大)的线条隐于屏幕之外
+    plt.xlim(global_min_x - x_margin, global_max_x + x_margin)
+    plt.ylim(global_min_y - y_margin, global_max_y + y_margin)
+
+    plt.xlabel(f"{targets[0]} ({dir_x})", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.ylabel(f"{targets[1]} ({dir_y})", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.title("Optimization Process: Empirical Attainment Surfaces", fontsize=15, fontname="Arial", fontweight="bold")
+
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
-    plt.tick_params(axis="both", which="minor", width=1, length=4)
-
     for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
         label.set_fontname("Arial")
 
-    # 设置边框和网格
-    plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
+    plt.grid(True, linestyle="--", alpha=0.5, linewidth=0.8)
     ax = plt.gca()
-    ax.spines["top"].set_linewidth(1.2)
-    ax.spines["right"].set_linewidth(1.2)
-    ax.spines["bottom"].set_linewidth(1.2)
-    ax.spines["left"].set_linewidth(1.2)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.2)
 
-    # Legend
     plt.legend(loc="best", fontsize=11, framealpha=0.9)
 
-    save_path = save_dir / "plot_4_pareto_comparison.png"
+    save_path = save_dir / "plot_4_pareto_comparison_distribution.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 4 saved: {save_path}")

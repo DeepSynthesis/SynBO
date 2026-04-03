@@ -387,18 +387,18 @@ class ReactionOptimizer:
         normalized_metrics = self.y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
 
         # try:
-        #     import GPUtil
+        import GPUtil
 
-        #     device_ids = GPUtil.getAvailable(order="memory", limit=1, maxLoad=0.5, maxMemory=0.5, includeNan=False)
+        device_ids = GPUtil.getAvailable(order="memory", limit=1, maxLoad=0.5, maxMemory=0.5, includeNan=False)
 
-        #     if device_ids:
-        #         device = torch.device(f"cuda:{device_ids[0]}")
-        #     else:
-        #         device = torch.device("cpu")
+        if device_ids:
+            device = torch.device(f"cuda:{device_ids[0]}")
+        else:
+            device = torch.device("cpu")
 
         # except:
 
-        device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
+        # device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
         if not torch.cuda.is_available():
             self.opt_console.print("No GPU found. Using CPU instead.", style="yellow")
 

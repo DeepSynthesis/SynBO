@@ -284,6 +284,13 @@ class BaseAcquisitionFunction:
 
                     acq_values = acq_values + unused_reagent_boost.to(acq_values.device)
 
+                # === 新增：应用多样性boost ===
+                diversity_weight = 1
+                if q_i > 0:
+                    diversity_boost = self._compute_diversity_boost(choices_batched.squeeze(1), candidate_list, acq_values.device)
+                    acq_values = acq_values + diversity_weight * diversity_boost
+                # =============================
+
                 best_idx = torch.argmax(acq_values)
 
                 candidate_list.append(choices_batched[best_idx])
@@ -312,6 +319,24 @@ class BaseAcquisitionFunction:
 
         best_idx = torch.argmax(acq_values)
         return choices_batched[best_idx], acq_values[best_idx]
+
+    def _compute_diversity_boost(
+        self,
+        choices: torch.Tensor,
+        selected_candidates: torch.Tensor,
+        device: torch.device,
+    ) -> torch.Tensor:
+        """计算多样性奖励：与已选点距离越远，奖励越高"""
+        if not selected_candidates:
+            return torch.zeros(len(choices), device=device)
+
+        selected = torch.cat(selected_candidates, dim=-2)# .squeeze(0)
+        distances = torch.cdist(choices, selected)
+        min_distances = distances.min(dim=1)[0]  # 到最近已选点的距离
+
+        # 距离越大，boost越高（归一化后）
+        boost = (min_distances - min_distances.min()) / (min_distances.max() - min_distances.min() + 1e-8)
+        return boost
 
 
 class EHVIAcquisitionFunction(BaseAcquisitionFunction):

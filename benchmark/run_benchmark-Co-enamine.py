@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "Co/Enamine Oracle",
+    "experiment_name": "Co/e (nb)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -240,7 +240,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
-                quiet=False,
+                quiet=True,
                 save_dir=str(experiment_dir),
             )
 

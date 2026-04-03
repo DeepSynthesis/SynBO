@@ -13,22 +13,16 @@ class Optimizer:
     def __init__(
         self,
         method,
-        total_name_data,
-        total_desc_arr,
         random_seed: int = 42,
         device: torch.device = torch.device("cpu"),
         optimization_kwargs: dict = None,
     ):
         self.method = method
-        self.total_name_data = total_name_data
-        self.total_desc_arr = total_desc_arr
         self.random_seed = random_seed
         self.opt_console = console
 
         if self.method == "default_BO":
             self.optimizer = DefaultBO(random_seed=random_seed, device=device, **optimization_kwargs)
-        # elif self.method == "HEBO":
-        #     self.optimizer = HEBOOptimizer(random_seed=random_seed, sedp=sedp, ffm=ffm)
         elif self.method == "evolution":
             self.optimizer = DefaultEO(random_seed=random_seed, device=device, **optimization_kwargs)
         elif self.method == "particle_swarm":
@@ -46,9 +40,8 @@ class Optimizer:
         candidate_X: np.ndarray,
         opt_metric_settings: List[dict],
         batch_size: int = 5,
-        temperature: float = 0.0,
-        constraints: dict = None,
-        total_name_arr: np.ndarray = None,
+        done_name: np.ndarray = None,
+        candidate_name: np.ndarray = None,
         condition_types: List[str] = None,
     ) -> List[int]:
         for i, d in enumerate(opt_metric_settings):
@@ -56,7 +49,7 @@ class Optimizer:
                 training_y[i] = -training_y[i]
 
         training_y = training_y.T
-        
+
         if self.method in ["default_BO"]:  # , "random_select", "evolution", "particle_swarm"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
@@ -64,18 +57,17 @@ class Optimizer:
                 candidate_X=candidate_X,
                 opt_metric_settings=opt_metric_settings,
                 batch_size=batch_size,
-                # training_y_dict=training_y_dict,
-                temperature=temperature,
-                constraints=constraints,
-                total_name_arr=total_name_arr,
+                done_name=done_name,
+                candidate_name=candidate_name,
                 condition_types=condition_types,
-                total_desc_arr=self.total_desc_arr,
             )
 
-            selected_indices = [np.argwhere(np.all(self.total_desc_arr == best_sample, axis=1)).flatten() for best_sample in best_samples]
+            from IPython import embed; embed(); exit()
+            
+            selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
             # from IPython import embed; embed()
             selected_indices = np.array(selected_indices).squeeze()
-            selected_conditions = self.total_name_data[selected_indices].squeeze()
+            selected_conditions = candidate_name[selected_indices].squeeze()
 
             self.opt_console.print("✅ Finish optimization", style="green")
             return selected_conditions, recommend_type, pred_mean, pred_std

@@ -40,133 +40,6 @@ class BaseAcquisitionFunction:
                 acq_values_list.append(acq_values)
         return torch.cat(acq_values_list, dim=0)
 
-    def optimize_discrete_unuse(
-        self,
-        acq_func,
-        q: int,
-        choices: Tensor,
-        max_batch_size: int = 1024,
-        unique: bool = True,
-        progress: object = None,
-        task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
-        unused_reagent_boost: Tensor = None,
-    ) -> tuple[Tensor, Tensor]:
-        """
-        General discrete space greedy sequence optimization
-
-        Args:
-            acq_func: Acquisition function to optimize
-            q: Number of candidates to select
-            choices: Candidate points tensor
-            max_batch_size: Maximum batch size for evaluation
-            unique: Whether to ensure unique selections
-            progress: Progress bar object
-            task: Progress task object
-            min_distance: Minimum distance for uniqueness check
-            exclude_points: Points to exclude from selection
-            temperature: Temperature for exploration-exploitation trade-off
-            constraint_mask: Boolean mask indicating which points satisfy constraints
-        """
-        acq_func.set_X_pending(None)
-
-        len_choices = len(choices)
-        if len_choices < q and unique:
-            self.console.print(
-                f"Requested {q=} candidates but only {len_choices} choices remain.",
-                style="yellow",
-            )
-            q = len_choices
-
-        # Build the initial Available Mask
-        available_mask = torch.ones(len_choices, dtype=torch.bool, device=choices.device)
-
-        # Apply constraint mask if provided
-        if constraint_mask is not None:
-            available_mask = available_mask & constraint_mask
-            constrained_count = constraint_mask.sum().item()
-            total_count = len(constraint_mask)
-            self.console.print(f"Constraint applied: {constrained_count}/{total_count} candidates available", style="cyan")
-
-        # Exclude the specified points
-        if unique and exclude_points is not None and len(exclude_points) > 0:
-            dists = torch.cdist(choices, exclude_points)
-            distinct_check = (dists > min_distance).all(dim=1)
-            available_mask = available_mask & distinct_check
-        candidate_list = []
-        acq_value_list = []
-
-        current_mask = available_mask.clone()
-        # greedy get loop
-        for q_i in range(q):
-            valid_indices = torch.nonzero(current_mask, as_tuple=True)[0]
-            if len(valid_indices) == 0:
-                self.console.print(f"No more unique choices available for candidate {q_i+1}", style="red")
-                break
-
-            if progress:
-                progress.log(f"Choosing candidate {q_i+1} of {q}", style="yellow")
-
-            choices_batched = choices[valid_indices].unsqueeze(-2)
-
-            with torch.no_grad():
-
-                with gpytorch.settings.cholesky_jitter(1e-3):
-                    acq_values = self._split_batch_eval_acqf(
-                        acq_func=acq_func,
-                        X=choices_batched,
-                        max_batch_size=max_batch_size,
-                    )
-
-            # define the exploration and exploitation trade-off
-            if temperature > 0.0:
-                range_val = (torch.max(acq_values) - torch.min(acq_values)).clamp(min=1e-8)
-                acq_norm = (acq_values - torch.min(acq_values)) / range_val
-                logits = (acq_norm - 1.0) / temperature
-                probs = torch.softmax(logits, dim=0)
-
-                best_idx_in_batch = torch.multinomial(probs, 1).item()
-            else:
-                best_idx_in_batch = torch.argmax(acq_values)
-
-            best_acq_val = acq_values[best_idx_in_batch]
-
-            best_global_idx = valid_indices[best_idx_in_batch]
-
-            # (1, 1, D)
-            selected_candidate = choices[best_global_idx].unsqueeze(0).unsqueeze(0)
-
-            candidate_list.append(selected_candidate)
-            acq_value_list.append(best_acq_val)
-
-            current_candidates = torch.cat(candidate_list, dim=-2)
-            torch.cuda.empty_cache()
-
-            # Key step: Inform the acquisition function that these points have been selected.
-            # When looking for the next point, it should be based on the conditional distribution of these points
-            acq_func.set_X_pending(current_candidates.squeeze(0))
-            # If uniqueness is required, update the mask to exclude the point just selected
-            if unique:
-                dist_to_new = torch.norm(choices - selected_candidate.squeeze(), dim=-1)
-                is_far_enough = dist_to_new > min_distance
-                current_mask = current_mask & is_far_enough
-            if progress:
-                progress.update(task, advance=1)
-
-        # clean up
-        acq_func.set_X_pending(None)
-
-        if not candidate_list:
-            return torch.empty((0, choices.shape[-1]), device=choices.device), torch.empty(0, device=choices.device)
-
-        final_candidates = torch.cat(candidate_list, dim=-2).squeeze(0)  # (q, D)
-        final_values = torch.stack(acq_value_list)
-
-        return final_candidates, final_values
-
     def optimize_discrete(
         self,
         acq_func,
@@ -176,10 +49,6 @@ class BaseAcquisitionFunction:
         max_batch_size: int = 1024,
         progress: object = None,
         task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         """
@@ -198,10 +67,6 @@ class BaseAcquisitionFunction:
             max_batch_size: Maximum batch size for evaluation (default: 128)
             progress: Not used in EDBO implementation (kept for API compatibility)
             task: Not used in EDBO implementation (kept for API compatibility)
-            min_distance: Not used in EDBO implementation (kept for API compatibility)
-            exclude_points: Not used in EDBO implementation (kept for API compatibility)
-            temperature: Not used in EDBO implementation (kept for API compatibility)
-            constraint_mask: Not used in EDBO implementation (kept for API compatibility)
             unused_reagent_boost: Tensor of shape (n,) containing boost values for candidates with unused reagents.
                                  Higher values give more priority to candidates with unused reagents.
 
@@ -375,10 +240,6 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         unique: bool = True,
         progress: object = None,
         task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
 
@@ -390,10 +251,6 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
             unique=unique,
             progress=progress,
             task=task,
-            min_distance=min_distance,
-            exclude_points=exclude_points,
-            temperature=temperature,
-            constraint_mask=constraint_mask,
             unused_reagent_boost=unused_reagent_boost,
         )
 
@@ -433,10 +290,6 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         maximum_metrics: bool = True,
         progress: object = None,
         task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用逻辑
@@ -448,10 +301,6 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
             unique=unique,
             progress=progress,
             task=task,
-            min_distance=min_distance,
-            exclude_points=exclude_points,
-            temperature=temperature,
-            constraint_mask=constraint_mask,
             unused_reagent_boost=unused_reagent_boost,
         )
 
@@ -501,10 +350,6 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
         maximum_metrics: bool = True,
         progress: object = None,
         task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         return self.optimize_discrete(
@@ -515,10 +360,6 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
             unique=unique,
             progress=progress,
             task=task,
-            min_distance=min_distance,
-            exclude_points=exclude_points,
-            temperature=temperature,
-            constraint_mask=constraint_mask,
             unused_reagent_boost=unused_reagent_boost,
         )
 
@@ -582,10 +423,6 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         maximum_metrics: bool = True,
         progress: object = None,
         task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         # 直接调用基类的通用贪婪优化逻辑
@@ -597,10 +434,6 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
             unique=unique,
             progress=progress,
             task=task,
-            min_distance=min_distance,
-            exclude_points=exclude_points,
-            temperature=temperature,
-            constraint_mask=constraint_mask,
             unused_reagent_boost=unused_reagent_boost,
         )
 
@@ -777,10 +610,6 @@ class MOGIBBONAcquisitionFunction(BaseAcquisitionFunction):
         unique: bool = True,
         progress: object = None,
         task: object = None,
-        min_distance: float = 1e-6,
-        exclude_points: Tensor = None,
-        temperature: float = 0.0,
-        constraint_mask: Tensor = None,
         unused_reagent_boost: Tensor = None,
     ) -> tuple[Tensor, Tensor]:
         return self.optimize_discrete(
@@ -791,10 +620,6 @@ class MOGIBBONAcquisitionFunction(BaseAcquisitionFunction):
             unique=unique,
             progress=progress,
             task=task,
-            min_distance=min_distance,
-            exclude_points=exclude_points,
-            temperature=temperature,
-            constraint_mask=constraint_mask,
             unused_reagent_boost=unused_reagent_boost,
         )
 

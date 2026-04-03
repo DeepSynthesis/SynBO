@@ -25,7 +25,6 @@ from .optimize import Optimizer
 from .descriptor.desc_proc import array_process, done_array_process, array_standarization
 from .utils.util_func import check_desc_completeness, generate_constraint_mask, generate_onehot_desc, track_called, get_opt_type
 from .initialize import Initializer
-from .utils.write_excel import ExcelWriter
 from .utils.logger import _logger_default, console
 from .algorithm.edbo import EDBOplus, EDBOStandardScaler
 
@@ -323,32 +322,20 @@ class ReactionOptimizer:
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
         optimize_method: str = "default_BO",
-        temperature: float = 0.0,
         constraints: Optional[Dict[str, List[Any]]] = None,
+        device: str = "auto",
+        unused_weight: float = 0.0,
+        dupbatch_weight: float = 0.0,
         **optimization_kwargs: Any,
     ) -> None:
-        """Optimize reaction conditions using Bayesian Optimization.
-
-        Args:
-            batch_size: Number of conditions to recommend
-            desc_normalize: Descriptor normalization method
-            optimized_method: Optimization algorithm to use
-            temperature: Temperature parameter for exploration-exploitation trade-off (0.0 = pure exploitation, higher = more exploration)
-            constraints: Dictionary of constraints to apply to the search space. Format: {condition_type: [prohibited_values]}
-                        Example: {"base": ["base1", "base2"], "solvent": ["toluene"]}
-                        If a condition type is not in the dictionary, all values are allowed.
-            opt_weights: Weights for multi-objective optimization
-            mc_num_samples: Monte Carlo samples for acquisition function
-            max_batch_size: Maximum batch size for acquisition optimization
-            gpu_id: GPU device ID to use
-        """
+        """Optimize reaction conditions using Bayesian Optimization."""
         try:
             assert getattr(self, "_load_prev_rxn_called", False) == True
         except:
             self.opt_console.print("Must load previous reaction information before optimization.", style="red")
             raise Exception("No previous reaction information was loaded.")
 
-        # Function 3: Load prohibited reagents from file if they exist
+        # Load prohibited reagents from file if they exist
         if self.save_dir:
             from synbo.utils.constraints_io import load_prohibited_reagents, merge_constraints
 
@@ -363,75 +350,52 @@ class ReactionOptimizer:
 
         check_desc_completeness(self.desc_dict, self.condition_dict)
 
-        self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc
-        )
+        total_name_arr, total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc)
 
-        self.done_arr_index = done_array_process(self.prev_rxn_info, self.total_name_arr, self.condition_types)
-        self.total_desc_arr = array_standarization(self.total_desc_arr, self.done_arr_index, desc_normalize)
+        done_arr_index = done_array_process(self.prev_rxn_info, total_name_arr, self.condition_types)
+        total_desc_arr = array_standarization(total_desc_arr, done_arr_index, desc_normalize)
 
-        # TODO: solve this constraints problem!!!!
-        done_arr_desc = self.total_desc_arr[self.done_arr_index]
+        done_arr_desc = total_desc_arr[done_arr_index]
+        done_name = total_name_arr[done_arr_index]
         done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
 
-        # Normalize target values using opt_range
-        # self.y_scalers = {}
-        # normalized_metrics = {}
-        # for i, (metric, opt_metric) in enumerate(zip(self.opt_metrics, self.opt_metric_settings)):
-        #     # y_min, y_max = opt_metric["opt_range"]
-        #     # self.y_scalers[metric] = {"min": y_min, "max": y_max}
+        y_scaler = StandardScaler()
+        normalized_metrics = y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
 
-        self.y_scaler = StandardScaler()
-
-        #     # normalized_y = (done_arr_metrics[metric] - y_min) / (y_max - y_min)  # Min-max normalization: (y - y_min) / (y_max - y_min)
-        normalized_metrics = self.y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
-
-        # try:
-        import GPUtil
-
-        device_ids = GPUtil.getAvailable(order="memory", limit=1, maxLoad=0.5, maxMemory=0.5, includeNan=False)
-
-        if device_ids:
-            device = torch.device(f"cuda:{device_ids[0]}")
+        if device == "auto":
+            device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
+        elif device.split(":")[0] == "cuda" and torch.cuda.is_available():
+            try:
+                device = torch.device(f"cuda:{device.split(':')[1]}")
+            except:
+                self.opt_console(f"Device {device} is not valid. Using CPU instead.", style="yellow")
+                device = torch.device("cpu")
         else:
             device = torch.device("cpu")
 
-        # except:
+        if device.type == "cpu":
+            self.opt_console.print("Now using CPU for optimization.", style="yellow")
 
-        # device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
-        if not torch.cuda.is_available():
-            self.opt_console.print("No GPU found. Using CPU instead.", style="yellow")
+        optimizer = Optimizer(method=optimize_method, random_seed=self.random_seed, device=device, optimization_kwargs=optimization_kwargs)
 
-        optimizer = Optimizer(
-            method=optimize_method,
-            total_name_data=self.total_name_arr,
-            total_desc_arr=self.total_desc_arr,
-            random_seed=self.random_seed,
-            device=device,
-            optimization_kwargs=optimization_kwargs,
-        )
+        mask = np.ones(len(total_desc_arr), dtype=bool)
+        mask[done_arr_index] = False
+        candidate_indices = np.where(mask)[0]
 
-        # 替代方案：使用布尔掩码
-        mask = np.ones(len(self.total_desc_arr), dtype=bool)
-        mask[self.done_arr_index] = False
-        candidate_indices = np.where(mask)[0]  # 保持原有顺序
-
-        candidate_X = self.total_desc_arr[candidate_indices]
-        candidate_name = self.total_name_arr  # [candidate_indices]
-
-        if constraints is not None and self.total_name_arr is not None and self.condition_types is not None:
+        if constraints is not None and total_name_arr is not None and self.condition_types is not None:
             constraint_mask = generate_constraint_mask(
-                total_name_arr=self.total_name_arr,
+                total_name_arr=total_name_arr,
                 condition_types=self.condition_types,
                 constraints=constraints,
             )
 
-            # progress.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+            self.opt_console.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
 
-            # TODO: there is an mask!!
-            constraint_mask = constraint_mask[candidate_indices]
-        else:
-            constraint_mask = None
+            # TODO: check the masks here...
+            candidate_indices = candidate_indices[constraint_mask[candidate_indices]]
+
+        candidate_X = total_desc_arr[candidate_indices]
+        candidate_name = total_name_arr[candidate_indices]
 
         self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
             training_X=done_arr_desc,
@@ -439,17 +403,16 @@ class ReactionOptimizer:
             candidate_X=candidate_X,
             opt_metric_settings=self.opt_metric_settings,
             batch_size=batch_size,
-            temperature=temperature,
-            constraints=constraint_mask,
-            total_name_arr=candidate_name,
+            done_name=done_name,
+            candidate_name=candidate_name,
             condition_types=self.condition_types,
         )
 
         # Denormalize prediction values using the same scalers
         if self.pred_mean is not None and self.pred_std is not None:
             # Update the attributes with denormalized values
-            self.pred_mean = self.y_scaler.inverse_transform(self.pred_mean)
-            self.pred_std = self.pred_std * self.y_scaler.scale_
+            self.pred_mean = y_scaler.inverse_transform(self.pred_mean)
+            self.pred_std = self.pred_std * y_scaler.scale_
 
         # Display optimization summary
         exploit_count = sum(1 for t in self.recommend_type if t == "exploit")

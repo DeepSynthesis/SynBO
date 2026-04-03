@@ -80,19 +80,16 @@ class DefaultBO:
         candidate_X: np.ndarray,
         opt_metric_settings: List[dict],
         batch_size: int,
-        # training_y_dict: dict,
-        temperature: float = 0.0,
-        constraints: dict = None,
-        total_name_arr: np.ndarray = None,
+        done_name: np.ndarray = None,
+        candidate_name: np.ndarray = None,
         condition_types: List[str] = None,
-        total_desc_arr: np.ndarray = None,
     ) -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
 
         training_X_t = torch.tensor(training_X).double().to(device=self.device)
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double()
-        constraint_mask_t = torch.tensor(constraints) if constraints is not None else None
+        # constraint_mask_t = torch.tensor(constraints) if constraints is not None else None
 
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
@@ -106,7 +103,6 @@ class DefaultBO:
 
             models = []
             for i in range(num_models):
-                # key = list(training_y_dict.keys())[i]
                 progress.log(f"Fitting model for {i+1}th model...", style="yellow")
 
                 # Instantiate model with random_seed for reproducibility
@@ -130,10 +126,8 @@ class DefaultBO:
             task_pareto = progress.add_task(description="Calculating Pareto frontiers", total=len(training_y) - 1)
             training_y_np = training_y_t.cpu().numpy()
             self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np, progress, task_pareto).to(device=self.device)
-            # self.pareto_y = self.target_evaluator.calculate_target_function(training_y_np).to(device=self.device)
 
-            # 基于训练数据动态计算参考点（EDBO+风格）
-            # 获取训练数据的最小值和最大值（已经过权重和方向调整）
+            # Dynamically calculate reference points based on training data
             y_min = training_y_t.min(dim=0).values
             y_max = training_y_t.max(dim=0).values
             y_range = y_max - y_min
@@ -187,7 +181,7 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
-            candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
+            # candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
 
             # TODO: need to Re-implementate reagent boost mechanism.
             # # Generate unused reagent boost if total_name_arr is provided
@@ -209,12 +203,8 @@ class DefaultBO:
                 choices=candidate_X_t,
                 max_batch_size=self.max_batch_size,
                 unique=True,
-                exclude_points=training_X_t,
-                min_distance=1e-6,
                 progress=progress,
                 task=task_acq_opt,
-                temperature=temperature,
-                constraint_mask=constraint_mask_t,
                 unused_reagent_boost=unused_reagent_boost,
             )
 

@@ -6,7 +6,9 @@
 
 建立真实反应的benchmark
 
+解决超大化学空间的BO问题？
 
+可能要 聚类 - 优化 - 聚类？
 
 - 相比起探索pareto frontiers，单纯的优化问题或许更希望快速探索到一个特定的结果（for example: yield = 60%, ee = 90%）
 

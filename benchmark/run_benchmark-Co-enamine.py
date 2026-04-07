@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # k值：运行多少轮
 RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
 
 CONFIG = {
-    "experiment_name": "Co/e (nb)",
+    "experiment_name": "Co/e (none)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
     "iterations": 10,
@@ -51,10 +51,10 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "device": "cuda:2",
+        "device": "cuda:1",
         "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
         "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
-        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "GP", "acq_func": "UCB"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

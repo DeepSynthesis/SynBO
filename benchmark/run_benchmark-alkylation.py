@@ -50,7 +50,8 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "use_edbo": True,  # Set to True to use EDBO+ optimization instead of default BO
+        "device": "cuda:3",
+        "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
         "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
         "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
@@ -365,6 +366,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                         optimize_method=CONFIG["optimization_settings"]["optimize_method"],
                         desc_normalize=CONFIG["optimization_settings"]["desc_normalize"],
                         refine_desc=CONFIG["optimization_settings"]["refine_desc"],
+                        device=CONFIG["optimization_settings"]["device"],
                         # temperature=CONFIG["optimization_settings"]["temperature"] * (0.9 - i / 10),
                         constraints=constraints,
                         **CONFIG["optimization_settings"]["kwargs"],

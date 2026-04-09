@@ -1,6 +1,0 @@
-batch,index,type,reactant2,catalyst1,catalyst2,pred yield,pred ee,yield,ee
-0,1,explore,O=C(CBr)c1ccc(-c2ccccc2)cc1,Ir(ppy)2bpyPF6,Morpholine,-,-,0.117813029,0.006302468
-0,2,explore,O=C(CBr)c1ccccc1,RhB,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,-,-,0.117591891,0.559057336
-0,3,explore,COc1ccc(C(=O)CBr)cc1,[26-Me-Acr-Me]ClO4,Proline_amide,-,-,0.049781483,0.288734511
-0,4,explore,O=C(CBr)c1ccc(-c2ccccc2)cc1,MethyleneBlue,di(dCF3-phenyl)-2-pyrrolidinyl-TMS-ether,-,-,0.013057783,0.400717303
-0,5,explore,O=C(CBr)c1ccc(C(F)(F)F)cc1,Ru(bpy)3[PF6]2,diphenyl-2-pyrrolidinyl-TMS-ether,-,-,0.286593791,0.468160342

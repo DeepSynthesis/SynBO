@@ -6,7 +6,6 @@ using Bayesian Optimization techniques.
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -93,7 +92,7 @@ class ReactionOptimizer:
         self.opt_console.print(
             Panel(
                 f"[bold blue]ReactionOptimizer initialized[/bold blue]\n" f"Metrics: {', '.join(self.opt_metrics)}\n" f"Mode: {opt_type}",
-                title="🧪 Reaction Optimizer",
+                title="Reaction Optimizer",
                 expand=False,
             )
         )
@@ -152,7 +151,7 @@ class ReactionOptimizer:
 
         for ctype, values in condition_dict.items():
             sample_str = ", ".join(map(str, values[:3]))
-            if len(values) > 3:
+            if len(values) > 6:
                 sample_str += "..."
             table.add_row(ctype, str(len(values)), sample_str)
 
@@ -179,7 +178,7 @@ class ReactionOptimizer:
 
         for k, v in self.desc_dict.items():
             not_numeric_col = [col for col in v.columns if not pd.api.types.is_numeric_dtype(v[col])]
-            # 如果v中的某一列不是int或者float之类的数值类型，则删除掉这一列，并且用console打印警告信息
+
             if not_numeric_col:
                 self.opt_console.print(
                     f"🚨 Warning: Non-numeric columns found in descriptors for {k} condition type,"
@@ -284,7 +283,7 @@ class ReactionOptimizer:
         self,
         batch_size: int = 5,
         desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
-        sampling_method: Literal["sobol", "random", "lhs", "kmeans"] = "kmeans",
+        sampling_method: Literal["sobol", "random", "lhs", "kmeans"] = "lhs",
         refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
     ) -> None:
         """Initialize reaction optimization with initial sampling.
@@ -306,7 +305,7 @@ class ReactionOptimizer:
         self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
 
         # All initial points are exploration
-        self.recommend_type = ["explore"] * batch_size
+        self.recommend_type = ["EXPLORE"] * batch_size
 
         # For initialization, no prediction values available
         self.pred_mean = None
@@ -324,8 +323,6 @@ class ReactionOptimizer:
         optimize_method: str = "default_BO",
         constraints: Optional[Dict[str, List[Any]]] = None,
         device: str = "auto",
-        unused_weight: float = 0.0,
-        dupbatch_weight: float = 0.0,
         **optimization_kwargs: Any,
     ) -> None:
         """Optimize reaction conditions using Bayesian Optimization."""
@@ -391,7 +388,6 @@ class ReactionOptimizer:
 
             self.opt_console.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
 
-            # TODO: check the masks here...
             candidate_indices = candidate_indices[constraint_mask[candidate_indices]]
 
         candidate_X = total_desc_arr[candidate_indices]
@@ -427,221 +423,6 @@ class ReactionOptimizer:
                 title="🎯 Results Summary",
             )
         )
-
-    def optimize_edbo(
-        self,
-        batch_size: int = 5,
-        acquisition_function: str = "NoisyEHVI",
-        init_sampling_method: str = "random",
-        init_indices: Optional[List[int]] = None,
-        objective_thresholds: Optional[List[float]] = None,
-        scaler_features=None,
-        scaler_objectives=None,
-    ) -> None:
-        """Optimize reaction conditions using EDBO+ (Experimental Design via Bayesian Optimization).
-
-        This method implements the EDBO+ algorithm with separate data loading, normalization,
-        and optimization steps. It uses Botorch for Bayesian Optimization with EHVI/NoisyEHVI
-        acquisition functions for multi-objective optimization.
-
-        Args:
-            batch_size: Number of conditions to recommend
-            acquisition_function: Acquisition function to use ('EHVI', 'NoisyEHVI', 'EI')
-            init_sampling_method: Method for initial sampling when no previous data exists
-                ('random', 'with_index', etc.)
-            init_indices: Optional list of indices to use for initialization when
-                init_sampling_method='with_index'
-            objective_thresholds: List of threshold values for each objective.
-                If None, uses minimum observed values as reference point.
-            scaler_features: Scaler for features (default: MinMaxScaler)
-            scaler_objectives: Scaler for objectives (default: EDBOStandardScaler)
-
-        Raises:
-            ValueError: If condition space or descriptors are not loaded
-        """
-        from sklearn.preprocessing import MinMaxScaler
-
-        # Check prerequisites
-        if not self.condition_dict:
-            raise ValueError("Reaction condition space must be loaded before optimization. Call load_rxn_space() first.")
-
-        if not self.desc_dict:
-            raise ValueError("Descriptors must be loaded before optimization. Call load_desc() first.")
-
-        # Determine optimization mode
-        has_prev_data = getattr(self, "_load_prev_rxn_called", False) and hasattr(self, "prev_rxn_info")
-
-        if has_prev_data:
-            self.opt_type = "opt"
-            self.batch_id = self.prev_rxn_info["batch"].max() + 1
-        else:
-            self.opt_type = "init"
-
-        self.opt_console.print(Rule(title="🚀 Running EDBO+ Optimization", style="bold"))
-        self.opt_console.print(
-            f"Running settings:\n"
-            f"_ Optimization type: [bold]{'Optimization' if has_prev_data else 'Initialization'}[/bold]\n"
-            f"_ Batch size: [bold]{batch_size}[/bold]\n"
-            f"_ Acquisition function: [bold]{acquisition_function}[/bold]\n"
-            f"_ Init sampling: [bold]{init_sampling_method}[/bold]\n"
-        )
-
-        # Set default scalers if not provided
-        if scaler_features is None:
-            scaler_features = MinMaxScaler()
-        if scaler_objectives is None:
-            scaler_objectives = EDBOStandardScaler()
-
-        # Prepare objective modes from opt_metric_settings
-        objective_modes = [setting["opt_direct"] for setting in self.opt_metric_settings]
-
-        # Generate the full reaction scope DataFrame
-        # This creates a DataFrame with all possible combinations of conditions
-        scope_df = self._generate_scope_dataframe()
-
-        # Create a temporary CSV file for EDBO+
-        import tempfile
-
-        temp_dir = tempfile.mkdtemp()
-        temp_filename = "edbo_scope.csv"
-
-        # If we have previous data, merge it into the scope
-        if has_prev_data:
-            scope_df = self._merge_prev_data_into_scope(scope_df)
-
-        # Save scope to temporary CSV
-        scope_df.to_csv(f"{temp_dir}/{temp_filename}", index=False)
-
-        # Initialize EDBO+ optimizer
-        edbo = EDBOplus()
-
-        # Run EDBO+ optimization
-        result_df = edbo.run(
-            objectives=self.opt_metrics,
-            objective_mode=objective_modes,
-            objective_thresholds=objective_thresholds,
-            directory=temp_dir,
-            filename=temp_filename,
-            columns_features="all",  # Use all available features
-            batch=batch_size,
-            init_sampling_method=init_sampling_method,
-            seed=self.random_seed,
-            scaler_features=scaler_features,
-            scaler_objectives=scaler_objectives,
-            acquisition_function=acquisition_function,
-            acquisition_function_sampler="SobolQMCNormalSampler",
-            init_indices=init_indices,
-        )
-
-        # Extract selected conditions from results
-        # Priority >= 0.5 indicates selected samples
-        selected_df = result_df[result_df["priority"] >= 0.5].copy()
-
-        # Get only the condition type columns (reagent space), not descriptor columns
-        # condition_types contains the reagent names like ['base', 'ligand', 'solvent', ...]
-        condition_cols = [c for c in self.condition_types if c in selected_df.columns]
-
-        # Also include 'index' column if it exists for tracking
-        if "index" in selected_df.columns:
-            condition_cols = ["index"] + condition_cols
-
-        self.selected_conditions = scope_df.loc[selected_df.index, ["alkali", "amine", "cobalt", "oxidant", "solvent"]]
-
-        # Store predictions if available
-        self.pred_mean = None
-        self.pred_std = None
-
-        if has_prev_data and any(f"{m}_predicted_mean" in result_df.columns for m in self.opt_metrics):
-            # Extract predictions for selected conditions
-            pred_means = []
-            pred_stds = []
-            for metric in self.opt_metrics:
-                mean_col = f"{metric}_predicted_mean"
-                std_col = f"{metric}_predicted_std_dev"
-                if mean_col in selected_df.columns and std_col in selected_df.columns:
-                    pred_means.append(selected_df[mean_col].values)
-                    pred_stds.append(selected_df[std_col].values)
-
-            if pred_means:
-                self.pred_mean = np.array(pred_means).T
-                self.pred_std = np.array(pred_stds).T
-
-        # Set recommendation types (all EDBO+ recommendations are considered exploitation)
-        self.recommend_type = ["exploit"] * len(self.selected_conditions)
-
-        # Clean up temporary files
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
-
-        # Display results
-        self.opt_console.print(
-            Panel(
-                f"[green]EDBO+ Optimization Complete![/green]\n"
-                f"Recommended: {len(self.selected_conditions)} conditions\n"
-                f"Acquisition: {acquisition_function}",
-                title="🎯 Results Summary",
-            )
-        )
-
-    def _generate_scope_dataframe(self) -> pd.DataFrame:
-        """Generate a DataFrame with all possible reaction scope combinations.
-
-        Returns:
-            DataFrame with all condition combinations
-        """
-        from itertools import product
-
-        # Get all condition values
-        condition_values = [self.condition_dict[ct] for ct in self.condition_types]
-
-        # Generate all combinations
-        all_combinations = list(product(*condition_values))
-
-        # Create DataFrame
-        scope_df = pd.DataFrame(all_combinations, columns=self.condition_types)
-
-        # Add index column for tracking
-        scope_df["index"] = range(len(scope_df))
-
-        # Add descriptor features for each condition type
-        for condition_type in self.condition_types:
-            desc_df = self.desc_dict[condition_type]
-            # Merge descriptors
-            scope_df = scope_df.merge(desc_df, left_on=condition_type, right_index=True, how="left")
-
-        return scope_df
-
-    def _merge_prev_data_into_scope(self, scope_df: pd.DataFrame) -> pd.DataFrame:
-        """Merge previous reaction data into the scope DataFrame.
-
-        Args:
-            scope_df: DataFrame with reaction scope
-
-        Returns:
-            DataFrame with previous data merged
-        """
-        # Create a copy to avoid modifying original
-        result_df = scope_df.copy()
-
-        # Add objective columns with 'PENDING' as default
-        for metric in self.opt_metrics:
-            result_df[metric] = "PENDING"
-
-        # Merge previous data
-        for _, row in self.prev_rxn_info.iterrows():
-            # Find matching row in scope
-            match_mask = pd.Series([True] * len(result_df))
-            for condition_type in self.condition_types:
-                match_mask &= result_df[condition_type].astype(str) == str(row[condition_type])
-
-            # Update objective values
-            if match_mask.any():
-                idx = result_df[match_mask].index[0]
-                for metric in self.opt_metrics:
-                    result_df.at[idx, metric] = str(row[metric])
-
-        return result_df
 
     def save_results(
         self,
@@ -705,49 +486,6 @@ class ReactionOptimizer:
         for desc_df in self.desc_dict.values():
             total_shape += desc_df.shape[1]
         return total_shape
-
-    def get_constrains(self, method: str = "llm", **kwargs) -> Optional[Dict[str, List[Any]]]:
-        """Get constraints for optimization based on analysis method.
-
-        Args:
-            method: Analysis method to use ("llm" or others)
-            **kwargs: Additional parameters for the analysis method
-
-        Returns:
-            Dictionary of constraints in format {condition_type: [prohibited_values]}
-            Returns None if no constraints are needed
-
-        Raises:
-            ValueError: If method is not supported or required data is not loaded
-        """
-        if method == "llm":
-            from synbo.analysis.llm_analyzer import LLMAnalyzer
-            from synbo.utils.constraints_io import load_prohibited_reagents, save_prohibited_reagents
-
-            if self.prev_rxn_info is None:
-                raise ValueError("Previous reaction information must be loaded before getting constraints")
-
-            # Function 2: Load existing prohibited reagents before LLM recommendation
-            existing_prohibited = None
-            if self.save_dir:
-                existing_prohibited = load_prohibited_reagents(self.save_dir)
-
-            analyzer = LLMAnalyzer(
-                opt_metrics=self.opt_metrics,
-                opt_metric_settings=self.opt_metric_settings,
-                prev_rxn=self.prev_rxn_info,
-                condition_dict=self.condition_dict,
-                existing_prohibited=existing_prohibited,  # Pass existing prohibited to LLM
-            )
-            constraints = analyzer.analyze(**kwargs)
-
-            # Function 1: Save prohibited reagents after LLM recommendation
-            if constraints and self.save_dir:
-                save_prohibited_reagents(save_dir=self.save_dir, new_prohibited=constraints, existing_prohibited=existing_prohibited)
-
-            return constraints
-        else:
-            raise ValueError(f"Unsupported method: {method}. Supported methods: 'llm'")
 
     def calculate_current_hv(self, batch_id: Optional[int] = None, reference_point_multiplier: float = 1.0) -> Dict[str, any]:
         """Calculate hypervolume (HV) for current optimization progress.

@@ -25,7 +25,6 @@ from .descriptor.desc_proc import array_process, done_array_process, array_stand
 from .utils.util_func import check_desc_completeness, generate_constraint_mask, generate_onehot_desc, track_called, get_opt_type
 from .initialize import Initializer
 from .utils.logger import _logger_default, console
-from .algorithm.edbo import EDBOplus, EDBOStandardScaler
 
 default_settings = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
 

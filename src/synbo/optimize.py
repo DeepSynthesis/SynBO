@@ -2,11 +2,8 @@ from typing import List
 import numpy as np
 import torch
 
-from synbo.algorithm.evolution import DefaultEO
-from synbo.algorithm.particle_swarm import DefaultPS
 from synbo.utils.logger import console
 from synbo.algorithm.bo_core import DefaultBO
-from synbo.algorithm.random_select import RandomSelect
 
 
 class Optimizer:
@@ -23,8 +20,6 @@ class Optimizer:
 
         if self.method == "default_BO":
             self.optimizer = DefaultBO(random_seed=random_seed, device=device, **optimization_kwargs)
-        elif self.method == "random_select":
-            self.optimizer = RandomSelect(random_seed=random_seed)
 
         else:
             raise Exception(f"Unknown optimization method: {self.method}")

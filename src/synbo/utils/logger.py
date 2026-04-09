@@ -42,6 +42,5 @@ class RXNConsole:
         self.console.quiet = quiet
 
 
-# module-level singleton console，整个项目直接 import 使用
 _logger_default = RXNConsole()
 console: Console = _logger_default.get_console()

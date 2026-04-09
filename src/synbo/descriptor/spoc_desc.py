@@ -1,10 +1,9 @@
 from pathlib import Path
 import numpy as np
-from typing import Any, List, Literal
+from typing import Any, List
 from collections.abc import Sequence
 import pandas as pd
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys, AllChem
 from rdkit.Avalon import pyAvalonTools
@@ -102,16 +101,6 @@ class SPOCDescriptor:
                 raise ValueError(f"Unsupported RDKit fingerprint type: {self.desc_type}")
 
         self.desc_array = self.desc_array.round(5)
-
-    def ob_fp_descriptor(self, fp_length=1024):
-        # Not use now...
-        # import pybel
-        # mol_list = [pybel.readstring("smi", smi) for smi in self.smiles_list]
-        # fp = [mol.calcfp(self.fp_type) for mol in mol_list]
-        # bits = [x for x in fp.bits if x < fp_length]
-
-        # self.desc_array = np.array([x for x in bits])
-        pass
 
     def save_results(self, save_path: Path | str, index_name: str = "name"):
         desc_df = pd.DataFrame(self.desc_array, index=self.name_list)

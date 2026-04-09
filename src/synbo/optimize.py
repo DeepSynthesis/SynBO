@@ -23,10 +23,6 @@ class Optimizer:
 
         if self.method == "default_BO":
             self.optimizer = DefaultBO(random_seed=random_seed, device=device, **optimization_kwargs)
-        elif self.method == "evolution":
-            self.optimizer = DefaultEO(random_seed=random_seed, device=device, **optimization_kwargs)
-        elif self.method == "particle_swarm":
-            self.optimizer = DefaultPS(random_seed=random_seed, device=device, **optimization_kwargs)
         elif self.method == "random_select":
             self.optimizer = RandomSelect(random_seed=random_seed)
 
@@ -50,7 +46,7 @@ class Optimizer:
 
         training_y = training_y.T
 
-        if self.method in ["default_BO"]:  # , "random_select", "evolution", "particle_swarm"]:
+        if self.method in ["default_BO"]:
             best_samples, recommend_type, pred_mean, pred_std = self.optimizer.optimize(
                 training_X=training_X,
                 training_y=training_y,
@@ -62,9 +58,8 @@ class Optimizer:
                 condition_types=condition_types,
             )
 
-            
             selected_indices = [np.argwhere(np.all(candidate_X == best_sample, axis=1)).flatten() for best_sample in best_samples]
-            
+
             selected_indices = np.array(selected_indices).squeeze()
             selected_conditions = candidate_name[selected_indices].squeeze()
 

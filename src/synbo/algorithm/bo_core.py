@@ -7,7 +7,6 @@ from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
 
-from synbo.utils.util_func import compute_hvi, generate_constraint_mask
 from synbo.utils.logger import console
 from synbo.algorithm.sg_model import (
     BNNEnsembleSurrogateModel,
@@ -24,11 +23,6 @@ from synbo.algorithm.acq_function import (
     UCBAcquisitionFunction,
     ParetoFrontCalculator,
 )
-
-import warnings
-from linear_operator.utils.cholesky import NumericalWarning
-
-warnings.filterwarnings("ignore", category=NumericalWarning)
 
 
 class DefaultBO:
@@ -184,18 +178,6 @@ class DefaultBO:
             # candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
 
             # TODO: need to Re-implementate reagent boost mechanism.
-            # # Generate unused reagent boost if total_name_arr is provided
-            unused_reagent_boost = None
-
-            # if total_name_arr is not None and condition_types is not None and total_desc_arr is not None:
-            #     unused_reagent_boost = self._compute_unused_reagent_boost(
-            #         training_X=training_X_t,
-            #         candidate_X=candidate_X_t,
-            #         total_name_arr=total_name_arr,
-            #         total_desc_arr=total_desc_arr,
-            #         condition_types=condition_types,
-            #         device=self.device,
-            #     )
 
             task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
             self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
@@ -204,8 +186,6 @@ class DefaultBO:
                 max_batch_size=self.max_batch_size,
                 unique=True,
                 progress=progress,
-                task=task_acq_opt,
-                unused_reagent_boost=unused_reagent_boost,
             )
 
         if self.device.type == "cuda":
@@ -294,109 +274,3 @@ class DefaultBO:
         weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings])
         training_y = training_y / weights
         return training_y
-
-    def _compute_unused_reagent_boost(
-        self,
-        training_X: torch.Tensor,
-        candidate_X: torch.Tensor,
-        total_name_arr: np.ndarray,
-        total_desc_arr: np.ndarray,
-        condition_types: List[str],
-        device: torch.device,
-        boost_value: float = 0.5,
-    ) -> torch.Tensor:
-        """
-        Compute boost values for candidates containing unused reagents.
-        (Optimized with KDTree, Vectorization, and 10% Progress Bar)
-        """
-        # TODO: check the logic here!!!
-        from scipy.spatial import cKDTree
-        import numpy as np
-        import math
-
-        # Convert tensors to numpy for easier comparison
-        training_X_np = training_X.cpu().numpy()
-        candidate_X_np = candidate_X.cpu().numpy()
-
-        # 1. Build a KDTree for extremely fast spatial queries
-        self.console.print("[dim]Building KDTree for fast spatial matching...[/dim]")
-        tree = cKDTree(total_desc_arr)
-
-        # 2. Find training indices
-        dists_train, train_idx = tree.query(training_X_np, k=1, p=np.inf, distance_upper_bound=1e-5)
-        valid_train_mask = dists_train <= 1e-6
-        training_indices = train_idx[valid_train_mask]
-
-        # 3. Get used reagents for each condition type (Vectorized)
-        used_reagents = {ct: set() for ct in condition_types}
-        if len(training_indices) > 0:
-            train_names = total_name_arr[training_indices].astype(str)
-            for j, ct in enumerate(condition_types):
-                used_reagents[ct] = set(train_names[:, j])
-
-        # 4. Log which reagents are used/unused
-        self.console.print("[bold cyan]Reagent usage analysis:[/bold cyan]")
-        for j, ct in enumerate(condition_types):
-            all_reagents = set(np.unique(total_name_arr[:, j].astype(str)))
-            unused = all_reagents - used_reagents[ct]
-            self.console.print(f"  {ct}: {len(used_reagents[ct])} used, {len(unused)} unused", style="cyan")
-
-        # 5. Process Candidates in 10 chunks to print "10%... 20%..." progress
-        num_candidates = len(candidate_X_np)
-        boosts_np = np.zeros(num_candidates, dtype=np.float64)
-
-        num_chunks = 10
-        chunk_size = max(1, math.ceil(num_candidates / num_chunks))
-
-        self.console.print("[bold yellow]Calculating candidate boosts: [/bold yellow]", end="")
-
-        for i in range(num_chunks):
-            start_idx = i * chunk_size
-            end_idx = min((i + 1) * chunk_size, num_candidates)
-
-            if start_idx >= num_candidates:
-                break
-
-            # Get current chunk
-            cand_chunk = candidate_X_np[start_idx:end_idx]
-
-            # Query KDTree for this chunk
-            dists_cand, cand_idx = tree.query(cand_chunk, k=1, p=np.inf, distance_upper_bound=1e-5)
-            valid_cand_mask = dists_cand <= 1e-6
-            matched_cand_indices = cand_idx[valid_cand_mask]
-
-            if len(matched_cand_indices) > 0:
-                cand_names = total_name_arr[matched_cand_indices].astype(str)
-                new_reagent_conbination = np.zeros(len(matched_cand_indices), dtype=bool)
-
-                # Vectorized unused check
-                for j, ct in enumerate(condition_types):
-                    used_set_list = list(used_reagents[ct])
-                    if len(used_set_list) > 0:
-                        is_used = np.isin(cand_names[:, j], used_set_list)
-                        new_reagent_conbination |= ~is_used
-                    else:
-                        new_reagent_conbination[:] = True
-
-                valid_boosts = np.where(new_reagent_conbination, boost_value, 0.0)
-
-                # Assign back to local chunk array
-                chunk_boosts = np.zeros(len(cand_chunk), dtype=np.float64)
-                chunk_boosts[valid_cand_mask] = valid_boosts
-                # Assign chunk results to global array
-                boosts_np[start_idx:end_idx] = chunk_boosts
-
-            # ----- Print Progress (10%... 20%... ) -----
-            progress_pct = int(min(100, ((i + 1) / num_chunks) * 100))
-            self.console.print(f"{progress_pct}%...", end=" ")
-
-        # Print a newline after progress bar finishes
-        self.console.print()
-
-        # 6. Count how many candidates get a boost
-        num_boosted = np.sum(boosts_np > 0)
-        self.console.print(
-            f"[bold green]{num_boosted}/{len(boosts_np)} candidates receive unused reagent boost (+{boost_value})[/bold green]"
-        )
-
-        return torch.tensor(boosts_np, dtype=torch.double, device=device)

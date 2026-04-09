@@ -1,6 +1,0 @@
-batch,index,type,alkali,amine,cobalt,oxidant,solvent,pred yield,pred ee,yield,ee
-1,1,Unknown,AcOH,amine1-TfOH,[Co]-1,"1,3-Dichloro-5,5-dimethylhydantoin",Chloroform,11.66±2.93,32.29±4.96,19.43107988672568,40.4814731467307
-1,2,Unknown,AcOH,amine9-HNTf2,[Co]-8,"1,3-Dichloro-5,5-dimethylhydantoin",Chloroform,11.66±2.93,32.29±4.96,27.102305176363288,20.63136549911036
-1,3,Unknown,AcOH,amine9-HNTf2,[Co]-3,"1,3-Dichloro-5,5-dimethylhydantoin",Chloroform,11.66±2.93,32.29±4.96,20.81132124260187,16.666987852114165
-1,4,Unknown,K3PO4,amine9-HNTf2,[Co]-10,CAN,DMSO,11.66±2.93,32.29±4.96,10.27589775944266,33.025160415272154
-1,5,Unknown,K3PO4,amine9-HNTf2,[Co]-5,CAN,DMSO,11.66±2.93,32.29±4.96,3.8010415751693487,28.86361496174433

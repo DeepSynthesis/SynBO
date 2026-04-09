@@ -204,41 +204,6 @@ class DefaultBO:
         pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
         return best_samples, recommend_type, pred_mean, pred_std
 
-    # def _get_exploit_or_explore(self) -> List[str]:
-
-    #     posterior = self.global_model.posterior(self.acq_result)
-    #     pred_mean = posterior.mean
-
-    #     # Handle different shapes from posterior.mean
-    #     # The posterior.mean from ModelListGP with multiple outputs has shape (batch_size, q)
-    #     # where each model contributes one dimension
-    #     # We need to reshape to (batch_size, n_outputs) where batch_size = n_points
-    #     if pred_mean.dim() == 2:
-    #         # Already in correct shape (n_points, n_outputs)
-    #         pass
-    #     elif pred_mean.dim() == 3:
-    #         # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
-    #         pred_mean = pred_mean.squeeze(0)
-
-    #     # Ensure pred_mean is 2D
-    #     if pred_mean.dim() != 2:
-    #         raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
-
-    #     hvi_values = torch.tensor([compute_hvi(pred_mean[i], self.pareto_y, self.ref_point) for i in range(pred_mean.shape[0])])
-    #     ehvi_values = self.acq_value.to(device="cpu")
-    #     exploit_scores = hvi_values / (ehvi_values + 1e-6)
-    #     explore_scores = 1 - exploit_scores
-
-    #     for i in range(self.acq_result.shape[0]):
-    #         self.console.log(
-    #             f"Point {i}: "
-    #             f"EHVI = {ehvi_values[i]:.3f}, "
-    #             f"HVI = {hvi_values[i]:.3f}, "
-    #             f"Exploit Score = {exploit_scores[i]:.3f}, "
-    #             f"Explore Score = {explore_scores[i]:.3f}"
-    #         )
-    #     return ["exploit" if exploit_scores[i] > explore_scores[i] else "explore" for i in range(self.acq_result.shape[0])]
-
     def _get_predictions(self) -> Tuple[np.ndarray, np.ndarray]:
         self.acq_result = self.acq_result.to(device=self.device)
 

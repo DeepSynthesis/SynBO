@@ -224,7 +224,7 @@ class UCBAcquisitionFunction(BaseAcquisitionFunction):
         progress: object = None,
         task: object = None,
     ) -> tuple[Tensor, Tensor]:
-        # 直接调用基类的通用逻辑
+        # Directly call base class general logic
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,
@@ -295,43 +295,43 @@ class ParEGOAcquisitionFunction(BaseAcquisitionFunction):
     @staticmethod
     def _get_chebyshev_objective(weights: Tensor, Y: Tensor) -> GenericMCObjective:
         """
-        创建一个 GenericMCObjective，它对输出应用切比雪夫标量化。
+        Create a GenericMCObjective that applies Chebyshev scalarization to outputs.
 
         Args:
-            weights: 权重向量 (num_objectives,)
-            Y:以此为基准计算理想点(ideal point)和最差点(nadir point)的观测值 (n x num_objectives)
+            weights: Weight vector (num_objectives,)
+            Y: Observations to calculate ideal point and nadir point (n x num_objectives)
         """
-        # get_chebyshev_scalarization 返回一个 python callable (function)
-        # 这个 callable 接受 tensor 并返回标量化后的 tensor
+        # get_chebyshev_scalarization returns a python callable (function)
+        # This callable accepts tensor and returns scalarized tensor
         scalarization_fn = get_chebyshev_scalarization(weights=weights, Y=Y)
 
-        # 将其包装为 BoTorch 采集函数可用的 MCObjective 对象
+        # Wrap it as an MCObjective object usable by BoTorch acquisition functions
         return GenericMCObjective(scalarization_fn)
 
 
 class NEIAcquisitionFunction(BaseAcquisitionFunction):
     """
     Noisy Expected Improvement (Log-space version).
-    当观测值存在显著噪声，或者无法直接确定 'best_f' 时效果极佳。
-    使用 LogNoisyExpectedImprovement 以获得更好的数值稳定性。
+    Works excellently when observations have significant noise or when 'best_f' can't be determined.
+    Use LogNoisyExpectedImprovement for better numerical stability。
     """
 
     def __init__(
         self,
         model: ModelListGP,
         sampler: SobolQMCNormalSampler,
-        X_baseline: Tensor,  # 必须提供已有的观察点
+        X_baseline: Tensor,  # Must provide existing observation points
         device,
         weights: Tensor = None,
-        prune_baseline: bool = True,  # 这是一个通常有用的选项，用于减少计算量
+        prune_baseline: bool = True,  # This is a generally useful option，to reduce computation
     ):
         super().__init__(model, sampler, device)
 
-        # 处理多目标/多输出的权重聚合
+        # Handle weight aggregation for multi-objective/multi-output
         objective = None
         if weights is not None:
             objective = GenericMCObjective(lambda Z, X: Z @ weights)
-        # 初始化 BoTorch 的 qLogNoisyExpectedImprovement
+        # Initialize BoTorch
         self.acquisition_function = qLogNoisyExpectedImprovement(
             model=model,
             X_baseline=X_baseline,
@@ -350,7 +350,7 @@ class NEIAcquisitionFunction(BaseAcquisitionFunction):
         progress: object = None,
         task: object = None,
     ) -> tuple[Tensor, Tensor]:
-        # 直接调用基类的通用贪婪优化逻辑
+        # Directly call base class general greedy optimization logic
         return self.optimize_discrete(
             acq_func=self.acquisition_function,
             q=q,

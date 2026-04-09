@@ -126,13 +126,13 @@ class DefaultBO:
             y_max = training_y_t.max(dim=0).values
             y_range = y_max - y_min
 
-            # 参考点 = 最小值 - 10%的范围（确保参考点在Pareto前沿下方/更差位置）
+            # Reference point = min - 10% range (ensure reference point is below/worse than Pareto front)
             ref_point_values = []
             for i, omi in enumerate(opt_metric_settings):
                 if y_range[i] > 0:
                     ref_val = y_min[i]  # - 0.1 * y_range[i]
                 else:
-                    # 如果所有值相同，给一个小的偏移
+                    # If all values are the same, give a small offset
                     ref_val = y_min[i] - 0.1
                 ref_point_values.append(ref_val)
 

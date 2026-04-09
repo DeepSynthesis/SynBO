@@ -150,7 +150,7 @@ class Initializer:
         sobol_points = draw_sobol_samples(
             bounds=torch.tensor([[0.0] * data.shape[1], [1.0] * data.shape[1]]), n=self.batch_size, q=1, seed=self.random_seed
         ).squeeze(1)
-        # 最近邻搜索：找到 data_normalized 中最接近 sobol_points 的点
+        # Nearest neighbor search: find points in data_normalized closest to sobol_points
         nbrs = NearestNeighbors(n_neighbors=1).fit(data.numpy())
         _, indices = nbrs.kneighbors(sobol_points.numpy())
         indices = torch.from_numpy(indices).squeeze(1)  # (batch_size,)

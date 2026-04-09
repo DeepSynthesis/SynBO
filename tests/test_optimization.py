@@ -14,7 +14,7 @@ class TestReactionOptimizer(unittest.TestCase):
         cls.opt_direct_info = [{"opt_direct": "max", "opt_range": [0, 100]}, {"opt_direct": "min", "opt_range": [0, 0.5]}]
         cls.save_dir = "test_results"
 
-        # 预加载数据
+        # Pre-load data
         cls.desc_dict, cls.condition_dict = load_desc_dict(
             reagent_types=cls.reagent_types,
             desc_dir=Path(__file__).parent / "dataset/descriptors",

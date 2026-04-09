@@ -24,10 +24,10 @@ def read_prohibited_reagents(json_path_pattern):
     Returns:
         dict: {category: {reagent_name: frequency}}
     """
-    # 存储所有类别中的试剂频率
+    # Store reagent frequency in all categories
     category_reagent_freq = defaultdict(lambda: defaultdict(int))
     
-    # 找到所有匹配的JSON文件
+    # Find all matching JSON files
     json_files = sorted(glob.glob(json_path_pattern))
     print(f"Found {len(json_files)} prohibited reagent files")
     
@@ -35,13 +35,13 @@ def read_prohibited_reagents(json_path_pattern):
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
-        # 统计每个类别的试剂出现次数
+        # Count reagent occurrences in each category
         for category, reagents in data.items():
             if isinstance(reagents, list):
                 for reagent in reagents:
                     category_reagent_freq[category][reagent] += 1
             else:
-                # 处理可能的单值情况
+                # Handle possible single value case
                 category_reagent_freq[category][reagents] += 1
     
     return category_reagent_freq
@@ -56,21 +56,21 @@ def read_dataset_yield_cost(csv_path):
     """
     df = pd.read_csv(csv_path)
     
-    # 需要分析的列（类别）
+    # Columns to analyze (categories)
     category_columns = ['base', 'ligand', 'solvent', 'concentration', 'temperature']
     
-    # 存储每个类别的试剂数据
+    # Store reagent data for each category
     category_reagent_data = defaultdict(lambda: defaultdict(lambda: {'values': []}))
     
     for col in category_columns:
         if col not in df.columns:
             continue
             
-        # 按该列分组
+        # Group by that column
         grouped = df.groupby(col)
         
         for reagent_name, group in grouped:
-            # 计算 yield * (0.42 - cost)
+            # Calculate yield * (0.42 - cost)
             values = (group['yield'] * (0.42 - group['cost'])).tolist()
             
             category_reagent_data[col][reagent_name]['values'] = values
@@ -90,7 +90,7 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
         reagent_data: {reagent_name: {'values': []}}
         output_path: Path to save the figure
     """
-    # 获取所有试剂名（从frequency和data的并集）
+    # Get all reagent names
     freq_reagents = set(reagent_freq.keys())
     data_reagents = set(reagent_data.keys())
     all_reagents = list(freq_reagents | data_reagents)
@@ -99,7 +99,7 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
         print(f"  Warning: No data for category '{category}'")
         return
     
-    # 计算每个试剂的平均值，用于排序
+    # Calculate mean for each reagent for sorting
     reagent_stats = {}
     for reagent in all_reagents:
         if reagent in reagent_data:
@@ -110,16 +110,16 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
         else:
             reagent_stats[reagent] = {'mean': 0, 'std': 0, 'count': 0}
     
-    # 按平均值从高到低排序
+    # Sort by mean from high to low
     all_reagents = sorted(all_reagents, key=lambda r: reagent_stats[r]['mean'], reverse=True)
     
-    # 准备数据
+    # Prepare data
     frequencies = [reagent_freq.get(r, 0) for r in all_reagents]
     
-    # 准备散点图数据和统计信息
+    # Prepare scatter plot data and statistics
     scatter_data = []  # [(position, value), ...]
-    mean_values = []   # 每个试剂的平均值
-    std_values = []    # 每个试剂的标准差
+    mean_values = []   # Mean value for each reagent
+    std_values = []    # Standard deviation for each reagent
     
     for i, reagent in enumerate(all_reagents):
         if reagent in reagent_data:
@@ -132,11 +132,11 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
             mean_values.append(0)
             std_values.append(0)
     
-    # 创建图
+    # Create figure
     fig, ax1 = plt.subplots(figsize=(max(18, len(all_reagents) * 1.5), 10))
     
-    # 左轴：频率折线图
-    color_freq = '#2E86AB'  # 蓝色
+    # Left axis: frequency line plot
+    color_freq = '#2E86AB'  # Blue
     ax1.plot(range(len(all_reagents)), frequencies, 'o-', color=color_freq, 
              linewidth=3, markersize=10, label='Frequency', zorder=3)
     ax1.set_xlabel('Reagent', fontsize=18)
@@ -148,22 +148,22 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
     ax1.grid(True, alpha=0.3, axis='y')
     ax1.set_xlim(-0.5, len(all_reagents) - 0.5)
     
-    # 右轴：散点图
+    # Right axis: scatter plot
     ax2 = ax1.twinx()
     
     if scatter_data:
         positions = [p for p, v in scatter_data]
         values = [v for p, v in scatter_data]
-        # 添加一些随机抖动到x位置，避免点重叠
+        # Add random jitter to x position to avoid overlap
         jittered_positions = [p + np.random.uniform(-0.2, 0.2) for p in positions]
         ax2.scatter(jittered_positions, values, alpha=0.3, s=25, 
                    color='#A23B72', label='HV', zorder=2)
     
-    # 绘制平均值线
+    # Draw mean value line
     ax2.plot(range(len(all_reagents)), mean_values, 's-', color='#E63946', 
              linewidth=3, markersize=10, label='Mean', zorder=4, alpha=0.8)
     
-    # 绘制标准差范围（均值±标准差）
+    # Draw std range (mean ± std)
     mean_plus_std = [m + s for m, s in zip(mean_values, std_values)]
     mean_minus_std = [max(0, m - s) for m, s in zip(mean_values, std_values)]
     ax2.fill_between(range(len(all_reagents)), mean_minus_std, mean_plus_std, 
@@ -172,11 +172,11 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
     ax2.set_ylabel('HV', color='#555555', fontsize=18)
     ax2.tick_params(axis='y', labelcolor='#555555', labelsize=16)
     
-    # 重新设置x轴标签
+    # Reset x-axis labels
     ax1.set_xticks(range(len(all_reagents)))
     ax1.set_xticklabels(all_reagents, rotation=45, ha='right', fontsize=16)
     
-    # 添加图例
+    # Add legend
     from matplotlib.patches import Patch
     from matplotlib.lines import Line2D
     
@@ -189,7 +189,7 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
     ]
     ax1.legend(handles=legend_elements, loc='upper right', fontsize=16)
     
-    # 删除标题
+    # Remove title
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
@@ -199,7 +199,7 @@ def create_dual_axis_plot(category, reagent_freq, reagent_data, output_path):
 
 
 def print_statistics(category, reagent_freq, reagent_data):
-    """打印统计信息"""
+    """Print statistics"""
     print(f"\n{'='*60}")
     print(f"Category: {category}")
     print(f"{'='*60}")
@@ -225,12 +225,12 @@ def print_statistics(category, reagent_freq, reagent_data):
 
 
 def main():
-    # 路径配置
+    # Path configuration
     json_path_pattern = "benchmark/results/multiple_20260327_094215/prohibited_reagent_*.json"
     csv_path = "benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
     output_dir = "benchmark/results/multiple_20260327_094215/analysis"
     
-    # 创建输出目录
+    # Create output directory
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     print("Step 1: Reading prohibited reagents from JSON files...")
@@ -246,17 +246,17 @@ def main():
         print(f"    {cat}: {len(reagents)} unique reagents")
     
     print("\nStep 3: Generating plots and statistics...")
-    # 合并所有类别
+    # Merge all categories
     all_categories = set(category_reagent_freq.keys()) | set(category_reagent_data.keys())
     
     for category in sorted(all_categories):
         reagent_freq = dict(category_reagent_freq.get(category, {}))
         reagent_data = dict(category_reagent_data.get(category, {}))
         
-        # 打印统计信息
+        # Print statistics
         print_statistics(category, reagent_freq, reagent_data)
         
-        # 创建图表
+        # Create figure
         output_path = f"{output_dir}/{category}_frequency_yield_cost.png"
         create_dual_axis_plot(category, reagent_freq, reagent_data, output_path)
     

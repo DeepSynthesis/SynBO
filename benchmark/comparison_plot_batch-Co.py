@@ -19,25 +19,25 @@ def plot_comparison(
     plot_types: List[str] = ["curves", "hv", "boxplot", "scatter"],
 ):
     """
-    绘制多个模型的比较结果
+    Plot comparison results for multiple models
 
     Args:
-        model_results: 模型结果的字典，格式为:
+        model_results: Model results dictionary, format:
             {
                 "model_name": {
-                    "results_path": "path/to/results.csv",  # 支持通配符，如 "results/multiple_*/all_batches_final_round_*.csv"
-                    "target_columns": ["yield", "cost"],    # 需要评估的目标值列名
-                    "direction_tags": ["max", "min"],       # 优化方向: "max" 或 "min"
-                    "range_tags": [[0, 100], [0, 0.1]],     # 目标值的范围
+                    "results_path": "path/to/results.csv",  # Support wildcards，such as "results/multiple_*/all_batches_final_round_*.csv"
+                    "target_columns": ["yield", "cost"],    # Target value columns to evaluate
+                    "direction_tags": ["max", "min"],       # Optimization direction: "max" or "min"
+                    "range_tags": [[0, 100], [0, 0.1]],     # Range of target values
                 },
                 ...
             }
-        output_dir: 输出目录
-        full_space_file: 全空间数据文件路径(用于HV和Pareto前沿计算)
-        plot_types: 要绘制的图表类型列表，可选: "curves", "hv", "boxplot", "scatter"
+        output_dir: Output directory
+        full_space_file: Full space data file paths(for HV and Pareto front calculation)
+        plot_types: List of plot types to draw，optional: "curves", "hv", "boxplot", "scatter"
 
     Returns:
-        None (保存图表到output_dir)
+        None (Save plots to output_dir)
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -45,12 +45,12 @@ def plot_comparison(
     print(f"\n{'='*20} Starting Comparison Plotting {'='*20}")
     print(f"Output Directory: {output_dir}")
 
-    # 加载所有模型的数据
+    # Load data for all models
     all_model_data = {}
     for model_name, model_config in model_results.items():
         results_path = model_config["results_path"]
 
-        # 使用glob查找匹配的文件
+        # Use glob to find matching files
         matching_files = glob.glob(results_path)
 
         if not matching_files:
@@ -59,7 +59,7 @@ def plot_comparison(
 
         print(f"Found {len(matching_files)} files for {model_name}")
 
-        # 存储该模型的所有runs
+        # Store all runs for this model
         model_runs = []
 
         for file_path in matching_files:
@@ -72,7 +72,7 @@ def plot_comparison(
             print(f"Warning: No valid data loaded for {model_name}")
             continue
 
-        # 将该模型的所有runs存储到all_model_data
+        # Store to all_model_data
         all_model_data[model_name] = model_runs
         print(f"Loaded {len(model_runs)} runs for {model_name}")
 
@@ -82,10 +82,10 @@ def plot_comparison(
 
     print(f"\nLoaded {len(all_model_data)} models for comparison")
 
-    # 设置Seaborn风格
+    # Set Seaborn style
     sns.set_theme(style="whitegrid")
 
-    # 获取配置信息（所有模型应该有相同的配置）
+    # Get config info
     first_model = list(all_model_data.keys())[0]
     model_config = model_results[first_model]
     target_columns = model_config["target_columns"]
@@ -93,19 +93,19 @@ def plot_comparison(
 
     print(f"\n{'-'*20} Generating combined comparison plots {'-'*20}")
 
-    # 1. 绘制优化曲线（所有模型在同一张图上，带置信区间）
+    # 1. Plot optimization curves(all models on one figure, with confidence intervals)
     if "curves" in plot_types:
         plot_optimization_curves(all_model_data, target_columns, direction_tags, output_dir)
 
-    # 2. 绘制超体积占比（所有模型在同一张图上）
+    # 2. Plot hypervolume coverage
     if "hv" in plot_types and full_space_file and Path(full_space_file).exists():
         plot_hypervolume_coverage(all_model_data, target_columns, direction_tags, Path(full_space_file), output_dir)
 
-    # 3. 绘制最终最佳值分布（所有模型在同一张图上）
+    # 3. Plot final best distribution
     if "boxplot" in plot_types:
         plot_final_distribution_boxplot(all_model_data, target_columns, direction_tags, output_dir)
 
-    # 4. 绘制优化过程散点图(Pareto前沿比较)（所有模型在同一张图上）
+    # 4. Plot optimization process scatter(Pareto front comparison)(all models on one figure)
     if "scatter" in plot_types and full_space_file and Path(full_space_file).exists():
         plot_optimization_process_scatter(all_model_data, target_columns, direction_tags, Path(full_space_file), output_dir)
 
@@ -113,10 +113,10 @@ def plot_comparison(
     print(f"Results saved to: {output_dir}")
 
 
-# 示例用法
+# Example usage
 if __name__ == "__main__":
-    # 示例：比较synbo和EDBOplus的结果
-    # 每个模型的结果从多个CSV文件读取，每个文件代表一个独立的run
+    # Example: compare synbo and EDBOplus results
+    # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
         "synbo (GP_EHVI)": {
             "results_path": "results/multiple_20260403_211317/all_batches_final_round_*.csv",

@@ -274,7 +274,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
 
 def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, experiment_dir):
     """
-    绘制美化版箱型图：所有模型最后优化到的最佳值分布。
+    Draw enhanced boxplot：distribution of best values found by all models at the end。
 
     Args:
         model_data: Dictionary with model names as keys and list of DataFrames as values
@@ -283,7 +283,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
         range_tags: Theoretical range list
         experiment_dir: Image save directory
     """
-    # 1. 提取每一个df的最终最佳值
+    # 1. Extract final best value for each df
     final_best_records = []
     dir_map = dict(zip(target_columns, direction_tags))
 
@@ -303,10 +303,10 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
 
     best_df = pd.DataFrame(final_best_records)
 
-    # 2. 转换数据格式
+    # 2. Transform data format
     melted_df = best_df.melt(id_vars=["run_index", "model"], value_vars=target_columns, var_name="Target", value_name="Best Value")
 
-    # 3. 绘图初始化
+    # 3. Initialize plotting
     n_cols = len(target_columns)
     fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 4), constrained_layout=True)
 
@@ -377,7 +377,7 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
     nds = NonDominatedSorting()
 
     # ==========================================
-    # 1. 处理全空间数据 (True Pareto Front)
+    # 1. Process full space data (True Pareto Front)
     # ==========================================
     if str(full_space_file).endswith(".csv"):
         full_df = pd.read_csv(full_space_file)
@@ -398,7 +398,7 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
     true_pf_data_sorted = true_pf_data[sorted_indices]
 
     # ==========================================
-    # 2. 处理所有模型各个 Round 的帕累托前沿
+    # 2. Process Pareto front for each round of all models
     # ==========================================
     all_empirical_pfs = []
 
@@ -436,8 +436,8 @@ def plot_optimization_process_scatter(model_data, target_columns, direction_tags
 
 def _compute_attainment_surface(pf_list, x_grid, dir_x, dir_y, penalty_y):
     """
-    计算阶梯状帕累托边界，严格保持单调性。
-    如果某个x没有被满足，则给予 penalty_y (极差的值) 而不是 NaN。
+    Calculate step-like Pareto boundary, strictly maintaining monotonicity.
+    If some x is not satisfied，give penalty_y (range value) instead of NaN.
     """
     y_grids = []
     for pf in pf_list:
@@ -446,14 +446,14 @@ def _compute_attainment_surface(pf_list, x_grid, dir_x, dir_y, penalty_y):
         y_grid = np.zeros_like(x_grid)
 
         for i, x_val in enumerate(x_grid):
-            # 找到在当前维度下，满足/支配 x_val 要求的所有点
+            # Find all points that satisfy/dominate x_val requirement
             if dir_x == "min":
                 valid_mask = pf_x <= x_val
             else:
                 valid_mask = pf_x >= x_val
 
             if not np.any(valid_mask):
-                y_grid[i] = penalty_y  # 没达到该要求，施加惩罚
+                y_grid[i] = penalty_y  # Did not meet requirement, apply penalty
             else:
                 valid_y = pf_y[valid_mask]
                 if dir_y == "min":
@@ -470,7 +470,7 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     dir_x, dir_y = directions[0], directions[1]
 
     # ==========================================
-    # 核心：计算全局边界，设定画面限制与惩罚值
+    # Core: calculate global boundary, set plot limits and penalty value
     # ==========================================
     all_points = [true_pf_sorted]
     for _, model_pfs in all_empirical_pfs:
@@ -487,17 +487,17 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     if y_margin == 0:
         y_margin = 1.0
 
-    # X轴密网格，用于画出完美的直角
+    # Dense x-axis grid for perfect right angles
     x_grid = np.linspace(global_min_x - x_margin, global_max_x + x_margin, 2000)
 
-    # 设定惩罚值 (极大地超出屏幕的劣质解)
+    # Set penalty value (inferior solutions far exceeding screen)
     if dir_y == "min":
         penalty_y = global_max_y + 100 * y_margin
     else:
         penalty_y = global_min_y - 100 * y_margin
 
     # ==========================================
-    # 绘制各模型的分布阴影和中位数线
+    # Draw distribution shadow and median line for each model
     # ==========================================
     for model_idx, (model_name, model_pfs) in enumerate(all_empirical_pfs):
         color = plt.cm.tab10(model_idx % 10)
@@ -512,18 +512,18 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
         plt.plot(x_grid, y_median, color=color, linestyle="-", linewidth=2.2, alpha=0.9, label=model_name, zorder=4)
 
     # ==========================================
-    # 绘制真实前沿 (True Pareto Front)
+    # Draw true front (True Pareto Front)
     # ==========================================
     true_y_grid = _compute_attainment_surface([true_pf_sorted], x_grid, dir_x, dir_y, penalty_y)[0]
 
     plt.plot(x_grid, true_y_grid, c="#11668a", linestyle="-", linewidth=2.0, alpha=0.8, label="True Pareto Front", zorder=1)
-    # 把真实节点画在实际位置上
+    # Draw real nodes at actual positions
     plt.scatter(true_pf_sorted[:, 0], true_pf_sorted[:, 1], c="skyblue", edgecolors="k", linewidth=0.8, s=45, alpha=1.0, zorder=5)
 
     # ==========================================
-    # 格式化与美化
+    # Formatting and beautification
     # ==========================================
-    # 强制截断 Y 轴范围，将惩罚值(射向无穷大)的线条隐于屏幕之外
+    # Force truncate Y-axis range, hide penalty value(lines (shooting to infinity) outside screen
     plt.xlim(global_min_x - x_margin, global_max_x + x_margin)
     plt.ylim(global_min_y - y_margin, global_max_y + y_margin)
 

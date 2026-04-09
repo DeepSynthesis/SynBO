@@ -21,14 +21,14 @@ from synbo.utils import load_desc_dict, get_prev_rxn
 global_dir = Path(__file__).parent
 data_dir = global_dir / Path("datasets/HTE_datasets/")
 
-# 控制参数
-NUM_ROUNDS = 10  # k值：运行多少轮
-RECALC = False  # [New] 如果为 True，强制重新计算；如果为 False，尝试寻找现有结果
+# Control parameters
+NUM_ROUNDS = 10  # Number of rounds to run
+RECALC = False  # If True, force recalculation; if False, try to find existing results
 
 CONFIG = {
     "experiment_name": "B-H_Optimization (GP1)",
     "base_seed": 199,
-    "num_rounds": NUM_ROUNDS,  # [New] 将 NUM_ROUNDS 放入 CONFIG 以便存入 JSON 进行比对
+    "num_rounds": NUM_ROUNDS,  # Put NUM_ROUNDS into CONFIG for JSON comparison
     "iterations": 10,
     "batch_size": 5,
     "data_paths": {
@@ -75,12 +75,12 @@ CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_spac
 
 
 def fill_done_dir(batch_idx, output_dir, dataset_path):
-    """从数据集中获取 yield 和 cost 并填充到保存的 batch 文件中。"""
+    """Get yield and cost from dataset and fill into saved batch files."""
     candidates = list(output_dir.glob(f"batch-{batch_idx}_*.csv"))
     if not candidates:
         raise FileNotFoundError(f"No file found for batch {batch_idx} in {output_dir}")
 
-    # 取最新的文件
+    # Get the latest file
     file_path = max(candidates, key=lambda p: p.stat().st_mtime)
 
     current_df = pd.read_csv(file_path)
@@ -101,7 +101,7 @@ def fill_done_dir(batch_idx, output_dir, dataset_path):
 
 
 def cleanup_temp_files(run_dir, round_idx):
-    """删除所有的 batch-*.csv 文件和json文件"""
+    """Delete all batch-*.csv files and json files"""
     for temp_file in run_dir.glob("batch-*.csv"):
         temp_file.unlink()
 
@@ -111,10 +111,10 @@ def cleanup_temp_files(run_dir, round_idx):
 
 
 def setup_experiment_dir(base_dir, num_rounds):
-    """根据 k 值设置文件夹名称"""
+    """Set folder name based on k value"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 逻辑：k=1 -> single_{date}, k>1 -> multiple_{date}
+    # Logic: k=1 -> single_{date}, k>1 -> multiple_{date}
     if num_rounds == 1:
         prefix = "single"
     else:
@@ -128,20 +128,20 @@ def setup_experiment_dir(base_dir, num_rounds):
 
 def find_existing_experiment(base_dir_str, current_config):
     """
-    [New] 扫描 base_dir 下的所有文件夹，寻找是否存在相同的 config.json
-    并且检查数据文件是否完整。
+    [New] Scan all folders in base_dir to find existing config.json
+    and check if data files are complete.
     """
     base_dir = Path(base_dir_str)
     if not base_dir.exists():
         return None
 
-    # 1. 准备用于比较的 Config 字符串 (排序键以确保一致性)
-    # 我们只比较 JSON 序列化后的字符串，这样可以忽略内存地址等差异
+    # 1. Prepare Config string for comparison (sorted keys for consistency)
+    # We only compare JSON serialized strings to ignore memory address differences
     current_cfg_str = json.dumps(current_config, sort_keys=True)
 
     print(f"Scanning {base_dir} for existing experiments...")
 
-    # 2. 遍历 results 目录下的所有子文件夹
+    # 2. Iterate through all subfolders in results directory
     for run_dir in base_dir.iterdir():
         if not run_dir.is_dir():
             continue
@@ -150,7 +150,7 @@ def find_existing_experiment(base_dir_str, current_config):
         if not config_path.exists():
             continue
 
-        # 3. 读取已有的 config 并比较
+        # 3. Read existing config and compare
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 saved_config = json.load(f)
@@ -158,8 +158,8 @@ def find_existing_experiment(base_dir_str, current_config):
             saved_cfg_str = json.dumps(saved_config, sort_keys=True)
 
             if current_cfg_str == saved_cfg_str:
-                # 4. Config 匹配，接下来检查数据完整性
-                # 必须包含所有轮次的最终汇总文件
+                # 4. Config matches, now check data completeness
+                # Must contain final summary files for all rounds
                 is_complete = True
                 num_rounds = current_config["num_rounds"]
 
@@ -188,18 +188,18 @@ def load_start_points(start_point_path):
 
 
 def run_simulation(experiment_dir, desc_dict, condition_dict):
-    """执行主要的优化计算循环"""
+    """Execute main optimization calculation loop"""
     from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
 
     base_seed = CONFIG["base_seed"]
 
-    # 保存配置
+    # Save config
     with open(experiment_dir / "config.json", "w", encoding="utf-8") as f:
         json.dump(CONFIG, f, indent=4, ensure_ascii=False)
 
     print(f"Experiment Directory: {experiment_dir}")
 
-    # 加载 start_point.json
+    # Load start_point.json
     start_point_path = Path(__file__).parent / "datasets/HTE_datasets/B-H_HTE/start_point.json"
     start_points = load_start_points(start_point_path)
     print(f"Loaded start points from: {start_point_path}")
@@ -230,7 +230,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
         current_seed = base_seed + round_idx
         print(f"\n{'='*20} Starting Round {round_idx + 1}/{CONFIG['num_rounds']} (Seed: {current_seed}) {'='*20}")
 
-        batch_files_map = {}  # 存储 batch_id -> file_path，用于最后合并
+        batch_files_map = {}  # Store batch_id -> file_path for final merge
         constraints = None  # Initialize constraints as None
         hv_history = []  # Track HV values to detect stagnation
         stagnation_count = 0  # Count consecutive rounds without improvement
@@ -377,13 +377,13 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path
 
-        # --- Round 结束：合并数据 ---
+        # --- End of Round: Merge data ---
         dfs = []
-        # 按顺序读取，并添加 batch_index 列，方便后续绘图（因为临时文件会被删除）
+        # Read in order and add batch_index column for later plotting (temp files will be deleted)
         for b_idx in sorted(batch_files_map.keys()):
             df = pd.read_csv(batch_files_map[b_idx])
-            df["batch_index"] = b_idx  # 关键：标记这是第几轮迭代的数据
-            df["round_index"] = round_idx  # 关键：标记这是第几次重复实验
+            df["batch_index"] = b_idx  # Key: mark which iteration data is from
+            df["round_index"] = round_idx  # Key: mark which repeat experiment
             dfs.append(df)
 
         if dfs:
@@ -392,14 +392,14 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
             df_all.to_csv(experiment_dir / final_filename, index=False)
             print(f"Saved summary: {final_filename}")
 
-        # --- 清理临时文件 ---
+        # --- Clean up temp files ---
         cleanup_temp_files(experiment_dir, round_idx)
         print(f"Cleaned temp files for round {round_idx}")
 
 
 def run_plotting(experiment_dir):
     """
-    主绘图入口函数
+    Main plotting entry function
     """
     experiment_dir = Path(experiment_dir)
     print(f"\n{'='*20} Starting Plotting Phase {'='*20}")
@@ -408,29 +408,29 @@ def run_plotting(experiment_dir):
     if not result_files:
         print("No result files found to plot.")
         return
-    # 合并数据
+    # Merge data
     all_rounds_dfs = [pd.read_csv(f) for f in result_files]
     direction_tags = [i["opt_direct"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
     range_tags = [i["opt_range"] for i in CONFIG["optimization_settings"]["opt_direct_info"]]
 
-    # 确保列名在 dataframe 中
+    # Ensure column names are in dataframe
     valid_targets = CONFIG["optimization_settings"]["opt_metrics"]
     if not valid_targets:
         print(f"Error: None of the target columns {CONFIG['optimization_settings']['opt_metrics']} found in CSV.")
         return
-    # 设置 Seaborn 风格
+    # Set Seaborn style
     sns.set_theme(style="whitegrid")
-    # --- 1. 绘制优化曲线 (Grid Plot with Variance) ---
+    # --- 1. Plot optimization curves (Grid Plot with Variance) ---
     plot_optimization_curves(all_rounds_dfs, valid_targets, direction_tags, range_tags, experiment_dir)
-    # --- 2. 绘制超体积占比 (Single Plot) ---
-    # 注意：需要提供 CONFIG['data_paths']['dataset_file'] 并且安装 pymoo
+    # --- 2. Plot hypervolume coverage (Single Plot) ---
+    # Note: Requires CONFIG['data_paths']['dataset_file'] and pymoo installed
     if Path(CONFIG["data_paths"]["dataset_file"]).exists():
         plot_hypervolume_coverage(
             all_rounds_dfs, valid_targets, direction_tags, range_tags, Path(CONFIG["data_paths"]["dataset_file"]), experiment_dir
         )
     else:
         print(f"Skipping HV plot: Full space file not found at {CONFIG['data_paths']['dataset_file']}")
-    # --- 3. 绘制最终最佳值分布 (Box Plot) ---
+    # --- 3. Plot final best value distribution (Box Plot) ---
     range_tags_final = [[80, 100], [0.0, 0.1]]
     plot_final_distribution_boxplot(all_rounds_dfs, valid_targets, direction_tags, range_tags_final, experiment_dir)
     plot_optimization_process_scatter(
@@ -522,7 +522,7 @@ def run_metrics(experiment_dir):
 def main():
     results_base = CONFIG["data_paths"]["results_base_dir"]
 
-    # 1. 检查是否存在相同的实验记录 [New Logic]
+    # 1. Check if identical experiment record exists [New Logic]
     existing_dir = None
     if not RECALC:
         existing_dir = find_existing_experiment(results_base, CONFIG)
@@ -538,11 +538,11 @@ def main():
         else:
             print("\n[CACHE MISS] No identical experiment found. Starting new simulation.")
 
-        # 创建新的实验目录
+        # Create new experiment directory
         experiment_dir = setup_experiment_dir(results_base, CONFIG["num_rounds"])
         should_run_sim = True
 
-    # 2. 只有在需要计算时才加载描述符 (可以节省IO)
+    # 2. Load descriptors only when needed (can save IO)
     if should_run_sim:
         desc_dict, condition_dict = load_desc_dict(
             reagent_types=CONFIG["reaction_space"]["reagent_types"],
@@ -552,14 +552,14 @@ def main():
             return_condition_dict=True,
             fillna=True,
         )
-        # 执行计算部分 (Calculation)
+        # Execute calculation part (Calculation)
         run_simulation(experiment_dir, desc_dict, condition_dict)
 
-    # 3. 执行绘图部分 (Plotting)
-    # 无论是复用旧数据还是新计算的数据，都运行绘图，以防旧数据的图被误删或需要更新绘图样式
+    # 3. Execute plotting part (Plotting)
+    # Run plotting regardless of reusing old data or new data, to prevent old plots from being deleted or needing style updates
     # run_plotting(experiment_dir)
 
-    # 4. 执行指标计算部分 (Metrics)
+    # 4. Execute metrics calculation part (Metrics)
     run_metrics(experiment_dir)
 
     print(f"\nTask Complete. Results accessed at: {experiment_dir}")

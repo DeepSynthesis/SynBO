@@ -89,25 +89,25 @@ def normalize_data(total_desc_arr: np.ndarray, desc_normalize: Literal["minmax",
 
 def _select_least_correlated_features(df: pd.DataFrame, k: int, feature_type: str = "") -> List[int]:
     """
-    从DataFrame中贪心选择k个相关性最低的特征，并显示进度条。
+    Greedily select k features with lowest correlation from DataFrame with progress bar.
     Args:
-        df (pd.DataFrame): 输入的特征DataFrame。
-        k (int): 要选择的特征数量。
+        df (pd.DataFrame): Input feature DataFrame.
+        k (int): Number of features to select.
     Returns:
-        List[int]: 被选中的列索引列表。
+        List[int]: List of selected column indices.
     """
     num_features = df.shape[1]
     if k >= num_features:
         return list(range(num_features))
 
-    # 如果k为0或负数，直接返回空列表
+    # If k is 0 or negative, return empty list
     if k <= 0:
         return []
     corr_matrix = df.corr().abs()
-    # 初始选择第一个特征
+    # Initially select the first feature
     selected_indices = [0]
     candidate_indices = list(range(1, num_features))
-    # 设置 rich 进度条
+    # Set rich progress bar
     progress_columns = [
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -116,17 +116,17 @@ def _select_least_correlated_features(df: pd.DataFrame, k: int, feature_type: st
         TimeRemainingColumn(),
     ]
     with Progress(*progress_columns, transient=True) as progress:
-        # transient=True 可以在任务完成后移除进度条，使输出更整洁
+        # transient=True removes progress bar after task completion for cleaner output
         task = progress.add_task(f"[cyan]Selecting features of {feature_type}...", total=k)
-        # 更新初始选择的第一个特征
+        # Update initial selected first feature
         progress.update(task, advance=1)
         while len(selected_indices) < k:
             best_candidate = -1
             lowest_avg_corr = float("inf")
 
-            # 遍历所有候选特征
+            # Iterate through all candidate features
             for candidate_idx in candidate_indices:
-                # 计算候选特征与已选特征集合的平均相关性
+                # Calculate average correlation between candidate and selected features
                 avg_corr = corr_matrix.iloc[candidate_idx, selected_indices].mean()
                 if avg_corr < lowest_avg_corr:
                     lowest_avg_corr = avg_corr
@@ -134,10 +134,10 @@ def _select_least_correlated_features(df: pd.DataFrame, k: int, feature_type: st
             if best_candidate != -1:
                 selected_indices.append(best_candidate)
                 candidate_indices.remove(best_candidate)
-                # 每选择一个新特征，更新进度条
+                # Update progress bar for each new feature selected
                 progress.update(task, advance=1)
             else:
-                # 如果没有候选者了（理论上不应发生，除非k>num_features），提前退出
+                # If no candidates left (shouldn't happen unless k>num_features), exit early
                 break
     return selected_indices
 
@@ -150,34 +150,34 @@ def array_process(
     refine_desc: str,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    处理数组，包括描述符筛选、归一化和笛卡尔积。
+    Process arrays including descriptor filtering, normalization, and cartesian product.
     Args:
-        desc_dict: 描述符字典，键为条件类型，值为包含描述符的DataFrame。
-        condition_dict: 条件字典，键为条件类型，值为该类型下的样本名称列表。
-        condition_types: 条件类型名称的列表。
-        desc_normalize: 归一化方法 ('none', 'standard', etc.)。
-        refine_desc: 描述符筛选方法 ('none', 'auto_select', 'filter_0.9', etc.)。
+        desc_dict: Descriptor dictionary, keys are condition types, values are DataFrames containing descriptors.
+        condition_dict: Condition dictionary, keys are condition types, values are sample name lists for that type.
+        condition_types: List of condition type names.
+        desc_normalize: Normalization method ('none', 'standard', etc.).
+        refine_desc: Descriptor filtering method ('none', 'auto_select', 'filter_0.9', etc.).
     Returns:
         Tuple[np.ndarray, np.ndarray]: (name_array, descriptor_array)
     """
-    # 1. 准备原始数据
+    # 1. Prepare raw data
     desc_arrs = []
     for k in condition_types:
-        # 确保 condition_dict[k] 中的名称存在于 desc_dict[k] 的索引中
+        # Ensure names in condition_dict[k] exist in desc_dict[k] index
         valid_names = [name for name in condition_dict.get(k, []) if name in desc_dict[k].index]
         if valid_names:
             desc_arrs.append(desc_dict[k].loc[valid_names].values)
         else:
-            desc_arrs.append(np.array([[]]))  # 添加一个空数组占位
+            desc_arrs.append(np.array([[]]))  # Add empty array as placeholder
     name_arrs = [list(names) for names in condition_dict.values()]
-    # 2. 描述符筛选 (Refine descriptors)
+    # 2. Descriptor filtering (Refine descriptors)
     if refine_desc != "pass":
         refined_desc_arrs = []
 
-        # --- auto_select 逻辑 ---
+        # --- auto_select logic ---
         if refine_desc == "auto_select":
             console.print("Using 'auto_select' to refine descriptors...")
-            valid_groups = []  # 存储 (索引, DataFrame, 相关性矩阵)
+            valid_groups = []  # Store (index, DataFrame, correlation matrix)
             total_original_dims = 0
 
             for i, (desc_arr, f_type) in enumerate(zip(desc_arrs, desc_dict.keys())):
@@ -198,7 +198,7 @@ def array_process(
                         upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
                         to_drop = [column for column in upper.columns if any(upper[column] > current_threshold)]
 
-                        # 计算保留的索引
+                        # Calculate indices to keep
                         all_cols = range(corr_matrix.shape[1])
                         keep = [c for c in all_cols if c not in to_drop]
 
@@ -223,17 +223,17 @@ def array_process(
                         keep_idx = final_keep_indices[i]
                         refined_desc_arrs.append(desc_arr[:, keep_idx])
                     else:
-                        # 兜底逻辑：如果该组没有经过筛选（比如所有列都被删了，虽然这不应该发生）
+                        # Fallback logic: if group wasn't filtered (e.g., all columns deleted, though shouldn't happen)
                         refined_desc_arrs.append(desc_arr)
                 desc_arrs = refined_desc_arrs
-        # --- filter_x.x 逻辑 ---
+        # --- filter_x.x logic ---
         elif refine_desc.startswith("filter_"):
             try:
                 threshold = float(refine_desc.split("_")[1])
                 console.print(f"Using '{refine_desc}' to filter descriptors with correlation > {threshold}...")
             except (ValueError, IndexError):
                 console.print(f"[red]Error:[/red] Invalid filter format '{refine_desc}'. Expected 'filter_x.x'. Skipping refinement.")
-                threshold = -1  # 无效阈值
+                threshold = -1  # Invalid threshold
             if threshold > 0:
                 for desc_arr in desc_arrs:
                     if desc_arr.size == 0:
@@ -244,10 +244,10 @@ def array_process(
                     corr_matrix = df.corr().abs()
                     upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
 
-                    # 找到要删除的列
+                    # Find columns to drop
                     to_drop = {column for column in upper.columns if any(upper[column] > threshold)}
 
-                    # 应用筛选
+                    # Apply filtering
                     refined_group = df.drop(columns=to_drop).values
                     refined_desc_arrs.append(refined_group)
 
@@ -258,12 +258,12 @@ def array_process(
             console.print(f"[red]Error:[/red] Unknown refine_desc option '{refine_desc}'. No refinement applied.")
             raise Exception(f"Unknown refine_desc option: {refine_desc}")
 
-    # 3. 计算并打印最终维度
+    # 3. Calculate and print final dimensions
     final_total_dims = sum(arr.shape[1] for arr in desc_arrs if arr.size > 0)
     console.print(f"Final total descriptor dimension: [bold cyan]{final_total_dims}[/bold cyan]")
-    # 4. 执行笛卡尔积 (Perform cartesian product)
-    # cartesian_product_3d 需要能处理描述符向量的拼接
-    # 注意：归一化不再这里进行，而是在获取done_arr_index后统一进行
+    # 4. Perform cartesian product (Perform cartesian product)
+    # cartesian_product_3d needs to handle concatenation of descriptor vectors
+    # Note: normalization is not done here but unified after getting done_arr_index
     total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float, info="descriptors")
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
     if len(total_desc_arr) > 0:

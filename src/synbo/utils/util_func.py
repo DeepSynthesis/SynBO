@@ -69,7 +69,7 @@ def check_desc_completeness(desc_dict, condition_dict):
 def compute_hvi(new_point, pareto_front, ref_point):
     from botorch.utils.multi_objective.hypervolume import Hypervolume
 
-    # 确保输入是 torch.Tensor 类型
+    # Ensure input is torch.Tensor type
     if not isinstance(new_point, torch.Tensor):
         new_point = torch.tensor(new_point, dtype=torch.float32)
     if not isinstance(pareto_front, torch.Tensor):
@@ -77,11 +77,11 @@ def compute_hvi(new_point, pareto_front, ref_point):
     if not isinstance(ref_point, torch.Tensor):
         ref_point = torch.tensor(ref_point, dtype=torch.float32)
 
-    # 计算超体积
+    # Calculate hypervolume
     hv = Hypervolume(ref_point=ref_point)
     original_hv = hv.compute(pareto_front)
 
-    # 添加新点后的超体积
+    # Hypervolume after adding new point
     extended_front = torch.cat([pareto_front, new_point.unsqueeze(0)], dim=0)
     new_hv = hv.compute(extended_front)
 

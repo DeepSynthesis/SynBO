@@ -8,8 +8,8 @@ from rich.logging import RichHandler
 
 class RXNConsole:
     """
-    提供项目全局可复用的 rich Console 与 logging 配置。
-    使用方式：
+    Provides globally reusable rich Console and logging configuration for the project.
+    Usage:
       console.print("hello")
     """
 

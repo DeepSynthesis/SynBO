@@ -20,35 +20,35 @@ from gryffin import Gryffin
 
 def build_category_descriptors(desc_dfs, desc_columns, n_components=None, variance_threshold=0.95):
     """
-    从描述符CSV文件中构建类别->描述符映射，并用PCA降维。
+    Build category from descriptor CSV files->descriptor mapping, and reduce dimensions with PCA。
 
     Parameters:
     -----------
     desc_dfs : dict
-        {列名: DataFrame}，每个DataFrame的index为类别名，列为描述符
+        {Column name: DataFrame}, each DataFrame index is category name, columns are descriptors
     desc_columns : list
-        需要构建描述符的列名列表
+        List of column names to build descriptors
     n_components : int or None
-        PCA保留的维度数。None时自动根据variance_threshold确定。
+        Number of dimensions to retain for PCA. None when Automatically determined by variance_threshold。
     variance_threshold : float
-        自动确定PCA维度时保留的方差比例（默认95%）
+        Variance ratio to retain when determining PCA dimensions（default 95%）
     """
     category_descriptors = {}
 
     for col in desc_columns:
         desc_table = desc_dfs[col].select_dtypes(include=["float64", "float32", "int64"])
 
-        # 删除方差为0的描述符列
+        # Delete descriptor columns with zero variance
         desc_table = desc_table.loc[:, desc_table.std() > 0]
 
         n_cats = len(desc_table)
         n_desc = desc_table.shape[1]
 
-        # 标准化
+        # Standardization
         scaler = StandardScaler()
         desc_scaled = scaler.fit_transform(desc_table.values)
 
-        # PCA降维：保留维度不超过 min(类别数-1, 描述符数)
+        # PCA dimensionality reduction：Retain dimensions up to min(num_categories-1, num_descriptors)
         max_components = min(n_cats - 1, n_desc)
 
         if n_components is not None:
@@ -81,14 +81,14 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
     """
     Create Gryffin configuration.
 
-    关键：sampling_strategies = batch_size，使 recommend() 返回 batch_size 个不同候选点。
+    Key: sampling_strategies = batch_size，makes recommend() return batch_size different candidate points。
     """
     config = {
         "general": {
             "num_cpus": 24,
             "auto_desc_gen": False,
             "batches": 1,
-            "sampling_strategies": batch_size,  # ✅ 决定返回候选点的数量
+            "sampling_strategies": batch_size,  # ✅ Determines number of candidate points
             "boosted": False,
             "caching": True,
             "random_seed": random_seed,
@@ -148,7 +148,7 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
 
 def evaluate_experiment(df_origin, df_ground, params_dict, category_descriptors, desc_columns):
     """
-    对类别变量精确匹配，对连续变量最近邻匹配。
+    Exact match for categorical variables，for nearest neighbor match for continuous variables。
     """
     cat_cols = [col for col in params_dict.keys() if col in desc_columns]
     cont_cols = [col for col in params_dict.keys() if col not in desc_columns]
@@ -218,7 +218,7 @@ def run_gryffin_benchmark(
             print(f"  [Gryffin recommend]")
             params = gryffin.recommend(observations=observations)
 
-        # 打印并评估每组参数
+        # Print and evaluate each set of parameters
         for batch_idx, p in enumerate(params):
             print(f"\n  [Batch {batch_idx + 1}/{batch_size}] Proposed conditions:")
             for k, v in p.items():
@@ -265,7 +265,7 @@ def demo_multiple_configs(
     category_descriptors = build_category_descriptors(
         desc_dfs,
         desc_columns,
-        n_components=None,  # 自动确定
+        n_components=None,  # Auto determine
         variance_threshold=0.95,
     )
 

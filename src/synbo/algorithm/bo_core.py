@@ -17,7 +17,6 @@ from synbo.algorithm.sg_model import (
 )
 from synbo.algorithm.acq_function import (
     EHVIAcquisitionFunction,
-    MOGIBBONAcquisitionFunction,
     NEIAcquisitionFunction,
     ParEGOAcquisitionFunction,
     UCBAcquisitionFunction,
@@ -60,8 +59,6 @@ class DefaultBO:
             self.acquisition_function_class = ParEGOAcquisitionFunction
         elif acq_func == "NEI":
             self.acquisition_function_class = NEIAcquisitionFunction
-        elif acq_func == "MOGIBBON":
-            self.acquisition_function_class = MOGIBBONAcquisitionFunction
         else:
             raise ValueError(f"Unknown acquisition function: {acq_func}")
 

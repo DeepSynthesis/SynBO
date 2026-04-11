@@ -52,9 +52,7 @@ CONFIG = {
         "refine_desc": "pass",
         "optimize_method": "default_BO",
         "device": "cuda:0",
-        "use_edbo": False,  # Set to True to use EDBO+ optimization instead of default BO
-        "edbo_acquisition": "NoisyEHVI",  # Acquisition function for EDBO+ ("EHVI", "NoisyEHVI", "EI")
-        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

@@ -117,14 +117,8 @@ if __name__ == "__main__":
     # Example: compare synbo and EDBOplus results
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
-        "SynBO(GP_boost)": {
-            # "results_path": "results/multiple_20260325_164433/all_batches_final_round_*.csv",
-            "results_path": "results/multiple_20260326_190120/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "cost"],
-            "direction_tags": ["max", "min"],
-        },
-        "SynBO(GP)": {
-            "results_path": "results/multiple_20260403_202003/all_batches_final_round_*.csv",
+        "SynBO": {
+            "results_path": "results/multiple_20260409_161516/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
@@ -133,26 +127,6 @@ if __name__ == "__main__":
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
-        # "SynBO(Full)": {
-        #     "results_path": "results/multiple_20260327_094215/all_batches_final_round_*.csv",
-        #     "target_columns": ["yield", "cost"],
-        #     "direction_tags": ["max", "min"],
-        # },
-        "MyEDBOplus": {
-            "results_path": "results/multiple_20260326_150451/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "cost"],
-            "direction_tags": ["max", "min"],
-        },
-        # "Gemini-3.1-pro": {
-        #     "results_path": "compare_mothods/LLM/results/gemini-3.1-pro/round_*.csv",
-        #     "target_columns": ["yield", "cost"],
-        #     "direction_tags": ["max", "min"],
-        # },
-        # "Qwen-3.5-plus": {
-        #     "results_path": "compare_mothods/LLM/results/qwen-3.5-plus/round_*.csv",
-        #     "target_columns": ["yield", "cost"],
-        #     "direction_tags": ["max", "min"],
-        # },
     }
 
     full_space_file = "datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"

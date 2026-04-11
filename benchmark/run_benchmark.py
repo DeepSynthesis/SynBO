@@ -52,7 +52,7 @@ CONFIG = {
         "refine_desc": "pass",
         "optimize_method": "default_BO",
         "device": "cuda:0",
-        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+        "kwargs": {"surrogate_model": "BNN", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

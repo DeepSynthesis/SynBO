@@ -232,6 +232,8 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
     def predict(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Predict using the ensemble statistics"""
         x = x.to(self.device)
+        # Convert input to double to match the model dtype
+        x = x.double()
 
         predictions = []
         with torch.no_grad():
@@ -247,8 +249,9 @@ class BNNEnsembleSurrogateModel(BaseSurrogateModel):
         variance = torch.var(predictions, dim=0)
 
         # Add epsilon for numerical stability
-        variance = torch.maximum(variance, torch.tensor(1e-6, device=self.device))
+        variance = torch.maximum(variance, torch.tensor(1e-6, device=self.device, dtype=variance.dtype))
 
+        # Return as double to maintain precision
         return mean.cpu(), variance.cpu()
 
 

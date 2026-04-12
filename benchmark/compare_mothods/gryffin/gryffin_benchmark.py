@@ -13,6 +13,7 @@ import time
 from datetime import datetime
 import numpy as np
 from sklearn.decomposition import PCA
+import json
 from sklearn.preprocessing import StandardScaler
 
 from gryffin import Gryffin
@@ -178,6 +179,39 @@ def evaluate_experiment(df_origin, df_ground, params_dict, category_descriptors,
         df_filtered_ground.iloc[closest_idx][["yield", "cost"]],
     )
 
+def get_starting_point_params(df_origin, start_indices, desc_columns):
+    """
+    Get the parameter values for the starting point indices from the dataset.
+    
+    Parameters:
+    -----------
+    df_origin : DataFrame
+        Original dataset with all columns
+    start_indices : list
+        List of indices to use as starting points
+    desc_columns : list
+        List of categorical descriptor columns
+    
+    Returns:
+    --------
+    list of dict
+        List of parameter dictionaries for the starting points
+    """
+    param_columns = [col for col in df_origin.columns if col not in ["new_index", "yield", "cost"]]
+    
+    starting_params = []
+    for idx in start_indices:
+        row = df_origin.iloc[idx]
+        params = {}
+        for col in param_columns:
+            if col in desc_columns:
+                params[col] = str(row[col])
+            else:
+                params[col] = float(row[col])
+        starting_params.append(params)
+    
+    return starting_params
+
 
 def run_gryffin_benchmark(
     df_origin,
@@ -188,8 +222,9 @@ def run_gryffin_benchmark(
     budget=60,
     batch_size=5,
     seed=1,
+    start_indices=None,
 ):
-    """Run a single Gryffin optimization run."""
+    """Run a single Gryffin optimization run with optional starting point indices."""
     gryffin = Gryffin(config_dict=config)
 
     observations = []
@@ -204,17 +239,34 @@ def run_gryffin_benchmark(
         print(f"  {'='*50}")
 
         if len(observations) == 0:
-            print("  [Random initialization]")
-            params = []
-            for _ in range(batch_size):
-                p = {}
-                for single_p in config["parameters"]:
-                    if single_p["type"] == "categorical":
-                        cat_names = list(single_p["category_details"].keys())
-                        p[single_p["name"]] = np.random.choice(cat_names)
-                    else:
-                        p[single_p["name"]] = np.random.uniform(single_p["low"], single_p["high"])
-                params.append(p)
+            # First iteration: use starting point indices if provided
+            if start_indices is not None and len(start_indices) > 0:
+                print(f"  [Starting from provided indices]")
+                starting_params = get_starting_point_params(df_origin, start_indices, desc_columns)
+                
+                # Use provided starting points for batch_size, or pad with random if needed
+                params = starting_params[:batch_size]
+                while len(params) < batch_size:
+                    p = {}
+                    for single_p in config["parameters"]:
+                        if single_p["type"] == "categorical":
+                            cat_names = list(single_p["category_details"].keys())
+                            p[single_p["name"]] = np.random.choice(cat_names)
+                        else:
+                            p[single_p["name"]] = np.random.uniform(single_p["low"], single_p["high"])
+                    params.append(p)
+            else:
+                print("  [Random initialization]")
+                params = []
+                for _ in range(batch_size):
+                    p = {}
+                    for single_p in config["parameters"]:
+                        if single_p["type"] == "categorical":
+                            cat_names = list(single_p["category_details"].keys())
+                            p[single_p["name"]] = np.random.choice(cat_names)
+                        else:
+                            p[single_p["name"]] = np.random.uniform(single_p["low"], single_p["high"])
+                    params.append(p)
         else:
             print(f"  [Gryffin recommend]")
             params = gryffin.recommend(observations=observations)
@@ -247,7 +299,7 @@ def run_gryffin_benchmark(
 def demo_multiple_configs(
     dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv",
     desc_columns=["base", "ligand", "solvent"],
-    num_seeds=1,
+    num_seeds=10,
 ):
     """Run Gryffin benchmark with multiple random seeds."""
     start_time = time.time()
@@ -272,12 +324,23 @@ def demo_multiple_configs(
 
     df_ground = df_exp.copy()
 
+    # Load start_point.json
+    start_point_path = dataset_path.parent / "start_point.json"
+    try:
+        with open(start_point_path, "r") as f:
+            start_points = json.load(f)
+        print(f"\nLoaded start points from: {start_point_path}")
+    except FileNotFoundError:
+        print(f"\nWarning: {start_point_path} not found, will use random initialization")
+        start_points = {}
+
     print(f"\nGryffin Benchmark with {num_seeds} Random Seeds")
     print(f"Dataset:         {dataset}")
     print(f"Budget:          {budget} experiments")
     print(f"Batch size:      {batch_size}")
     print(f"Number of seeds: {num_seeds}")
     print(f"Desc columns:    {desc_columns}")
+    print(f"Start points:    {'Loaded from ' + str(start_point_path) if start_points else 'Random'}")
 
     label_benchmark = f"Gryffin_for_{dataset_path.name}"
     all_results = []
@@ -289,6 +352,15 @@ def demo_multiple_configs(
         print(f"\n{'='*60}")
         print(f"[Round {round_id}/{num_seeds}]  Seed = {seed}")
         print(f"{'='*60}")
+
+        # Get start indices for this round
+        start_key = f"round{round_id}"
+        if start_key in start_points:
+            start_indices = start_points[start_key]
+            print(f"Using start indices from {start_key}: {start_indices}")
+        else:
+            print(f"Warning: No start indices found for {start_key}, using random initialization")
+            start_indices = None
 
         print("\nCreating Gryffin configuration...")
         config = create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_size=batch_size, random_seed=seed)
@@ -302,6 +374,7 @@ def demo_multiple_configs(
             budget=budget,
             batch_size=batch_size,
             seed=seed,
+            start_indices=start_indices,
         )
         df_round["round_id"] = round_id
         df_round["seed"] = seed

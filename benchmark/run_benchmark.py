@@ -51,8 +51,8 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "device": "cuda:1",
-        "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
+        "device": "cuda:2",
+        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)

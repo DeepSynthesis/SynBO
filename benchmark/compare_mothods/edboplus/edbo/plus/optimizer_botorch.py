@@ -454,8 +454,8 @@ class EDBOplus:
         if self.acquisition_sampler == "IIDNormalSampler":
             sampler = IIDNormalSampler(num_samples=sobol_num_samples, collapse_batch_dims=True, seed=seed)
         if self.acquisition_sampler == "SobolQMCNormalSampler":
-            sampler = SobolQMCNormalSampler(sample_shape=torch.Size([sobol_num_samples]), seed=seed)
-
+            # sampler = SobolQMCNormalSampler(sample_shape=torch.Size([sobol_num_samples]), seed=seed)
+            sampler = SobolQMCNormalSampler(num_samples=sobol_num_samples, seed=seed)
         print("Optimizing acqusition function...")
 
         surrogate_model = None

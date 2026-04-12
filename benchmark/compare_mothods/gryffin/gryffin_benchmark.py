@@ -92,7 +92,8 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
             "boosted": False,
             "caching": True,
             "random_seed": random_seed,
-            "acquisition_optimizer": "adam",
+            "acquisition_optimizer": "genetic",  # 使用遗传算法增强探索
+            "dist_param": 0.2,  # 降低密度惩罚，增强探索稀疏区域
             "verbosity": 3,
         },
         "parameters": [],
@@ -265,7 +266,7 @@ def demo_multiple_configs(
     category_descriptors = build_category_descriptors(
         desc_dfs,
         desc_columns,
-        n_components=None,  # Auto determine
+        n_components=50,  # 使用 50 维 PCA 组件
         variance_threshold=0.95,
     )
 

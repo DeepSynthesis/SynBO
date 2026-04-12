@@ -1,6 +1,0 @@
-batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost
-6,1,Unknown,0.057,105,CsOPiv,CgMe-PPh,DMAc,32.52±6.01,0.18±0.04,91.06,0.154527525
-6,2,Unknown,0.057,105,KOAc,CgMe-PPh,DMAc,32.52±6.01,0.18±0.04,67.21,0.068085059
-6,3,Unknown,0.057,105,KOPiv,CgMe-PPh,DMAc,32.52±6.01,0.18±0.04,90.39,0.067057582
-6,4,Unknown,0.057,120,CsOAc,CgMe-PPh,DMAc,32.52±6.01,0.18±0.04,95.48,0.113667001
-6,5,Unknown,0.057,120,CsOPiv,CgMe-PPh,DMAc,32.52±6.01,0.18±0.04,92.03,0.154530321

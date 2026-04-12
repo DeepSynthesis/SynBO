@@ -118,12 +118,17 @@ if __name__ == "__main__":
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
         "SynBO": {
-            "results_path": "results/multiple_20260411_120750/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260409_171450/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+        },
+        "Gryffin": {
+            "results_path": "compare_mothods/gryffin/results/batch_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },

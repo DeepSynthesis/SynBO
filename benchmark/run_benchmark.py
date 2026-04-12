@@ -51,7 +51,7 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "device": "cuda:0",
+        "device": "cuda:1",
         "kwargs": {"surrogate_model": "RF", "acq_func": "EHVI"},
     },
     "constraint_settings": {

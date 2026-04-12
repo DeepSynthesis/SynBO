@@ -122,7 +122,7 @@ class RFSurrogateModel(BaseSurrogateModel):
     Estimates uncertainty by calculating the variance across individual decision trees.
     """
 
-    def __init__(self, num_dims: int, device: str = "cpu", n_estimators: int = 1000, random_seed: int = 42):
+    def __init__(self, num_dims: int, device: str = "cpu", n_estimators: int = 200, random_seed: int = 42):
         super().__init__(num_dims)
         # Random Forest usually runs on CPU via sklearn, but we keep the device param for API consistency
         self.device = device

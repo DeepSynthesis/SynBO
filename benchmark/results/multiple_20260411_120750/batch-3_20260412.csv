@@ -1,0 +1,6 @@
+batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost
+3,1,Unknown,0.057,105,CsOAc,GorlosPhos HBF4,DMAc,33.69±6.12,0.15±0.02,12.61,0.094069915
+3,2,Unknown,0.057,105,CsOAc,GorlosPhos HBF4,p-Xylene,33.69±6.12,0.15±0.02,0.0,0.098000862
+3,3,Unknown,0.057,105,CsOAc,JackiePhos,BuCN,33.69±6.12,0.15±0.02,23.83,0.442375045
+3,4,Unknown,0.057,105,CsOAc,JackiePhos,BuOAc,33.69±6.12,0.15±0.02,3.37,0.431805351
+3,5,Unknown,0.057,105,CsOAc,JackiePhos,DMAc,33.69±6.12,0.15±0.02,71.97,0.4118469870000001

@@ -80,11 +80,11 @@
 \maketitle
 
 \begin{abstract}
-\newline
-\textbf{SynBO} (Synthetic Bayesian Optimization) is an intelligent reaction optimization tool designed specifically for synthetic chemists. It leverages Bayesian Optimization (BO) algorithms to help researchers find optimal reaction conditions with minimal experimental effort. This article provides a comprehensive introduction to SynBO, explaining its core principles and practical usage. We demonstrate how chemists can efficiently utilize SynBO through an integrated skill-based interface (via OpenClaw) to accelerate reaction optimization, reduce experimental costs, and discover optimal conditions typically within 50--80 experiments instead of hundreds. The tool supports both single-objective (e.g., yield maximization) and multi-objective optimization (e.g., yield and enantioselectivity), making it applicable to a wide range of synthetic chemistry challenges.
+\noindent
+\textbf{SynBO} (Synthetic Bayesian Optimization) is an intelligent reaction optimization tool designed specifically for synthetic chemists. It leverages Bayesian Optimization (BO) algorithms to help researchers find optimal reaction conditions with minimal experimental effort. This article provides a comprehensive introduction to SynBO, explaining its core principles, architecture, and practical workflow. We demonstrate how chemists can efficiently utilize SynBO through an integrated skill-based interface to accelerate reaction optimization, reduce experimental costs, and discover optimal conditions typically within 50--80 experiments instead of hundreds. The tool supports both single-objective (e.g., yield maximization) and multi-objective optimization (e.g., yield and enantioselectivity), making it applicable to a wide range of synthetic chemistry challenges.
 
 \vspace{1em}
-\newline\textbf{Keywords:} Bayesian Optimization, Reaction Screening, Machine Learning, Synthetic Chemistry, High-Throughput Experimentation
+\noindent\textbf{Keywords:} Bayesian Optimization, Reaction Screening, Machine Learning, Synthetic Chemistry, High-Throughput Experimentation
 \end{abstract}
 
 \tableofcontents
@@ -122,87 +122,135 @@ The traditional approach, known as \textbf{OFAT} (One-Factor-At-A-Time), is fund
 
 \subsection{Article Organization}
 
-This article is organized as follows: Section~\ref{sec:requirements} describes the system requirements and installation. Section~\ref{sec:skill_interface} introduces the Skill-based interface via OpenClaw. Section~\ref{sec:workflow} presents the practical workflow for chemists using SynBO. Section~\ref{sec:case_studies} showcases real-world applications. Finally, Section~\ref{sec:conclusion} concludes with future perspectives.
+This article is organized as follows: Section~\ref{sec:bo_basics} introduces the fundamentals of Bayesian Optimization with chemistry analogies. Section~\ref{sec:architecture} describes the software architecture and core components. Section~\ref{sec:workflow} presents the practical workflow for chemists using SynBO skills. Section~\ref{sec:algorithms} details the underlying algorithms and their chemical interpretations. Section~\ref{sec:case_studies} showcases real-world applications. Finally, Section~\ref{sec:conclusion} concludes with future perspectives.
 
 % ============================================================================
-\section{System Requirements and Installation}
+\section{Bayesian Optimization Basics}
+\label{sec:bo_basics}
 % ============================================================================
 
-\label{sec:requirements}
+\subsection{The Mountain Climbing Analogy}
 
-\subsection{Python Environment}
-
-SynBO requires the following Python environment:
-
-\begin{itemize}
-    \item \textbf{Python Version}: 3.12 or higher
-    \item \textbf{Operating System}: Windows, macOS, or Linux
-    \item \textbf{Memory}: 4 GB RAM minimum (8 GB recommended)
-    \item \textbf{Disk Space}: 1 GB free space
-\end{itemize}
-
-To check your Python version, run:
-
-\begin{lstlisting}[language=bash]
-python --version
-\end{lstlisting}
-
-If you need to install Python 3.12+, please download it from the official Python website: \url{https://www.python.org/downloads/}.
-
-\subsection{Installation Methods}
-
-There are two recommended ways to install SynBO:
-
-\subsubsubsection{Method 1: Using pip (Recommended)}
-
-\begin{lstlisting}[language=bash]
-pip install synbo
-\end{lstlisting}
-
-\subsubsubsection{Method 2: Using OpenClaw with Skill}
-
-The easiest way to use SynBO is through the \textbf{OpenClaw} platform with the built-in SynBO Skill. This method requires no manual installation and provides an interactive interface. See Section~\ref{sec:skill_interface} for detailed instructions.
-
-% ============================================================================
-\section{Using SynBO Through OpenClaw}
-% ============================================================================
-
-\label{sec:skill_interface}
-
-\subsection{What is OpenClaw?}
-
-\textbf{OpenClaw} is an AI-powered platform that provides access to various scientific skills, including SynBO for reaction optimization. Through OpenClaw, you can interact with SynBO using natural language without writing any code.
-
-\subsection{Accessing the SynBO Skill}
-
-To use SynBO through OpenClaw:
+Bayesian Optimization can be intuitively understood through a mountain climbing analogy. Imagine you are searching for the highest peak in complete darkness:
 
 \begin{enumerate}
-    \item Visit the OpenClaw platform
-    \item Locate and select the \textbf{SynBO} skill from the skill library
-    \item The skill will guide you through the optimization process interactively
+    \item \textbf{Initialization}: Take a few random steps and record the altitude. This corresponds to running a small number of initial experiments (typically 5--10) and recording yields or selectivities.
+    
+    \item \textbf{Build a Mental Map}: Based on where you've been, infer the shape of the entire mountain range. The algorithm learns reaction patterns from experimental data using surrogate models.
+    
+    \item \textbf{Intelligent Decision}: Decide where to go next---either toward areas that might be higher (\textit{exploitation}) or explore completely unknown areas (\textit{exploration}).
+    
+    \item \textbf{Iterate}: Repeat steps 2--3 until you find the highest peak, corresponding to finding optimal reaction conditions.
 \end{enumerate}
 
-The SynBO Skill in OpenClaw provides a structured workflow that handles all the technical details for you. You simply provide your reaction data and optimization goals, and the system generates recommended experimental conditions.
+\subsection{Chemistry Interpretation}
 
-\subsection{Skill Capabilities}
-
-The SynBO Skill provides the following capabilities:
+The BO process mirrors how experienced chemists optimize reactions in the laboratory:
 
 \begin{itemize}
-    \item \textbf{Project Setup}: Initialize your optimization project with custom working directory and project name
-    \item \textbf{Reaction Space Definition}: Input or upload your catalyst, solvent, base, and other reagent options
-    \item \textbf{Descriptor Generation}: Automatically generate molecular descriptors for your reagents using RDKit
-    \item \textbf{Initialization}: Generate the first batch of experimental conditions to test
-    \item \textbf{Optimization}: Recommend new experimental conditions based on previous results
-    \item \textbf{Analysis}: Identify problematic reagent combinations using AI-powered analysis
+    \item \textbf{Learning from Experience}: If a particular catalyst performs well, you'll try similar catalysts (exploitation).
+    \item \textbf{Exploring New Possibilities}: You'll also test some conditions that look different, in case you miss something better (exploration).
+    \item \textbf{Iterative Refinement}: Each round of experiments informs the next, gradually converging toward optimal conditions.
+\end{itemize}
+
+\subsection{Mathematical Foundation}
+
+Bayesian Optimization consists of two key components:
+
+\subsubsection{Surrogate Model}
+
+A probabilistic model that approximates the true objective function $f(x)$, where $x$ represents reaction conditions. Common choices include:
+
+\begin{itemize}
+    \item \textbf{Gaussian Process (GP)}: Provides uncertainty estimates alongside predictions
+    \item \textbf{Random Forest (RF)}: Handles categorical variables effectively
+    \item \textbf{Bayesian Neural Network (BNN)}: Captures complex nonlinear relationships
+\end{itemize}
+
+The surrogate model is updated iteratively as new experimental data becomes available.
+
+\subsubsection{Acquisition Function}
+
+A criterion that determines which experiment to perform next by balancing exploration and exploitation. Common acquisition functions include:
+
+\begin{itemize}
+    \item \textbf{EHVI} (Expected Hypervolume Improvement): Default for multi-objective optimization
+    \item \textbf{UCB} (Upper Confidence Bound): Conservative strategy
+    \item \textbf{ParEGO}: Transforms multi-objective into single-objective problems
+    \item \textbf{NEI} (Noisy Expected Improvement): Accounts for experimental noise
+\end{itemize}
+
+% ============================================================================
+\section{SynBO Architecture}
+\label{sec:architecture}
+% ============================================================================
+
+\subsection{Project Structure}
+
+SynBO is organized into modular components, each serving a specific purpose:
+
+\begin{lstlisting}[language=bash, caption=SynBO Project Structure]
+synbo/
+├── src/synbo/
+│   ├── synbo.py              # Main optimizer class
+│   ├── initialize.py         # Initial sampling strategies
+│   ├── optimize.py           # Optimization algorithm dispatcher
+│   ├── cli.py                # Command-line interface
+│   ├── algorithm/
+│   │   ├── bo_core.py        # Bayesian optimization core
+│   │   ├── acq_function.py   # Acquisition functions
+│   │   ├── sg_model.py       # Surrogate models
+│   │   ├── evolution.py      # Evolutionary algorithm
+│   │   └── particle_swarm.py # Particle swarm algorithm
+│   ├── descriptor/           # Molecular descriptor processing
+│   ├── analysis/             # LLM-powered analysis module
+│   └── utils/                # Utility functions
+├── scripts/
+│   ├── initialize.py         # Initialization script
+│   ├── optimize.py           # Optimization script
+│   └── get_desc.py          # Descriptor generation
+└── examples/                 # Example workflows
+\end{lstlisting}
+
+\subsection{Core Components}
+
+\subsubsection{ReactionOptimizer Class}
+
+The \texttt{ReactionOptimizer} class is the heart of SynBO, providing a unified interface for:
+
+\begin{itemize}
+    \item Loading reaction space definitions
+    \item Processing molecular descriptors
+    \item Running initialization and optimization
+    \item Managing experimental results
+    \item Generating recommendations
+\end{itemize}
+
+\subsubsection{Descriptor Processing}
+
+SynBO supports multiple descriptor types:
+
+\begin{itemize}
+    \item \textbf{RDKit Descriptors}: 200+ molecular fingerprints and physicochemical properties
+    \item \textbf{DFT Calculated Descriptors}: Quantum mechanical properties
+    \item \textbf{One-Hot Encoding}: For categorical variables without molecular structure
+    \item \textbf{Custom Descriptors}: User-provided numerical representations
+\end{itemize}
+
+\subsubsection{LLM-Powered Analysis}
+
+A unique feature of SynBO is its integration with Large Language Models (LLMs) to analyze failed experiments:
+
+\begin{itemize}
+    \item Identifies problematic reagent combinations
+    \item Suggests chemical explanations for failures
+    \item Automatically excludes ``problematic'' conditions from future recommendations
 \end{itemize}
 
 % ============================================================================
 \section{Practical Workflow for Chemists}
-% ============================================================================
-
 \label{sec:workflow}
+% ============================================================================
 
 \subsection{Overview}
 
@@ -211,73 +259,61 @@ SynBO provides a skill-based interface that guides chemists through the optimiza
 \begin{enumerate}
     \item Project Setup and Configuration
     \item Reaction Space Definition
-    \item Descriptor Generation (Optional)
+    \item Descriptor Generation
     \item Iterative Optimization
 \end{enumerate}
 
-The system will guide you through each step. Below is a detailed description of what to expect at each phase.
-
 \subsection{Phase 1: Project Setup}
 
-When you first use the SynBO Skill, you need to set up your project:
+Before starting optimization, users must configure the project environment:
 
-\subsubsubsection{Working Directory}
+\subsubsection{Working Directory and Project Name}
 
-Choose a folder on your computer where all project files will be stored. This includes:
-\begin{itemize}
-    \item Reaction space definitions
-    \item Molecular descriptors
-    \item Optimization results
-    \item Experimental data
-\end{itemize}
+The system maintains a \texttt{config.json} file storing:
+\begin{lstlisting}[language=json]
+{
+    "project_wd": "/path/to/project",
+    "project_name": "my_reaction_optimization"
+}
+\end{lstlisting}
 
-\subsubsubsection{Project Name}
+\textbf{Validation}: The system verifies that the working directory exists and sanitizes the project name (replacing spaces and special characters with underscores).
 
-Give your project a descriptive name (e.g., ``asymmetric\_hydrogenation\_optimization''). This name will be used to organize your files.
+\subsubsection{Optimization Metrics Definition}
 
-\subsubsubsection{Optimization Goals}
+Users specify what they want to optimize through an \texttt{optimization\_settings.json} file:
 
-Specify what you want to optimize. For example:
-
-\begin{itemize}
-    \item \textbf{Single objective}: Maximize yield
-    \item \textbf{Multi-objective}: Maximize yield AND enantioselectivity (ee)
-    \item \textbf{With priorities}: Maximize yield (weight 1.0) and ee (weight 2.0)
-\end{itemize}
-
-Define the expected numerical range for each metric (e.g., yield: 0--100\%).
-
-Example optimization settings:
 \begin{lstlisting}[language=json]
 {
     "optimization_settings": {
         "opt_metrics": ["yield", "ee"],
         "opt_direct_info": [
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 2.0}
+            {
+                "opt_direct": "max",
+                "opt_range": [0, 100],
+                "metric_weight": 1.0
+            },
+            {
+                "opt_direct": "max",
+                "opt_range": [0, 100],
+                "metric_weight": 2.0
+            }
         ]
     }
 }
 \end{lstlisting}
 
-This configuration tells the system to optimize both yield and enantioselectivity, with higher priority given to ee.
+This example optimizes both yield and enantioselectivity (ee), with ee given higher priority (weight = 2.0).
 
 \subsection{Phase 2: Reaction Space Definition}
 
-The reaction space defines all possible condition combinations you want to screen. You can provide this data in two ways:
+The reaction space defines all possible condition combinations. Users can provide this data via:
 
-\subsubsubsection{Method 1: Direct Input}
+\subsubsection{Direct Input}
 
-Provide SMILES strings for each reagent category directly through the chat interface. For example:
+Provide SMILES strings for each reagent category directly in the chat interface.
 
-\begin{itemize}
-    \item Catalysts: Pd(OAc)$_2$, Pd(PPh$_3$)$_4$, Pd$_2$(dba)$_3$, etc.
-    \item Solvents: THF, Dioxane, Toluene, DMF, MeCN
-    \item Bases: Cs$_2$CO$_3$, K$_2$CO$_3$, NaOEt, DBU, Et$_3$N
-    \item Temperatures: 25, 50, 80, 100 °C
-\end{itemize}
-
-\subsubsubsection{Method 2: File Upload}
+\subsubsection{File Upload}
 
 Upload CSV files with the following structure:
 
@@ -288,24 +324,39 @@ CCCO,propanol
 CCCOH,isopropanol
 \end{lstlisting}
 
-\textbf{Naming Convention}: If you don't provide names, the system automatically assigns names using the format ``\textit{reagent\_type}-1'', ``\textit{reagent\_type}-2'', etc.
+\textbf{Naming Convention}: If no names are provided, the system automatically assigns names using the format \texttt{\{reagent\_type\}-1}, \texttt{\{reagent\_type\}-2}, etc.
 
-Each reagent type should be saved as a separate CSV file (e.g., \texttt{catalyst.csv}, \texttt{solvent.csv}) in the project's reaction space folder.
+\textbf{Storage}: Each reagent type is saved as \texttt{\{reagent\_type\}.csv} in the \texttt{project\_wd/rxn\_space} directory.
 
-\subsubsubsection{Special Values}
+\subsection{Phase 3: Descriptor Generation}
 
-For categorical options like ``no catalyst'' or ``no additive'', you can use text placeholders such as:
+Condition descriptors are numerical representations of molecules used by the optimization algorithm.
+
+\subsubsection{Automated RDKit Descriptor Generation}
+
+If users request automated generation, the system:
+
+\begin{enumerate}
+    \item Verifies that reaction space data exists
+    \item Confirms which reagent categories require descriptor calculation
+    \item Invokes \texttt{scripts/get\_desc.py} to compute descriptors
+\end{enumerate}
+
+\subsubsection{Handling Invalid SMILES}
+
+Entries with invalid SMILES (e.g., \texttt{no\_catalyst}, \texttt{none}, \texttt{blank}) are automatically handled:
+
 \begin{itemize}
-    \item \texttt{no\_catalyst}
-    \item \texttt{none}
-    \item \texttt{blank}
+    \item Detected using RDKit's \texttt{MolFromSmiles} parser
+    \item Skipped during descriptor calculation
+    \item Added as placeholder rows with all descriptor values set to 0.0
 \end{itemize}
 
-These will be properly handled by the system as zero vectors in the descriptor space.
+This strategy ensures that categorical ``none'' options (e.g., ``no catalyst'', ``no additive'') are represented as zero vectors, allowing the optimizer to learn their effect independently.
 
-\subsubsubsection{Continuous Variables}
+\subsubsection{Continuous Variables}
 
-For non-molecular variables (temperature, time, concentration), format as:
+For non-molecular variables (temperature, time, voltage), descriptors are formatted as:
 
 \begin{lstlisting}[language=csv]
 Name,value
@@ -316,110 +367,190 @@ time,12
 time,24
 \end{lstlisting}
 
-\subsection{Phase 3: Descriptor Generation}
-
-Molecular descriptors are numerical representations of your reagents that enable the optimization algorithm to learn patterns. If you provide SMILES strings, the system can automatically generate descriptors using RDKit.
-
-\subsubsubsection{Automated Generation}
-
-When you request descriptor generation, the system will:
-
-\begin{enumerate}
-    \item Verify that reaction space data exists
-    \item Confirm which reagent categories need descriptor calculation
-    \item Compute RDKit descriptors (200+ molecular properties)
-    \item Handle any invalid SMILES by using placeholder values (0.0)
-\end{enumerate}
-
-\subsubsubsection{When Descriptors Are Ready}
-
-Once descriptors are generated, they will be saved in the project's molecular descriptor folder, ready for the optimization phase.
-
-If you prefer, you can also provide pre-calculated descriptors in CSV format.
-
 \subsection{Phase 4: Initialization}
 
-When starting a new optimization project with no previous experimental data, the system generates an initial batch of conditions to test.
+The initialization phase generates the first batch of recommended experiments when no previous data exists.
 
-\subsubsubsection{What Happens}
+\subsubsection{Command}
 
-The system uses smart sampling strategies (such as Latin Hypercube or K-means clustering) to select a diverse set of initial conditions that cover the reaction space evenly.
+\begin{lstlisting}[language=bash]
+python scripts/initialize.py --desc-dir <path_to_descriptors> \
+    --output <output_directory> --batch-size 8
+\end{lstlisting}
 
-\subsubsubsection{Batch Size}
+\subsubsection{Key Parameters}
 
-For initialization, we recommend testing 5--10 experiments. This provides enough data for the algorithm to start learning patterns.
+\begin{table}[h]
+\centering
+\caption{Initialization Parameters}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parameter} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\texttt{--batch-size} & 5 & Number of initial samples \\
+\texttt{--sampling-method} & kmeans & Sampling strategy \\
+\texttt{--desc-normalize} & minmax & Descriptor normalization \\
+\texttt{--refine-desc} & filter\_0.8 & Descriptor refinement \\
+\texttt{--random-seed} & 42 & Reproducibility seed \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsubsubsection{Output}
+\subsubsection{Sampling Methods}
 
-After initialization, you will receive an Excel file containing the first batch of recommended experimental conditions, including:
 \begin{itemize}
-    \item Catalyst selection
-    \item Solvent choice
-    \item Base/additive selection
-    \item Temperature
-    \item Other relevant parameters
+    \item \textbf{Sobol}: Quasi-random low-discrepancy sequence
+    \item \textbf{Random}: Pure random sampling
+    \item \textbf{LHS} (Latin Hypercube): Stratified sampling
+    \item \textbf{K-means}: Clustering-based sampling
 \end{itemize}
 
-\subsubsubsection{Next Steps}
+\subsubsection{Output}
 
-\begin{enumerate}
-    \item Download the Excel file with recommended conditions
-    \item Perform these experiments in your laboratory
-    \item Collect your results (yields, selectivities, etc.)
-    \item Return to the SynBO Skill with your results
-\end{enumerate}
+The system generates an Excel file (\texttt{recommended\_conditions.xlsx}) containing the first batch of recommended experimental conditions.
 
 \subsection{Phase 5: Iterative Optimization}
 
-After completing initial experiments, you continue the optimization loop:
+After completing the initial experiments in the lab, users upload results and continue optimization.
 
-\subsubsubsection{Upload Results}
+\subsubsection{Input Data Format}
 
-Provide your experimental results in CSV format. The file should contain:
-
+The results CSV file must contain:
 \begin{itemize}
-    \item Reagent columns (matching your reaction space)
-    \item Results columns (e.g., \texttt{yield}, \texttt{ee})
-    \item Optional: batch number to track experiment rounds
+    \item Reagent type columns (matching reaction space)
+    \item Optimization metric columns (e.g., \texttt{yield}, \texttt{ee})
+    \item Optional: \texttt{batch} column indicating batch numbers
 \end{itemize}
 
-Example:
 \begin{lstlisting}[language=csv]
 catalyst,solvent,base,temperature,yield,ee
 Pd(OAc)2,THF,Cs2CO3,25,45.2,82.1
 Pd(PPh3)4,Dioxane,K2CO3,50,67.8,91.3
 \end{lstlisting}
 
-\subsubsubsection{Get Recommendations}
+\subsubsection{Optimization Command}
 
-The system analyzes your results and recommends the next batch of experiments. The algorithm intelligently balances:
+\begin{lstlisting}[language=bash]
+python scripts/optimize.py --desc-dir <path_to_descriptors> \
+    --input experimental_results.csv \
+    --output <output_directory> --batch-size 5
+\end{lstlisting}
+
+\subsubsection{Optimization Parameters}
+
+\begin{table}[h]
+\centering
+\caption{Optimization Parameters}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parameter} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\texttt{--batch-size} & 1 & Recommendations per round \\
+\texttt{--optimize-method} & default\_BO & Optimization algorithm \\
+\texttt{--surrogate-model} & GP & Surrogate model type \\
+\texttt{--desc-normalize} & zscore & Descriptor normalization \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Optimization Algorithms}
 
 \begin{itemize}
-    \item \textbf{Exploitation}: Testing conditions similar to your best results
-    \item \textbf{Exploration}: Testing conditions in less-explored areas of the reaction space
+    \item \textbf{default\_BO}: Standard Bayesian Optimization (recommended)
+    \item \textbf{particle\_swarm}: Particle Swarm Optimization
+    \item \textbf{evolution}: Evolutionary Algorithm
+    \item \textbf{random\_select}: Random Search (baseline)
 \end{itemize}
 
-\subsubsubsection{Batch Size}
+\subsubsection{Output Summary}
 
-For subsequent rounds, we recommend 1--5 experiments per iteration. This allows the algorithm to continuously learn while keeping experimental workload manageable.
+After optimization, the system displays:
+\begin{itemize}
+    \item Number of recommended new conditions
+    \item Count of \textit{exploit} vs \textit{explore} recommendations
+    \item Excel file with detailed conditions
+\end{itemize}
 
-\subsubsubsection{Repeat}
+\subsection{Phase 6: LLM-Powered Constraint Discovery}
 
-Iterate this process until you achieve satisfactory results:
-\begin{enumerate}
-    \item Perform recommended experiments
-    \item Collect results
-    \item Upload results to the system
-    \item Get new recommendations
-\end{enumerate}
+When certain condition combinations repeatedly fail, SynBO can analyze patterns and suggest constraints:
 
-Typically, 50--80 total experiments are sufficient to find optimal conditions.
+\begin{lstlisting}[language=python]
+# After round 3, let AI analyze which conditions to avoid
+constraints = optimizer.get_constraints(method='llm')
+
+# Apply constraints to next round of optimization
+optimizer.run(batch_size=5, constraints=constraints)
+\end{lstlisting}
+
+\textbf{Application Scenarios}:
+\begin{itemize}
+    \item Discover ``DBU + high temperature'' always leads to decomposition $\rightarrow$ Auto-exclude
+    \item Discover ``toluene solvent'' works best with specific catalyst $\rightarrow$ Prioritize similar combinations
+\end{itemize}
+
+\subsection{Phase 7: Progress Tracking}
+
+For multi-objective optimization, SynBO provides Hypervolume metrics to track progress:
+
+\begin{lstlisting}[language=python]
+# Calculate Hypervolume for current Pareto front
+hv = optimizer.calculate_current_hv()
+print(f"Current optimization progress: {hv['hv_normalized']*100:.1f}%")
+
+# View progress across rounds
+progress = optimizer.calculate_hv_by_batch()
+\end{lstlisting}
+
+\textbf{Chemistry Interpretation}:
+\begin{itemize}
+    \item Hypervolume measures the ``performance space'' covered by currently found optimal conditions
+    \item When Hypervolume growth slows down, you're near optimal and can consider stopping experiments
+\end{itemize}
+
+% ============================================================================
+\section{Algorithms and Chemical Interpretation}
+\label{sec:algorithms}
+% ============================================================================
+
+\subsection{Surrogate Models: Predicting Reaction Outcomes}
+
+\begin{table}[h]
+\centering
+\caption{Surrogate Models and Their Chemical Intuition}
+\begin{tabular}{p{3.5cm}p{5cm}p{4cm}}
+\toprule
+\textbf{Model} & \textbf{Chemistry Intuition} & \textbf{Best For} \\
+\midrule
+\textbf{Gaussian Process (GP)} & Assumes similar conditions give similar results & Fewer experiments (<50), clear reaction mechanisms \\
+\textbf{Random Forest (RF)} & Voting via multiple decision trees & Many categorical variables (many catalyst/solvent types) \\
+\textbf{BNN (Neural Network)} & Deep learning for complex nonlinear relationships & Large-scale screening (>100 experiments) \\
+\textbf{Bayesian Linear} & Linear approximation, fast but simple & Preliminary screening, quick results \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Acquisition Functions: Choosing the Next Experiment}
+
+\begin{table}[h]
+\centering
+\caption{Acquisition Functions and Chemical Strategies}
+\begin{tabular}{p{2.5cm}p{5.5cm}p{4.5cm}}
+\toprule
+\textbf{Function} & \textbf{Chemistry Strategy} & \textbf{When to Use} \\
+\midrule
+\textbf{EHVI} (Default) & Balance yield and selectivity, find Pareto optimal frontier & Optimizing yield and ee simultaneously \\
+\textbf{UCB} & Conservative strategy, prioritize high-yield conditions with certainty & Limited time, cannot afford failures \\
+\textbf{ParEGO} & Transform multi-objective into single-objective & More than 2 objectives (yield + ee + cost) \\
+\textbf{NEI} & Account for experimental error & High variability in replicate experiments \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 % ============================================================================
 \section{Case Studies}
-% ============================================================================
-
 \label{sec:case_studies}
+% ============================================================================
 
 \subsection{Case 1: Asymmetric Hydrogenation}
 
@@ -429,8 +560,8 @@ Typically, 50--80 total experiments are sufficient to find optimal conditions.
 \begin{itemize}
     \item 6 catalysts (CPA-1 through CPA-6)
     \item 4 additives (MsOH, TfOH, TFA, None)
-    \item 4 solvents (DCE, PhCF$_3$, Toluene, Et$_2$O)
-    \item 4 temperatures (-20, 0, 25, 40 °C)
+    \item 4 solvents (DCE, PhCF3, Toluene, Et2O)
+    \item 4 temperatures (-20, 0, 25, 40 $^\circ$C)
     \item 4 H$_2$ pressures (1, 10, 20, 50 atm)
 \end{itemize}
 
@@ -444,74 +575,57 @@ Typically, 50--80 total experiments are sufficient to find optimal conditions.
 
 \textbf{Background}: Pd-catalyzed aromatic amination, screening ligand and base combinations.
 
-\textbf{Workflow}:
-\begin{enumerate}
-    \item Defined reaction space with multiple ligands and bases
-    \item Ran initialization with 8 experiments
-    \item Iteratively optimized for 5 more rounds
-    \item AI analysis identified problematic ligand-base combinations
-\end{enumerate}
+\textbf{LLM Analysis}: After several rounds, SynBO's LLM module identified that ``XPhos + strong base'' combinations consistently led to catalyst deactivation.
 
-\textbf{Outcome}: Automatically excluded problematic conditions, saving significant experimental time and resources.
+\textbf{Outcome}: These combinations were automatically excluded from future recommendations, saving significant experimental time and resources.
 
 % ============================================================================
 \section{Best Practices and Tips}
-% ============================================================================
-
 \label{sec:best_practices}
+% ============================================================================
 
 \subsection{Experimental Design}
 
 \begin{enumerate}
     \item \textbf{Initial Batch Size}: Start with 5--10 experiments for initialization
     \item \textbf{Subsequent Batches}: Use 1--5 experiments per optimization round
-    \item \textbf{Replicates}: Include 2--3 replicate experiments to estimate experimental variability
+    \item \textbf{Replicates}: Include 2--3 replicate experiments to estimate experimental noise
     \item \textbf{Diversity}: Ensure initial conditions cover the full reaction space
 \end{enumerate}
+
+\subsection{Descriptor Selection}
+
+\begin{itemize}
+    \item \textbf{RDKit Descriptors}: Suitable for most organic molecules
+    \item \textbf{DFT Descriptors}: Use when electronic properties are critical
+    \item \textbf{One-Hot Encoding}: For simple categorical variables
+    \item \textbf{Hybrid Approach}: Combine multiple descriptor types for complex systems
+\end{itemize}
 
 \subsection{When to Stop}
 
 Monitor the following indicators:
-
 \begin{itemize}
-    \item \textbf{Hypervolume Plateau}: The algorithm's improvement slows significantly
-    \item \textbf{Yield Saturation}: Recommended conditions consistently give similar yields
+    \item \textbf{Hypervolume Plateau}: When HV growth slows significantly
+    \item \textbf{Yield Saturation}: When recommended conditions consistently give similar yields
     \item \textbf{Resource Constraints}: When time or material budget is exhausted
     \item \textbf{Target Achievement}: When desired yield/selectivity is reached
 \end{itemize}
 
-Common stopping criteria:
-\begin{itemize}
-    \item Achieved target yield (e.g., $>$90\%)
-    \item Achieved target enantioselectivity (e.g., $>$95\% ee)
-    \item No significant improvement over 3--4 consecutive rounds
-    \item Experimental resources exhausted
-\end{itemize}
-
 % ============================================================================
 \section{Conclusion and Future Perspectives}
-% ============================================================================
-
 \label{sec:conclusion}
+% ============================================================================
 
 \subsection{Summary}
 
-SynBO represents a paradigm shift in how synthetic chemists approach reaction optimization. Through its intuitive Skill-based interface (via OpenClaw), it enables chemists to:
+SynBO represents a paradigm shift in how synthetic chemists approach reaction optimization. By combining Bayesian Optimization with an intuitive skill-based interface, it enables chemists to:
 
 \begin{itemize}
     \item Reduce experimental effort by 80--90\%
     \item Systematically explore complex reaction spaces
-    \item Learn from failures through AI-powered analysis
+    \item Learn from failures through LLM-powered analysis
     \item Track optimization progress quantitatively
-    \item Use the tool without writing any code
-\end{itemize}
-
-Key benefits:
-\begin{itemize}
-    \item \textbf{No coding required}: Use through OpenClaw's natural language interface
-    \item \textbf{Intelligent guidance}: The Skill walks you through each step
-    \item \textbf{Efficient optimization}: Typically 50--80 experiments vs. hundreds
-    \item \textbf{Flexible objectives}: Support for single and multi-objective optimization
 \end{itemize}
 
 \subsection{Future Directions}
@@ -526,11 +640,9 @@ Potential enhancements include:
 
 \subsection{Availability}
 
-SynBO is available through multiple channels:
-
+SynBO is available as an open-source Python package:
 \begin{itemize}
-    \item \textbf{OpenClaw (Recommended)}: Access via the SynBO Skill at \url{https://openclaw.example.com}
-    \item \textbf{PyPI}: \texttt{pip install synbo}
+    \item \textbf{Installation}: \texttt{pip install synbo}
     \item \textbf{Documentation}: Available in the \texttt{docs/} directory
     \item \textbf{Examples}: Comprehensive examples in \texttt{examples/} directory
     \item \textbf{License}: MIT License
@@ -561,49 +673,80 @@ Hernández-Lobato, J. M., Requeima, J., Pyzer-Knapp, E. O., \& Aspuru-Guzik, A. 
 Parallel and distributed Thompson sampling for large-scale accelerated exploration of chemical space.
 \textit{International Conference on Machine Learning}, 1470--1479.
 
+\bibitem{gregoire2019}
+Grégoire, J. M., \& Aspuru-Guzik, A. (2019).
+Accelerated materials discovery with synthetic intelligence.
+\textit{ACS Central Science}, 5(4), 601--603.
+
+\bibitem{shields2021}
+Shields, B. J., Stevens, J., Li, J., et al. (2021).
+Bayesian reaction optimization as a tool for chemical synthesis.
+\textit{Nature}, 590(7844), 89--96.
+
+\bibitem{tan2025}
+Tan, Z. (2025).
+SynBO: Synthetic Bayesian Optimization for Chemical Reaction Optimization.
+\textit{GitHub Repository}. \url{https://github.com/yourusername/synbo}
+
 \end{thebibliography}
 
 % ============================================================================
 \appendix
 % ============================================================================
 
-\section{Quick Start Guide (via OpenClaw)}
+\section{Installation Guide}
 
-\subsection{Step-by-Step Instructions}
+\subsection{System Requirements}
 
-\begin{enumerate}
-    \item \textbf{Access OpenClaw}: Visit the OpenClaw platform in your browser
-    \item \textbf{Select SynBO Skill}: Find and activate the SynBO skill from the library
-    \item \textbf{Follow the Prompts}: The skill will guide you through:
-    \begin{itemize}
-        \item Setting up your project (working directory and name)
-        \item Defining your optimization goals (what to maximize/minimize)
-        \item Providing your reaction space (catalysts, solvents, bases, etc.)
-        \item Generating descriptors (optional, automatic)
-        \item Running initialization to get first batch of conditions
-    \end{itemize}
-    \item \textbf{Perform Experiments}: Download the recommended conditions and run experiments
-    \item \textbf{Continue Optimization}: Return with results to get next recommendations
-    \item \textbf{Iterate}: Repeat until satisfied with results
-\end{enumerate}
+\begin{itemize}
+    \item Python 3.12 or higher
+    \item 4 GB RAM minimum (8 GB recommended)
+    \item 1 GB free disk space
+\end{itemize}
 
-\subsection{Common Questions}
+\subsection{Installation Steps}
 
-\textbf{Q: Do I need to install Python?}
-\textbf{A:} No, if using OpenClaw. The Skill handles all technical aspects.
+\begin{lstlisting}[language=bash]
+# Create virtual environment (recommended)
+python -m venv synbo_env
+source synbo_env/bin/activate  # On Windows: synbo_env\Scripts\activate
 
-\textbf{Q: What if I don't have molecular descriptors?}
-\textbf{A:} The system can automatically generate them from SMILES using RDKit.
+# Install SynBO
+pip install synbo
 
-\textbf{Q: How many experiments do I need?}
-\textbf{A:} Typically 50--80 experiments, depending on reaction complexity.
+# Verify installation
+python -c "from synbo import ReactionOptimizer; print('SynBO installed successfully!')"
+\end{lstlisting}
 
-\textbf{Q: Can I optimize multiple objectives?}
-\textbf{A:} Yes, you can optimize yield, ee, selectivity, cost, or any combination.
+\subsection{Optional Dependencies}
 
-\section{File Structure Reference}
+\begin{lstlisting}[language=bash]
+# For RDKit descriptor generation
+pip install rdkit
 
-If you prefer to manage files manually, here is the expected structure:
+# For LLM-powered analysis
+pip install openai
+
+# For visualization
+pip install matplotlib seaborn
+\end{lstlisting}
+
+\section{Quick Reference Card}
+
+\subsection{Common Commands}
+
+\begin{lstlisting}[language=bash]
+# Initialize optimization (no previous data)
+python scripts/initialize.py --desc-dir ./descriptors --batch-size 8
+
+# Continue optimization (with experimental results)
+python scripts/optimize.py --desc-dir ./descriptors --input results.csv --batch-size 5
+
+# Generate RDKit descriptors
+python scripts/get_desc.py --input ./rxn_space --output ./descriptors
+\end{lstlisting}
+
+\subsection{File Structure}
 
 \begin{lstlisting}[language=bash]
 project_directory/
@@ -621,7 +764,5 @@ project_directory/
     ├── batch_0/
     └── batch_1/
 \end{lstlisting}
-
-However, when using OpenClaw, the Skill manages all these files for you automatically.
 
 \end{document}

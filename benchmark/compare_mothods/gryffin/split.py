@@ -2,25 +2,23 @@ import pandas as pd
 import os
 
 # 文件路径
-input_csv = (
-    "/home/tzz/AIChem/synbo/benchmark/compare_mothods/edboplus/results/EDBOplus_for_asym_alkylation/merged_EDBOplus_for_asym_alkylation.csv"
-)
-hte_csv = "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/asym_alkylation/asym_alkylation.csv"
-output_dir = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/edboplus/results"
+input_csv = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/gryffin/results/merged_Gryffin_for_B-H_HTE.csv"
+hte_csv = "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
+output_dir = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/gryffin/results"
 
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)
 
 # 读取CSV文件
-df_input = pd.read_csv(input_csv, usecols=["step", "sample_index", "round_id"])
+df_input = pd.read_csv(input_csv, usecols=["index", "round_id"])
 df_hte = pd.read_csv(hte_csv)
 
 # 将step列名改为batch
 df_input = df_input.rename(columns={"step": "batch"})
 
 # HTE数据集中的所有列（包括yield和cost）
-# hte_cols = ["base", "ligand", "solvent", "concentration", "temperature", "yield", "cost"]
-hte_cols = ["reactant2", "catalyst1", "catalyst2", "yield", "ee"]
+hte_cols = ["base", "ligand", "solvent", "concentration", "temperature", "yield", "cost"]
+# hte_cols = ["reactant2", "catalyst1", "catalyst2", "yield", "ee"]
 
 # 根据round_id分组，round_id范围是1-10，对应batch_0到batch_9
 for round_id in range(1, 11):
@@ -36,7 +34,7 @@ for round_id in range(1, 11):
 
     # 根据sample_index匹配HTE数据
     for idx, row in batch_data.iterrows():
-        sample_index = row["sample_index"]
+        sample_index = row["index"]
         # 在asym_alkylation.csv中查找对应的行
         hte_row = df_hte[df_hte["index"] == sample_index]
         if not hte_row.empty:

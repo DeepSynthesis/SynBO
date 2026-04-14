@@ -10,194 +10,226 @@ from sklearn.metrics import r2_score
 import xgboost as xgb
 import joblib
 import warnings
+import optuna
+from optuna.samplers import TPESampler
 
 warnings.filterwarnings("ignore")
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
-# 获取所有RDKit描述符名称
 def get_rdkit_desc_names():
     return [desc_name for desc_name, _ in Descriptors._descList]
 
 
-def process_unique_smiles_column(series, desc_names, calculator):
-    """
-    针对HTE数据集特性优化：提取唯一的SMILES进行计算，然后映射回原数据
-    """
+def compute_rdkit_descriptors(smiles, calculator, n_desc):
+    if pd.isna(smiles) or str(smiles).strip().lower() in ["blank_cell", "blank", "na", "nan", ""]:
+        return np.zeros(n_desc)
+    
+    clean_sm = str(smiles).split("~")[0]
+    mol = Chem.MolFromSmiles(clean_sm)
+    if mol is None:
+        return np.zeros(n_desc)
+    
+    try:
+        descriptors = calculator.CalcDescriptors(mol)
+        return np.array(descriptors)
+    except Exception:
+        return np.zeros(n_desc)
+
+
+def process_column_features(series, desc_names, calculator):
     unique_smiles = series.dropna().unique()
     desc_dict = {}
+    n_desc = len(desc_names)
 
-    # 仅对唯一的SMILES计算描述符
     for sm in unique_smiles:
-        # 处理空值
-        if pd.isna(sm) or str(sm).strip().lower() in ["blank_cell", "blank", "na", "nan", ""]:
-            desc_dict[sm] = np.zeros(len(desc_names))
-            continue
+        desc_dict[sm] = compute_rdkit_descriptors(sm, calculator, n_desc)
 
-        # 如果包含~，取第一个组分
-        clean_sm = str(sm).split("~")[0]
-
-        mol = Chem.MolFromSmiles(clean_sm)
-        if mol is None:
-            desc_dict[sm] = np.zeros(len(desc_names))
-        else:
-            # 计算并存入字典
-            try:
-                descriptors = calculator.CalcDescriptors(mol)
-                desc_dict[sm] = np.array(descriptors)
-            except Exception:
-                desc_dict[sm] = np.zeros(len(desc_names))
-
-    # 映射回完整的特征矩阵
     features = []
     for sm in series:
         if pd.isna(sm):
-            features.append(np.zeros(len(desc_names)))
+            features.append(np.zeros(n_desc))
         else:
-            features.append(desc_dict.get(sm, np.zeros(len(desc_names))))
+            features.append(desc_dict.get(sm, np.zeros(n_desc)))
 
     return np.array(features)
 
 
-def main():
-    print("=" * 60)
-    print("Suzuki HTE数据集 - XGBoost模型训练")
-    print("=" * 60)
+def load_and_prepare_data():
+    """加载数据并准备特征"""
+    print("=" * 70)
+    print("Suzuki HTE数据集 - XGBoost + Optuna超参数优化")
+    print("=" * 70)
 
-    # 1. 加载数据
-    print("\n[1/6] 加载数据...")
+    # 加载数据
+    print("\n[1/4] 加载数据...")
     data_path = "suzuki_HTE.csv"
-    if not os.path.exists(data_path):
-        raise FileNotFoundError(f"找不到数据集文件: {data_path}")
-
     df = pd.read_csv(data_path)
     print(f"数据集大小: {df.shape[0]} 条记录, {df.shape[1]} 列")
 
-    # 目标变量
     y = df["Conversion"].values
-    print(f"目标变量(Conversion)范围: {y.min():.2f} - {y.max():.2f}")
+    print(f"目标变量范围: {y.min():.2f} - {y.max():.2f}")
 
-    # 2. 获取RDKit描述符名称并初始化计算器 (核心提速点)
-    print("\n[2/6] 初始化RDKit描述符计算器...")
+    # 获取RDKit描述符
+    print("\n[2/4] 初始化RDKit描述符计算器...")
     desc_names = get_rdkit_desc_names()
     n_desc = len(desc_names)
-    print(f"RDKit描述符数量: {n_desc}")
-
-    # 只实例化一次，极大提高速度
     calculator = MoleculeDescriptors.MolecularDescriptorCalculator(desc_names)
 
-    # 3. 对5种分子类型提取描述符
-    mol_types = ["solvent", "catalyst", "reactant2", "reactant1", "base"]
-    print(f"\n[3/6] 提取5种分子类型的RDKit描述符: {mol_types}")
+    # 提取特征
+    mol_types = ["solvent", "ligand", "reactant2", "reactant1", "base"]
+    print(f"\n[3/4] 提取RDKit描述符: {mol_types}")
 
     all_features = []
     for mol_type in mol_types:
         if mol_type not in df.columns:
-            print(f"  警告: {mol_type} 不在数据集中，将跳过")
             continue
-
-        print(f"  正在极速处理 {mol_type}...")
-        mol_features = process_unique_smiles_column(df[mol_type], desc_names, calculator)
-        print(f"    {mol_type} 描述符形状: {mol_features.shape}")
+        print(f"  处理 {mol_type}...")
+        mol_features = process_column_features(df[mol_type], desc_names, calculator)
         all_features.append(mol_features)
 
-    # 4. 合并所有特征
-    print("\n[4/6] 合并特征并处理异常值...")
+    # 合并和预处理
+    print("\n[4/4] 合并特征并预处理...")
     X = np.hstack(all_features)
-    print(f"合并后特征矩阵形状: {X.shape}")
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    # 移除零方差特征
+    feature_var = np.var(X, axis=0)
+    valid_features = feature_var > 1e-10
+    X = X[:, valid_features]
+    print(f"特征矩阵形状: {X.shape}")
 
-    # 处理RDKit可能产生的NaN和Inf值
-    X = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
-
-    # 5. 特征标准化
-    print("\n[5/6] 特征标准化...")
+    # 标准化
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
+    X_scaled = np.nan_to_num(X_scaled, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # 6. XGBoost模型训练与自定义5-fold交叉验证
-    print("\n[6/6] XGBoost模型训练与手写5-fold交叉验证...")
+    return X_scaled, y, scaler
 
-    # XGBoost参数网格 (针对R2 > 0.9优化)
-    param_grid = [
-        {"n_estimators": 300, "max_depth": 8, "learning_rate": 0.05, "subsample": 0.8, "colsample_bytree": 0.8},
-        {"n_estimators": 500, "max_depth": 10, "learning_rate": 0.05, "subsample": 0.8, "colsample_bytree": 0.8},
-        {"n_estimators": 400, "max_depth": 6, "learning_rate": 0.08, "subsample": 0.85, "colsample_bytree": 0.85},
-        {"n_estimators": 600, "max_depth": 8, "learning_rate": 0.03, "subsample": 0.75, "colsample_bytree": 0.75},
-    ]
 
-    best_r2 = -float("inf")
-    best_params = None
+def objective(trial, X, y):
+    """Optuna优化的目标函数"""
+    # 定义超参数搜索空间
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 100, 2000),
+        'max_depth': trial.suggest_int('max_depth', 3, 12),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+        'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
+        'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+        'gamma': trial.suggest_float('gamma', 1e-8, 5.0, log=True),
+    }
 
-    print("开始超参数搜索 (避免死锁机制)...")
-    for i, params in enumerate(param_grid):
-        print(f"\n测试参数组合 [{i+1}/{len(param_grid)}]:")
-        print(f"  n_est={params['n_estimators']}, depth={params['max_depth']}, lr={params['learning_rate']}")
+    # 5-fold交叉验证
+    kfold = KFold(n_splits=5, shuffle=True, random_state=42)
+    val_scores = []
+    train_scores = []
 
-        # 定义手写交叉验证
-        kfold = KFold(n_splits=5, shuffle=True, random_state=42)
-        fold_scores = []
+    for train_idx, val_idx in kfold.split(X):
+        X_train, X_val = X[train_idx], X[val_idx]
+        y_train, y_val = y[train_idx], y[val_idx]
 
-        for fold, (train_idx, val_idx) in enumerate(kfold.split(X_scaled)):
-            X_train, X_val = X_scaled[train_idx], X_scaled[val_idx]
-            y_train, y_val = y[train_idx], y[val_idx]
+        model = xgb.XGBRegressor(
+            **params,
+            random_state=42,
+            n_jobs=-1,
+            verbosity=0,
+            tree_method='hist',
+        )
 
-            # 每折创建新模型实例，防止内存状态污染
-            model = xgb.XGBRegressor(
-                n_estimators=params["n_estimators"],
-                max_depth=params["max_depth"],
-                learning_rate=params["learning_rate"],
-                subsample=params["subsample"],
-                colsample_bytree=params["colsample_bytree"],
-                random_state=42,
-                n_jobs=-1,  # 使用全部CPU核心
-                verbosity=0,
-            )
+        model.fit(X_train, y_train)
+        
+        train_r2 = r2_score(y_train, model.predict(X_train))
+        val_r2 = r2_score(y_val, model.predict(X_val))
+        
+        train_scores.append(train_r2)
+        val_scores.append(val_r2)
 
-            # 训练模型
-            model.fit(X_train, y_train)
+    mean_val_r2 = np.mean(val_scores)
+    mean_train_r2 = np.mean(train_scores)
+    gap = mean_train_r2 - mean_val_r2
+    
+    # 报告中间结果
+    trial.set_user_attr('train_r2', mean_train_r2)
+    trial.set_user_attr('gap', gap)
+    
+    # 优化目标：最大化验证R2，但惩罚过拟合
+    # 如果过拟合超过0.15，给予惩罚
+    if gap > 0.15:
+        return mean_val_r2 - (gap - 0.15) * 0.5
+    
+    return mean_val_r2
 
-            # 验证集预测并计算R2
-            y_pred = model.predict(X_val)
-            fold_r2 = r2_score(y_val, y_pred)
-            fold_scores.append(fold_r2)
 
-        mean_r2 = np.mean(fold_scores)
-        std_r2 = np.std(fold_scores)
-
-        print(f"  -> 5-fold R2: {mean_r2:.4f} (+/- {std_r2:.4f})")
-        print(f"  -> 各折R2: {[f'{s:.4f}' for s in fold_scores]}")
-
-        # 记录最佳参数
-        if mean_r2 > best_r2:
-            best_r2 = mean_r2
-            best_params = params
-
-    print("\n" + "=" * 60)
-    print(f"✅ 搜索完成！最佳参数: {best_params}")
+def main():
+    # 加载数据
+    X, y, scaler = load_and_prepare_data()
+    
+    print("\n" + "=" * 70)
+    print("开始Optuna超参数优化...")
+    print("=" * 70)
+    
+    # 创建Optuna study
+    study = optuna.create_study(
+        direction='maximize',
+        sampler=TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=5)
+    )
+    
+    # 运行优化
+    n_trials = 100
+    study.optimize(lambda trial: objective(trial, X, y), n_trials=n_trials, show_progress_bar=True)
+    
+    # 获取最佳参数
+    best_params = study.best_params
+    best_r2 = study.best_value
+    
+    print("\n" + "=" * 70)
+    print(f"✅ Optuna优化完成！")
     print(f"🏆 最佳5-fold R2: {best_r2:.4f}")
-    print("=" * 60)
+    print(f"📊 最佳参数: {best_params}")
+    
+    # 获取最佳trial的详细信息
+    best_trial = study.best_trial
+    print(f"📈 训练R2: {best_trial.user_attrs.get('train_r2', 'N/A'):.4f}")
+    print(f"📉 过拟合差距: {best_trial.user_attrs.get('gap', 'N/A'):.4f}")
+    print("=" * 70)
 
-    # 使用最佳参数在全部数据上训练最终模型
+    # 使用最佳参数训练最终模型
     print("\n使用最佳参数训练最终模型...")
-    final_model = xgb.XGBRegressor(**best_params, random_state=42, n_jobs=-1, verbosity=0)
-    final_model.fit(X_scaled, y)
+    final_model = xgb.XGBRegressor(
+        **best_params,
+        random_state=42,
+        n_jobs=-1,
+        verbosity=0,
+        tree_method='hist',
+    )
+    final_model.fit(X, y)
 
-    # 计算整体训练集拟合优度
-    train_r2 = r2_score(y, final_model.predict(X_scaled))
+    train_r2 = r2_score(y, final_model.predict(X))
     print(f"全量数据训练集 R2: {train_r2:.4f}")
+    print(f"训练-验证差距: {train_r2 - best_r2:.4f}")
 
     # 保存模型
     os.makedirs("benchmark", exist_ok=True)
-    model_path = "benchmark/xgboost_suzuki_model.joblib"
-    scaler_path = "benchmark/xgboost_suzuki_scaler.joblib"
-    joblib.dump(final_model, model_path)
-    joblib.dump(scaler, scaler_path)
-    print(f"模型已保存至: {model_path}")
+    joblib.dump(final_model, "benchmark/xgboost_suzuki_model.joblib")
+    joblib.dump(scaler, "benchmark/xgboost_suzuki_scaler.joblib")
+    
+    # 保存最佳参数
+    with open("benchmark/best_params.txt", "w") as f:
+        f.write(f"Best 5-fold R2: {best_r2:.4f}\n")
+        f.write(f"Best params: {best_params}\n")
+    print(f"模型已保存")
 
-    # 验证是否满足 > 0.9 要求
     if best_r2 > 0.9:
         print(f"\n🎉 恭喜! 成功达成目标: 5-fold R2 = {best_r2:.4f} > 0.9")
+    elif best_r2 > 0.88:
+        print(f"\n⚠️ 当前5-fold R2 = {best_r2:.4f}")
+        print("   非常接近0.9！建议增加优化迭代次数")
     else:
-        print(f"\n⚠️ 提示: 5-fold R2 = {best_r2:.4f} < 0.9，建议尝试增加树的数量(n_estimators)或深度(max_depth)")
+        print(f"\n⚠️ 当前5-fold R2 = {best_r2:.4f}")
 
     return best_r2
 

@@ -1,5 +1,0 @@
-Total features: 955
-Valid features: 955
-Removed features: 5285
-Best 5-fold R2: 0.8790
-Best params: {'n_estimators': 1000, 'max_depth': 8, 'learning_rate': 0.03, 'subsample': 0.9, 'colsample_bytree': 0.9, 'min_child_weight': 2, 'reg_alpha': 0.1, 'reg_lambda': 1.0}

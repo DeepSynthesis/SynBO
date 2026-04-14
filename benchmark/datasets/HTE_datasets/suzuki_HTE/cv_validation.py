@@ -1,5 +1,5 @@
 """Suzuki HTE - XGBoost 5折交叉验证"""
-import os, numpy as np, pandas as pd, matplotlib.pyplot as plt
+import os, numpy as np, pandas as pd, matplotlib.pyplot as plt, joblib
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.ML.Descriptors import MoleculeDescriptors
@@ -59,7 +59,7 @@ def load_and_prepare_data():
     print(f"特征矩阵形状: {X.shape}")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
-    return np.nan_to_num(X_scaled, nan=0.0, posinf=0.0, neginf=0.0), y, scaler, df
+    return np.nan_to_num(X_scaled, nan=0.0, posinf=0.0, neginf=0.0), y, scaler, df, valid_features
 
 def perform_cv(X, y):
     print(f"\n最佳参数: {BEST_PARAMS}")
@@ -84,7 +84,27 @@ def perform_cv(X, y):
         results['y_pred_all'].extend(y_test_pred.tolist())
     return results
 
-def plot_predictions(y_true, y_pred, save_path):
+def train_full_model(X, y, scaler, script_dir):
+    """使用全量数据训练模型并保存"""
+    print("\n" + "=" * 50)
+    print("使用全量数据训练最终模型...")
+    print("=" * 50)
+    model = xgb.XGBRegressor(**BEST_PARAMS, random_state=42, n_jobs=-1, verbosity=0, tree_method='hist')
+    model.fit(X, y)
+    y_pred = model.predict(X)
+    train_r2 = r2_score(y, y_pred)
+    train_rmse = np.sqrt(mean_squared_error(y, y_pred))
+    train_mae = mean_absolute_error(y, y_pred)
+    print(f"全量训练集 R²: {train_r2:.4f}")
+    print(f"全量训练集 RMSE: {train_rmse:.4f}")
+    print(f"全量训练集 MAE: {train_mae:.4f}")
+    joblib.dump(model, os.path.join(script_dir, "xgboost_suzuki_model_full.joblib"))
+    joblib.dump(scaler, os.path.join(script_dir, "xgboost_suzuki_scaler_full.joblib"))
+    print("模型已保存: xgboost_suzuki_model_full.joblib")
+    print("Scaler已保存: xgboost_suzuki_scaler_full.joblib")
+    return model, {'r2': train_r2, 'rmse': train_rmse, 'mae': train_mae}
+
+def plot_predictions(y_true, y_pred, save_path, title_prefix="XGBoost"):
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.scatter(y_true, y_pred, alpha=0.6, edgecolors='none', s=50, c='steelblue')
     min_v, max_v = min(min(y_true), min(y_pred)), max(max(y_true), max(y_pred))
@@ -93,7 +113,7 @@ def plot_predictions(y_true, y_pred, save_path):
     r2 = r2_score(y_true, y_pred)
     ax.set_xlabel('Experimental Conversion (%)', fontsize=12)
     ax.set_ylabel('Predicted Conversion (%)', fontsize=12)
-    ax.set_title(f'XGBoost 5-Fold CV Results\nCV R² = {r2:.4f}', fontsize=14)
+    ax.set_title(f'{title_prefix} Results\nR² = {r2:.4f}', fontsize=14)
     ax.legend(loc='upper left')
     ax.set_xlim(min_v-margin, max_v+margin)
     ax.set_ylim(min_v-margin, max_v+margin)
@@ -110,16 +130,28 @@ def plot_predictions(y_true, y_pred, save_path):
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
-    X, y, scaler, df = load_and_prepare_data()
+    X, y, scaler, df, valid_features = load_and_prepare_data()
     results = perform_cv(X, y)
     cv_r2 = np.mean(results['val_r2'])
-    print(f"\n{'='*50}\nCV R² (Mean±Std): {cv_r2:.4f} ± {np.std(results['val_r2']):.4f}")
+    print(f"\n{'='*50}\n5折交叉验证结果汇总\n{'='*50}")
+    print(f"CV R² (Mean±Std): {cv_r2:.4f} ± {np.std(results['val_r2']):.4f}")
     print(f"CV RMSE (Mean±Std): {np.mean(results['val_rmse']):.4f} ± {np.std(results['val_rmse']):.4f}")
     print(f"CV MAE (Mean±Std): {np.mean(results['val_mae']):.4f} ± {np.std(results['val_mae']):.4f}")
-    plot_predictions(np.array(results['y_test_all']), np.array(results['y_pred_all']), os.path.join(script_dir, "cv_prediction_results.png"))
+    plot_predictions(np.array(results['y_test_all']), np.array(results['y_pred_all']), 
+                    os.path.join(script_dir, "cv_prediction_results.png"), "XGBoost 5-Fold CV")
+    full_model, full_metrics = train_full_model(X, y, scaler, script_dir)
+    y_full_pred = full_model.predict(X)
+    plot_predictions(y, y_full_pred, os.path.join(script_dir, "full_training_results.png"), "XGBoost Full Training")
     with open(os.path.join(script_dir, "cv_results_summary.txt"), 'w') as f:
-        f.write(f"CV R²: {cv_r2:.4f}\nBest params: {BEST_PARAMS}\n")
-    print("✅ 5折交叉验证完成!")
+        f.write("=" * 70 + "\nSuzuki HTE - XGBoost 结果汇总\n" + "=" * 70 + "\n")
+        f.write("最佳参数:\n")
+        for k, v in BEST_PARAMS.items():
+            f.write(f"  {k}: {v}\n")
+        f.write(f"\n5折交叉验证:\n  CV R²: {cv_r2:.4f} ± {np.std(results['val_r2']):.4f}\n")
+        f.write(f"  CV RMSE: {np.mean(results['val_rmse']):.4f} ± {np.std(results['val_rmse']):.4f}\n")
+        f.write(f"\n全量训练:\n  Train R²: {full_metrics['r2']:.4f}\n")
+        f.write(f"  Train RMSE: {full_metrics['rmse']:.4f}\n")
+    print("\n✅ 完成!")
     return cv_r2
 
 if __name__ == "__main__":

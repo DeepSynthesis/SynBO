@@ -1,0 +1,2 @@
+CV R²: 0.8806
+Best params: {'n_estimators': 1274, 'max_depth': 8, 'learning_rate': 0.018029253904222754, 'subsample': 0.8530597199777481, 'colsample_bytree': 0.9505932960648681, 'min_child_weight': 3, 'reg_alpha': 5.091542017959273, 'reg_lambda': 4.5283455254313336e-08, 'gamma': 1.1504135041788988}

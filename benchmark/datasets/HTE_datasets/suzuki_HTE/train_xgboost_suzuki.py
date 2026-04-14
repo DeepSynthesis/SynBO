@@ -16,6 +16,18 @@ from optuna.samplers import TPESampler
 warnings.filterwarnings("ignore")
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+best_parameter = {
+    "n_estimators": 1274,
+    "max_depth": 8,
+    "learning_rate": 0.018029253904222754,
+    "subsample": 0.8530597199777481,
+    "colsample_bytree": 0.9505932960648681,
+    "min_child_weight": 3,
+    "reg_alpha": 5.091542017959273,
+    "reg_lambda": 4.5283455254313336e-08,
+    "gamma": 1.1504135041788988,
+}
+
 
 def get_rdkit_desc_names():
     return [desc_name for desc_name, _ in Descriptors._descList]
@@ -24,12 +36,12 @@ def get_rdkit_desc_names():
 def compute_rdkit_descriptors(smiles, calculator, n_desc):
     if pd.isna(smiles) or str(smiles).strip().lower() in ["blank_cell", "blank", "na", "nan", ""]:
         return np.zeros(n_desc)
-    
+
     clean_sm = str(smiles).split("~")[0]
     mol = Chem.MolFromSmiles(clean_sm)
     if mol is None:
         return np.zeros(n_desc)
-    
+
     try:
         descriptors = calculator.CalcDescriptors(mol)
         return np.array(descriptors)
@@ -92,7 +104,7 @@ def load_and_prepare_data():
     print("\n[4/4] 合并特征并预处理...")
     X = np.hstack(all_features)
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
-    
+
     # 移除零方差特征
     feature_var = np.var(X, axis=0)
     valid_features = feature_var > 1e-10
@@ -111,15 +123,15 @@ def objective(trial, X, y):
     """Optuna优化的目标函数"""
     # 定义超参数搜索空间
     params = {
-        'n_estimators': trial.suggest_int('n_estimators', 100, 2000),
-        'max_depth': trial.suggest_int('max_depth', 3, 12),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-        'subsample': trial.suggest_float('subsample', 0.5, 1.0),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
-        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
-        'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
-        'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
-        'gamma': trial.suggest_float('gamma', 1e-8, 5.0, log=True),
+        "n_estimators": trial.suggest_int("n_estimators", 100, 2000),
+        "max_depth": trial.suggest_int("max_depth", 3, 12),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+        "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+        "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+        "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
+        "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+        "gamma": trial.suggest_float("gamma", 1e-8, 5.0, log=True),
     }
 
     # 5-fold交叉验证
@@ -136,61 +148,59 @@ def objective(trial, X, y):
             random_state=42,
             n_jobs=-1,
             verbosity=0,
-            tree_method='hist',
+            tree_method="hist",
         )
 
         model.fit(X_train, y_train)
-        
+
         train_r2 = r2_score(y_train, model.predict(X_train))
         val_r2 = r2_score(y_val, model.predict(X_val))
-        
+
         train_scores.append(train_r2)
         val_scores.append(val_r2)
 
     mean_val_r2 = np.mean(val_scores)
     mean_train_r2 = np.mean(train_scores)
     gap = mean_train_r2 - mean_val_r2
-    
+
     # 报告中间结果
-    trial.set_user_attr('train_r2', mean_train_r2)
-    trial.set_user_attr('gap', gap)
-    
+    trial.set_user_attr("train_r2", mean_train_r2)
+    trial.set_user_attr("gap", gap)
+
     # 优化目标：最大化验证R2，但惩罚过拟合
     # 如果过拟合超过0.15，给予惩罚
     if gap > 0.15:
         return mean_val_r2 - (gap - 0.15) * 0.5
-    
+
     return mean_val_r2
 
 
 def main():
     # 加载数据
     X, y, scaler = load_and_prepare_data()
-    
+
     print("\n" + "=" * 70)
     print("开始Optuna超参数优化...")
     print("=" * 70)
-    
+
     # 创建Optuna study
     study = optuna.create_study(
-        direction='maximize',
-        sampler=TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=5)
+        direction="maximize", sampler=TPESampler(seed=42), pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=5)
     )
-    
+
     # 运行优化
     n_trials = 100
     study.optimize(lambda trial: objective(trial, X, y), n_trials=n_trials, show_progress_bar=True)
-    
+
     # 获取最佳参数
     best_params = study.best_params
     best_r2 = study.best_value
-    
+
     print("\n" + "=" * 70)
     print(f"✅ Optuna优化完成！")
     print(f"🏆 最佳5-fold R2: {best_r2:.4f}")
     print(f"📊 最佳参数: {best_params}")
-    
+
     # 获取最佳trial的详细信息
     best_trial = study.best_trial
     print(f"📈 训练R2: {best_trial.user_attrs.get('train_r2', 'N/A'):.4f}")
@@ -204,7 +214,7 @@ def main():
         random_state=42,
         n_jobs=-1,
         verbosity=0,
-        tree_method='hist',
+        tree_method="hist",
     )
     final_model.fit(X, y)
 
@@ -216,7 +226,7 @@ def main():
     os.makedirs("benchmark", exist_ok=True)
     joblib.dump(final_model, "benchmark/xgboost_suzuki_model.joblib")
     joblib.dump(scaler, "benchmark/xgboost_suzuki_scaler.joblib")
-    
+
     # 保存最佳参数
     with open("benchmark/best_params.txt", "w") as f:
         f.write(f"Best 5-fold R2: {best_r2:.4f}\n")

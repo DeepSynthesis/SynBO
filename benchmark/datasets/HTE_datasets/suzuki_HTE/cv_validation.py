@@ -100,6 +100,8 @@ def train_full_model(X, y, scaler, script_dir):
     print(f"全量训练集 MAE: {train_mae:.4f}")
     joblib.dump(model, os.path.join(script_dir, "xgboost_suzuki_model_full.joblib"))
     joblib.dump(scaler, os.path.join(script_dir, "xgboost_suzuki_scaler_full.joblib"))
+    joblib.dump(valid_features, os.path.join(script_dir, "valid_features.joblib"))
+    print("Valid features已保存: valid_features.joblib")
     print("模型已保存: xgboost_suzuki_model_full.joblib")
     print("Scaler已保存: xgboost_suzuki_scaler_full.joblib")
     return model, {'r2': train_r2, 'rmse': train_rmse, 'mae': train_mae}

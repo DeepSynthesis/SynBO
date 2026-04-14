@@ -1,6 +1,7 @@
 import json
-from os import unlink
-import numpy as np
+import faulthandler
+
+faulthandler.enable()
 import pandas as pd
 import seaborn as sns
 from datetime import datetime
@@ -41,7 +42,7 @@ CONFIG = {
         "name_suffix": "_RDKit",
     },
     "optimization_settings": {
-        "opt_metrics": ["conversion"],
+        "opt_metrics": ["Conversion"],
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
         ],
@@ -67,7 +68,7 @@ CONFIG = {
     },
 }
 
-CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
+CONFIG["reaction_space"]["index_col"] = [f"name" for r in CONFIG["reaction_space"]["reagent_types"]]
 # ===========================================================================================================
 
 
@@ -197,7 +198,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     print(f"Experiment Directory: {experiment_dir}")
 
     # Load start_point.json
-    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/B-H_HTE/start_point.json"
+    start_point_path = Path(__file__).parent / "datasets/HTE_datasets/suzuki_HTE/start_point.json"
     start_points = load_start_points(start_point_path)
     print(f"Loaded start points from: {start_point_path}")
 
@@ -238,7 +239,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
-                quiet=True,
+                quiet=False,
                 save_dir=str(experiment_dir),
             )
 

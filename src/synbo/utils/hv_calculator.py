@@ -112,8 +112,12 @@ def calculate_hypervolume_for_batch(
     ref_point = np.array([reference_point_multiplier] * len(opt_metrics))
 
     # Calculate hypervolume
-    hv_calculator = HV(ref_point=ref_point)
-    hv_value = hv_calculator(data_norm)
+
+    if data_norm.shape[1] == 1:
+        hv_value = float(max(0.0, data_norm.max() - ref_point[0]))
+    else:
+        hv_calculator = HV(ref_point=ref_point)
+        hv_value = hv_calculator(data_norm)
 
     # Calculate total theoretical hypervolume (maximum possible)
     # This is when all objectives are at their optimal values (0 for minimization)
@@ -169,7 +173,7 @@ def calculate_hypervolume_by_batch(
     results = []
 
     for batch_id in batch_ids:
-    
+
         hv_result = calculate_hypervolume_for_batch(
             prev_rxn_info=prev_rxn_info,
             opt_metrics=opt_metrics,

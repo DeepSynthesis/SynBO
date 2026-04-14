@@ -136,7 +136,8 @@ def main():
 
     # 保存结果
     output_path = os.path.join(script_dir, "suzuki_HTE_global_prediction.csv")
-    result_df.to_csv(output_path, index=False)
+    result_df.reset_index(inplace=True, drop=True)
+    result_df.to_csv(output_path)
     print(f"\n结果已保存: {output_path}")
 
     # 统计信息

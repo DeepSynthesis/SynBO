@@ -229,3 +229,5 @@ tests/results/
 tests/test_results/
 tests/testfile/*
 !tests/testfile/start_file.csv
+
+*.joblib

@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
         "synbo (GP)": {
-            "results_path": "results/multiple_20260414_153314/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260415_154205/all_batches_final_round_*.csv",
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],
         },

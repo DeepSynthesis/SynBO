@@ -46,9 +46,9 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     # Setup parameters
     sort_column = "index"
 
-    objectives = ["yield", "ee"]
-    objective_modes = ["max", "max"]
-    objective_thresholds = [None, None]
+    objectives = ["Conversion"]
+    objective_modes = ["max"]
+    objective_thresholds = [None]
     budget = 50
     batch_size = 5
 
@@ -60,10 +60,11 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
 
     columns_regression = df_ground.columns.tolist()
     columns_regression.remove(sort_column)
-    columns_regression.remove("yield")
-    columns_regression.remove("ee")
-    columns_regression.remove("reactant1")
+    columns_regression.remove("Conversion")
     columns_regression.remove("product")
+    columns_regression.remove("catalyst")
+    columns_regression.remove("source")
+    columns_regression.remove("reaction_id")
 
     # Define configurations to test
     config = {"batch": batch_size, "acq": "EHVI", "sampling": "with_index", "steps": int(budget / batch_size)}
@@ -184,10 +185,10 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         # Calculate mean performance across rounds
         df_mean = (
             df_merged.groupby("step")
-            .agg({"hypervolume completed (%)": ["mean", "std"], "yield_best": "mean", "ee_best": "mean", "n_experiments": "mean"})
+            .agg({"hypervolume completed (%)": ["mean", "std"], "conversion_best": "mean", "n_experiments": "mean"})
             .reset_index()
         )
-        df_mean.columns = ["step", "hv_mean", "hv_std", "yield_best_mean", "ee_best_mean", "n_experiments_mean"]
+        df_mean.columns = ["step", "hv_mean", "hv_std", "conversion_best_mean", "n_experiments_mean"]
 
         # Save mean results
         mean_filename = f"results/mean_{label_benchmark}"

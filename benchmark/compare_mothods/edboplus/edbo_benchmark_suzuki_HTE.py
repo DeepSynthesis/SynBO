@@ -256,5 +256,5 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
 if __name__ == "__main__":
 
     demo_multiple_configs(
-        dataset="HTE_datasets/asym_alkylation/asym_alkylation.csv", desc_columns=["reactant2", "catalyst1", "catalyst2"], num_seeds=10
+        dataset="HTE_datasets/suzuki_HTE/suzuki_HTE.csv", desc_columns=["solvent", "ligand", "reactant2", "reactant1", "base"], num_seeds=10
     )

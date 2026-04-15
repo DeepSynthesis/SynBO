@@ -123,6 +123,11 @@ if __name__ == "__main__":
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],
         },
+        "EDBOplus": {
+            "results_path": "compare_mothods/edboplus/results/EDBOplus_for_suzuki_HTE/batch_*.csv",
+            "target_columns": ["Conversion"],
+            "direction_tags": ["max"],
+        },
     }
 
     full_space_file = "datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"

@@ -76,6 +76,7 @@ def build_and_optimize_model(train_x, train_y):
         # Zero gradients from previous iteration
         optimizer.zero_grad()
         # Output from model
+        # from IPython import embed; embed(); exit()
         output = model(train_x)
         # Calc loss and backprop gradients
         loss = -mll(output, train_y.squeeze(-1).to(**tkwargs))

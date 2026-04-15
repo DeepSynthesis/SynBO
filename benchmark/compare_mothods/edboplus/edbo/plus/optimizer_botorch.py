@@ -291,11 +291,41 @@ class EDBOplus:
         # 3. Separate train and test data.
 
         # 3.1. Auto-detect dummy features (one-hot-encoding).
-        numeric_cols = df._get_numeric_data().columns
-        for nc in numeric_cols:
-            df[nc] = pd.to_numeric(df[nc], downcast="float")
-        ohe_columns = list(OrderedSet(df.columns) - OrderedSet(numeric_cols))
-        ohe_columns = list(OrderedSet(ohe_columns) - OrderedSet(objectives))
+        # Safely handle mixed types and ensure proper numeric conversion
+        # This handles cases where:
+        # 1. Pandas merge operations create duplicate column names with _x/_y suffixes
+        # 2. Columns have mixed types that cause pd.to_numeric to fail
+        # 3. Large number of columns from multiple descriptor merges
+        
+        # First, identify truly categorical columns (non-numeric strings)
+        categorical_mask = df.dtypes == object
+        categorical_cols = df.columns[categorical_mask].tolist()
+        
+        # Convert object columns that should be numeric using errors='coerce'
+        # This is more robust than trying to selectively convert
+        for col in categorical_cols:
+            # Check if the column contains PENDING or text (truly categorical)
+            # vs numeric strings (should be converted)
+            sample_values = df[col].astype(str).head(100).unique()
+            is_truly_categorical = any('PENDING' in str(v) or not v.replace('.','').replace('-','').replace('e','').replace('E','').replace('+','').isdigit() 
+                                       for v in sample_values 
+                                       if v not in ['nan', 'None', ''])
+            if not is_truly_categorical:
+                # Try to convert to numeric
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Now get numeric columns properly
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        # Categorical columns are those not numeric and not objectives
+        ohe_columns = [col for col in df.columns if col not in numeric_cols and col not in objectives]
+        
+        # Remove any _y suffix columns that are duplicates (from merge operations)
+        # These are redundant features that should be removed
+        cols_to_drop = [col for col in ohe_columns if col.endswith('_y')]
+        if cols_to_drop:
+            df = df.drop(columns=cols_to_drop)
+            ohe_columns = [col for col in ohe_columns if col not in cols_to_drop]
 
         if len(ohe_columns) > 0:
             print(f"The following columns are categorical and will be encoded" f" using One-Hot-Encoding: {ohe_columns}")

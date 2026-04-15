@@ -119,33 +119,13 @@ if __name__ == "__main__":
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
         "synbo (GP)": {
-            "results_path": "results/multiple_20260403_211714/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "ee"],
-            "direction_tags": ["max", "max"],
-        },
-        "synbo(dynamic)": {
-            "results_path": "results/multiple_20260317_190359/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "ee"],
-            "direction_tags": ["max", "max"],
-        },
-        "SynBO (newest)": {
-            "results_path": "results/multiple_20260327_195649/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "ee"],
-            "direction_tags": ["max", "max"],
-        },
-        "MyEDBO": {
-            "results_path": "results/multiple_20260327_214654/all_batches_final_round_*.csv",
-            "target_columns": ["yield", "ee"],
-            "direction_tags": ["max", "max"],
-        },
-        "EDBOplus": {
-            "results_path": "compare_mothods/edboplus/results/EDBOplus_for_asym_alkylation/batch_*.csv",
-            "target_columns": ["yield_collected_values", "cost_collected_values"],
-            "direction_tags": ["max", "max"],
+            "results_path": "results/multiple_20260414_153314/all_batches_final_round_*.csv",
+            "target_columns": ["Conversion"],
+            "direction_tags": ["max"],
         },
     }
 
-    full_space_file = "datasets/HTE_datasets/asym_alkylation/asym_alkylation.csv"
+    full_space_file = "datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
     output_dir = "comparison_results"
 
     plot_comparison(

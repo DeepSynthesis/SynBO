@@ -123,6 +123,17 @@ if __name__ == "__main__":
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],
         },
+        "synbo (new)": {
+            "results_path": "results/multiple_20260416_151710/all_batches_final_round_*.csv",
+            "target_columns": ["Conversion"],
+            "direction_tags": ["max"],
+        },
+        "synbo (cpu)": {
+            "results_path": "results/multiple_20260416_153257/all_batches_final_round_*.csv",
+            "target_columns": ["Conversion"],
+            "direction_tags": ["max"],
+        },
+        #
         "EDBOplus": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_suzuki_HTE/batch_*.csv",
             "target_columns": ["Conversion"],

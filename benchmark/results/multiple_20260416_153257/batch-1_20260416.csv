@@ -1,0 +1,6 @@
+batch,index,type,solvent,ligand,reactant2,reactant1,base,pred Conversion,Conversion
+1,1,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,CC1(C)OB(c2ccc3ncccc3c2)OC1(C)C,blank_cell,0.00±1.94,72.01000213623047
+1,2,Unknown,CC#N,CC(C)(C)P(C1=CC=C[CH]1)C(C)(C)C.CC(C)(C)P(C1=CC=C[CH]1)C(C)(C)C,Cc1ccc2c(cnn2C2CCCCO2)c1Br,OB(O)c1ccc2ncccc2c1,blank_cell,0.00±1.94,0.0
+1,3,Unknown,CC#N,c1ccc(P(c2ccccc2)[c-]2cccc2)cc1.c1ccc(P(c2ccccc2)[c-]2cccc2)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1Br,OB(O)c1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],0.00±1.94,19.47
+1,4,Unknown,CC#N,CC1(C)c2cccc(P(c3ccccc3)c3ccccc3)c2Oc2c(P(c3ccccc3)c3ccccc3)cccc21,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,Brc1ccc2ncccc2c1,[Na+].[OH-],0.00±1.93,38.04
+1,5,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Clc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],0.00±1.94,85.21

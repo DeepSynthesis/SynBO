@@ -327,7 +327,8 @@ def get_average_optimal_targets_hv(dfs, target_columns, direction_tags, range_ta
     full_data_norm = normalize_and_transform(full_data_raw, range_tags, direction_tags)
     ref_point = np.array([1.1] * len(target_columns))
     ind = HV(ref_point=ref_point)
-    total_hv = ind(full_data_norm)
+    # total_hv = ind(full_data_norm)
+    total_hv = 0
 
     if total_hv == 0:
         print("Warning: Total Hypervolume is 0. Check your range_tags or data.")
@@ -433,7 +434,8 @@ def get_auc_of_opt_hv(dfs, target_columns, direction_tags, range_tags, full_spac
     full_data_norm = normalize_and_transform(full_data_raw, range_tags, direction_tags)
     ref_point = np.array([1.1] * len(target_columns))
     ind = HV(ref_point=ref_point)
-    total_hv = ind(full_data_norm)
+    # total_hv = ind(full_data_norm)
+    total_hv = 0
 
     if total_hv == 0:
         print("Warning: Total Hypervolume is 0. Check your range_tags or data.")

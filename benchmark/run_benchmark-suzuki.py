@@ -51,8 +51,8 @@ CONFIG = {
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "device": "cuda:2",
-        "kwargs": {"surrogate_model": "GP", "acq_func": "NEI"},
+        "device": "cpu",
+        "kwargs": {"surrogate_model": "GP", "acq_func": "EHVI"},
     },
     "constraint_settings": {
         "enable_constraints": False,  # Enable/disable constraint-based space reduction (set True to test constraints)
@@ -239,7 +239,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
                 opt_metric_settings=CONFIG["optimization_settings"]["opt_direct_info"],
                 opt_type=CONFIG["optimization_settings"]["opt_type"],
                 random_seed=current_seed,
-                quiet=False,
+                quiet=True,
                 save_dir=str(experiment_dir),
             )
 

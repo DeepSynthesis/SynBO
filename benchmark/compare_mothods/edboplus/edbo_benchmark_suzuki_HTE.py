@@ -26,11 +26,15 @@ from edbo.plus.benchmark.multiobjective_benchmark import Benchmark
 def generate_desc_file(df_ground, desc_dfs, desc_columns):
     res_df = df_ground.copy()
     existing_cols = [col for col in desc_columns if col in res_df.columns]
+
     for col in existing_cols:
-        desc_table = desc_dfs[col]
-        desc_table = desc_table.select_dtypes(include=["float64", "float32"])
+        desc_table = desc_dfs[col].select_dtypes(include=["float64", "float32"])
+
+        desc_table.columns = [f"{col}_{c}_{i+1}" for i, c in enumerate(desc_table.columns)]
+
         res_df = res_df.merge(desc_table, left_on=col, right_index=True, how="left")
         res_df.drop([col], axis=1, inplace=True)
+
     return res_df
 
 
@@ -167,9 +171,9 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         df_merged = pd.concat(all_results, ignore_index=True)
 
         # Save merged results
-        # merged_filename = f"results/merged_{label_benchmark}"
-        # df_merged.to_csv(merged_filename, index=False)
-        # print(f"Merged results saved to: {merged_filename}")
+        merged_filename = f"results/merged_{label_benchmark}"
+        df_merged.to_csv(merged_filename, index=False)
+        print(f"Merged results saved to: {merged_filename}")
 
         # Print summary statistics
         print(f"\nSummary Statistics ({num_seeds} rounds):")
@@ -185,10 +189,10 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         # Calculate mean performance across rounds
         df_mean = (
             df_merged.groupby("step")
-            .agg({"hypervolume completed (%)": ["mean", "std"], "conversion_best": "mean", "n_experiments": "mean"})
+            .agg({"hypervolume completed (%)": ["mean", "std"], "Conversion_best": "mean", "n_experiments": "mean"})
             .reset_index()
         )
-        df_mean.columns = ["step", "hv_mean", "hv_std", "conversion_best_mean", "n_experiments_mean"]
+        df_mean.columns = ["step", "hv_mean", "hv_std", "Conversion_best_mean", "n_experiments_mean"]
 
         # Save mean results
         mean_filename = f"results/mean_{label_benchmark}"
@@ -247,7 +251,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     print("Benchmark completed successfully!")
     print(f"{'='*80}")
     print(f"\nOutput files:")
-    # print(f"  - Merged results: {merged_filename}")
+    print(f"  - Merged results: {merged_filename}")
     print(f"  - Mean results: {mean_filename}")
     print(f"  - Timing info: {timing_filename}")
     print(f"\nTotal time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)")

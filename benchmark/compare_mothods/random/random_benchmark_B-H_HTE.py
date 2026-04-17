@@ -1,28 +1,18 @@
 """
-Random Baseline Benchmark Script for B-H_HTE
-This script runs random sampling benchmarks with multiple rounds, 
-using the same start points as EDBO+ for fair comparison.
-
-Usage:
-    conda activate env_edbo  (or edbo_env)
-    python benchmark/compare_mothods/random/random_benchmark_B-H_HTE.py
-
-Reference: Based on benchmark workflow from EDBO+ implementation.
+Optimized Random Baseline Benchmark Script for B-H_HTE
+- Removed all hypervolume/pareto calculations.
+- Optimized Memory & I/O: No intermediate CSV writing/reading.
+- O(1) DataFrame lookups.
+- Outputs BOTH the mean results AND the complete raw optimization results for all seeds.
 """
 
 from pathlib import Path
-import sys
 import os
 import pandas as pd
 import numpy as np
 import time
 from datetime import datetime
 import json
-import copy
-import torch
-import pareto
-from sklearn.preprocessing import MinMaxScaler
-from botorch.utils.multi_objective.hypervolume import Hypervolume
 
 
 def generate_desc_file(df_ground, desc_dfs, desc_columns):
@@ -37,190 +27,109 @@ def generate_desc_file(df_ground, desc_dfs, desc_columns):
     return res_df
 
 
-def is_pareto(objectives_arr):
-    """Find the pareto-efficient points."""
-    is_efficient = np.ones(objectives_arr.shape[0], dtype=bool)
-    for i, c in enumerate(objectives_arr):
-        is_efficient[i] = np.all(np.any(objectives_arr[:i] > c, axis=1)) and np.all(np.any(objectives_arr[i + 1:] > c, axis=1))
-    return is_efficient
-
-
-def run_random_sampling(
-    df_ground, sort_column, objectives, objective_modes, objective_thresholds,
-    batch_size, steps, seed, init_indices, label_benchmark
-):
+def run_random_sampling(df_ground, sort_column, objectives, objective_modes, batch_size, steps, seed, init_indices):
     """
-    Run random sampling benchmark.
-    This function mimics the Benchmark.run() logic but uses random sampling
-    instead of Bayesian optimization.
+    Run random sampling benchmark in memory.
     """
-    filename = label_benchmark
-    filename_results = "results_" + label_benchmark
-    
-    # Get objective values
-    objective_values_ground = []
-    for obj_idx, obj in enumerate(objectives):
-        d = [float(i) for i in df_ground[obj]]
-        if objective_modes[obj_idx] == "min":
-            d = -np.array(d)
-        else:
-            d = np.array(d)
-        objective_values_ground.append(d.flatten())
-    objective_values_ground = np.array(objective_values_ground).T
-    
-    # Get Pareto points for ground truth
-    pareto_ground = pareto.eps_sort(tables=objective_values_ground, objectives=np.arange(len(objectives)), maximize_all=True)
-    pareto_ground = np.array(pareto_ground)
-    
-    # Fit scaler
-    scaler_ground = MinMaxScaler()
-    scaler_ground.fit(objective_values_ground)
-    
-    # Calculate hypervolume ground truth
-    references = copy.deepcopy(objective_thresholds)
-    if references is None:
-        references = [None] * len(objectives)
-    for i in range(len(references)):
-        if references[i] is None:
-            references[i] = np.min(objective_values_ground, axis=0)[i]
-    
-    references_scaled = scaler_ground.transform(np.array([references]))[0]
-    pareto_points_scaled = scaler_ground.transform(pareto_ground)
-    pareto_torch = torch.Tensor(pareto_points_scaled)
-    hv = Hypervolume(ref_point=torch.Tensor(references_scaled))
-    hypervolume_ground = hv.compute(pareto_Y=pareto_torch)
-    
-    # Initialize benchmark file with features only
-    df_init = df_ground.copy()
-    df_init = df_init.drop(columns=objectives)
-    df_init.to_csv(filename, index=False)
-    
-    # Set random seed
     np.random.seed(seed)
-    
-    # Track which samples have been selected
+
+    # 建立 O(1) 复杂度的哈希索引，避免循环中慢速的全表搜索
+    df_lookup = df_ground.set_index(sort_column)
     all_indices = df_ground[sort_column].values
-    selected_indices = set()
-    
-    # Initialize with start indices if provided
+
+    # 初始化已被选中的索引
+    selected_set = set()
+    best_values = [float("-inf") if mode == "max" else float("inf") for mode in objective_modes]
+
+    def update_best(current, new_val, mode):
+        if pd.isna(new_val):  # 忽略空值，和 pandas 原生行为保持一致
+            return current
+        return max(current, new_val) if mode == "max" else min(current, new_val)
+
+    # 如果有初始点，加载它们并更新初始的 "best_values" 基础值
     if init_indices is not None:
-        selected_indices.update(init_indices)
-        print(f"  Initialized with {len(init_indices)} start points")
-    
-    # Results storage
+        selected_set.update(init_indices)
+        for idx in init_indices:
+            row = df_lookup.loc[idx]
+            for i, obj in enumerate(objectives):
+                best_values[i] = update_best(best_values[i], row[obj], objective_modes[i])
+
+    n_experiments = len(selected_set)
     results_data = []
-    collected_values = {obj: [] for obj in objectives}
-    
+
     for step in range(steps):
-        print(f"  Step {step + 1}/{steps}")
-        
-        # Get available (not yet selected) indices
-        available_mask = ~np.isin(all_indices, list(selected_indices))
-        available_indices = all_indices[available_mask]
-        
-        # Randomly sample batch_size candidates
+        # 找出还未被采样的索引
+        available_indices = np.array([idx for idx in all_indices if idx not in selected_set])
+
+        # 随机采样 batch_size 个候选
         if len(available_indices) >= batch_size:
             batch_indices = np.random.choice(available_indices, size=batch_size, replace=False)
         else:
             batch_indices = np.random.choice(all_indices, size=batch_size, replace=False)
-        
-        # Add to selected
-        selected_indices.update(batch_indices)
-        
-        # Update benchmark file with new observations
-        df_current = pd.read_csv(filename)
+
+        # 1. 更新已选中集合 & 实验计数 (按照原版的 batch 逻辑，这一批次共享相同的计数)
         for batch_idx in batch_indices:
-            argwhere_df = np.argwhere(df_ground[sort_column].values == batch_idx)[0][0]
-            argwhere_current = np.argwhere(df_current[sort_column].values == batch_idx)[0][0]
-            for obj in objectives:
-                df_current.loc[argwhere_current, obj] = df_ground[obj].values[argwhere_df]
-        df_current.to_csv(filename, index=False)
-        
-        # Calculate current best values
-        new_df = df_current.copy()
-        cumulative_train_y = []
-        best_values_found = []
-        for i in range(len(objectives)):
-            if objective_modes[i] == "min":
-                best_value = pd.to_numeric(new_df[objectives[i]], "coerce").min()
-            else:
-                best_value = pd.to_numeric(new_df[objectives[i]], "coerce").max()
-            best_values_found.append(best_value)
-            vals = pd.to_numeric(new_df[objectives[i]], "coerce").dropna().values
-            if objective_modes[i] == "min":
-                cumulative_train_y.append(-vals)
-            else:
-                cumulative_train_y.append(vals)
-        
-        cumulative_train_y = np.reshape(cumulative_train_y, (len(cumulative_train_y), -1)).T
-        
-        # Calculate Pareto front and hypervolume
-        pareto_train = pareto.eps_sort(tables=cumulative_train_y, objectives=np.arange(len(objectives)), maximize_all=True)
-        pareto_train = np.array(pareto_train)
-        pareto_train_scaled = scaler_ground.transform(pareto_train)
-        pareto_train_torch = torch.Tensor(pareto_train_scaled)
-        hypervolume_train = hv.compute(pareto_Y=pareto_train_torch)
-        
-        n_experiments = len(cumulative_train_y)
-        hv_percent = (hypervolume_train / hypervolume_ground) * 100
-        print(f"    Experiments: {n_experiments}, Hypervolume: {hv_percent:.2f}%")
-        
-        # Store results for each sample in batch
-        for bt, batch_idx in enumerate(batch_indices):
-            sample_vals = {}
-            for obj in objectives:
-                argwhere = np.argwhere(df_ground[sort_column].values == batch_idx)[0][0]
-                sample_vals[obj] = df_ground[obj].values[argwhere]
-            
-            dict_i = {
-                "step": step, "init_method": "random_with_start_points", "init_sample": seed,
-                "batch": batch_size, "n_experiments": n_experiments,
-                "hypervolume_ground": float(hypervolume_ground), "hypervolume_sampled": float(hypervolume_train),
-                "hypervolume completed (%)": float(hv_percent), "sample_index": int(batch_idx),
-            }
-            dict_i.update(sample_vals)
+            selected_set.add(batch_idx)
+        n_experiments += len(batch_indices)
+
+        # 2. 计算当前批次产生后的最优值 (Historical Best)
+        for batch_idx in batch_indices:
+            row = df_lookup.loc[batch_idx]
             for i, obj in enumerate(objectives):
-                dict_i[obj + "_best"] = float(best_values_found[i])
+                best_values[i] = update_best(best_values[i], row[obj], objective_modes[i])
+
+        # 3. 记录本批次每一条样本的结果数据
+        for batch_idx in batch_indices:
+            row = df_lookup.loc[batch_idx]
+            dict_i = {
+                "step": step,
+                "init_method": "random_with_start_points",
+                "init_sample": seed,
+                "batch": batch_size,
+                "n_experiments": n_experiments,
+                "sample_index": int(batch_idx),
+            }
+
+            # 记录当前样本的实际值
+            for obj in objectives:
+                dict_i[obj] = float(row[obj])
+
+            # 记录此时的历史最优值
+            for i, obj in enumerate(objectives):
+                dict_i[f"{obj}_best"] = float(best_values[i])
+
             results_data.append(dict_i)
-    
-    # Save results
-    if results_data:
-        df_results = pd.DataFrame(results_data)
-        df_results.to_csv(filename_results, index=False)
-        print(f"  Results saved to {filename_results}")
-    
-    return df_results
+
+    return pd.DataFrame(results_data)
 
 
 def demo_random_benchmark(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_columns=["base", "ligand", "solvent"], num_seeds=10):
     """Run random sampling benchmark with multiple seeds."""
     start_time = time.time()
     start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     dataset_path = Path(__file__).parent / Path(f"../../datasets/{dataset}")
     df_exp = pd.read_csv(dataset_path)
+
     sort_column = "index"
     objectives = ["yield", "cost"]
     objective_modes = ["max", "min"]
-    objective_thresholds = [None, None]
     budget = 50
     batch_size = 5
+
     desc_file = dataset_path.parent / Path("descriptors")
     desc_dfs = {col: pd.read_csv(desc_file / Path(f"{col}_dft.csv"), index_col=0) for col in desc_columns}
     df_ground = generate_desc_file(df_exp, desc_dfs, desc_columns)
-    columns_regression = df_ground.columns.tolist()
-    columns_regression.remove(sort_column)
-    columns_regression.remove("yield")
-    columns_regression.remove("cost")
+
     config = {"batch": batch_size, "steps": int(budget / batch_size)}
 
-    print(f"Random Baseline Benchmark with {num_seeds} Random Seeds")
+    print(f"Random Baseline Benchmark with {num_seeds} Random Seeds (Optimized)")
     print(f"Dataset: {dataset}")
     print(f"Budget: {budget} experiments ({config['steps']} steps x {config['batch']} batch size)")
-    print(f"Sampling method: Random")
-    print(f"Number of seeds: {num_seeds}")
 
     label_benchmark = "Random_for_" + dataset_path.name
     start_point_path = dataset_path.parent / "start_point.json"
+
     with open(start_point_path, "r") as f:
         start_points = json.load(f)
 
@@ -228,85 +137,90 @@ def demo_random_benchmark(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
 
     for round_id in range(1, num_seeds + 1):
         seed = round_id
-        print(f"\n[Round {round_id}/{num_seeds}] Seed = {seed}")
-
-        for fn in [label_benchmark, "pred_" + label_benchmark, "results_" + label_benchmark]:
-            if os.path.exists(fn):
-                os.remove(fn)
-
         start_key = "round" + str(round_id)
+
         if start_key in start_points:
             start_indices = start_points[start_key]
-            print(f"Using start indices from {start_key}: {start_indices}")
         else:
             print(f"Warning: No start indices found for {start_key}")
             start_indices = None
 
+        print(f"[Round {round_id}/{num_seeds}] Seed = {seed}")
+
         df_round = run_random_sampling(
-            df_ground=df_ground, sort_column=sort_column, objectives=objectives,
-            objective_modes=objective_modes, objective_thresholds=objective_thresholds,
-            batch_size=config["batch"], steps=config["steps"], seed=seed,
-            init_indices=start_indices, label_benchmark=label_benchmark,
+            df_ground=df_ground,
+            sort_column=sort_column,
+            objectives=objectives,
+            objective_modes=objective_modes,
+            batch_size=config["batch"],
+            steps=config["steps"],
+            seed=seed,
+            init_indices=start_indices,
         )
 
-        results_path = "results_" + label_benchmark
-        if os.path.exists(results_path):
-            df_round = pd.read_csv(results_path)
-            df_round["round_id"] = round_id
-            df_round["seed"] = seed
-            all_results.append(df_round)
-            final_hv = df_round.iloc[-1]["hypervolume completed (%)"]
-            print(f"  Final hypervolume: {final_hv:.2f}%")
-            os.remove(results_path)
+        df_round["round_id"] = round_id
+        df_round["seed"] = seed
+        all_results.append(df_round)
 
-        for fn in [label_benchmark, "pred_" + label_benchmark]:
-            if os.path.exists(fn):
-                os.remove(fn)
+        final_yield = df_round.iloc[-1]["yield_best"]
+        final_cost = df_round.iloc[-1]["cost_best"]
+        print(f"  Final Best Yield: {final_yield:.2f} | Final Best Cost: {final_cost:.2f}")
 
     end_time = time.time()
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     total_time = end_time - start_time
 
+    os.makedirs("results", exist_ok=True)
+
     if all_results:
+        # 合并所有种子跑出来的数据
         df_merged = pd.concat(all_results, ignore_index=True)
+
         print(f"\nSummary Statistics ({num_seeds} rounds):")
         print("-" * 80)
-        final_hvs = df_merged.groupby("round_id")["hypervolume completed (%)"].last()
-        print(f"Final Hypervolume (%): Mean: {final_hvs.mean():.2f}%, Std: {final_hvs.std():.2f}%, Min: {final_hvs.min():.2f}%, Max: {final_hvs.max():.2f}%")
 
-        df_mean = df_merged.groupby("step").agg({
-            "hypervolume completed (%)": ["mean", "std"], "yield_best": "mean", "cost_best": "mean", "n_experiments": "mean"
-        }).reset_index()
-        df_mean.columns = ["step", "hv_mean", "hv_std", "yield_best_mean", "cost_best_mean", "n_experiments_mean"]
-        os.makedirs("results", exist_ok=True)
-        mean_filename = "results/mean_" + label_benchmark
+        # 1. 导出所有的原始优化结果（包含每个seed在每一步的具体采样结果和最优值）
+        all_results_filename = f"results/all_results_{label_benchmark}"
+        df_merged.to_csv(all_results_filename, index=False)
+        print(f"All raw results (all seeds & steps) saved to: {all_results_filename}")
+
+        # 2. 计算各步长的均值与方差并导出
+        agg_dict = {"yield_best": ["mean", "std"], "cost_best": ["mean", "std"], "n_experiments": "mean"}
+        df_mean = df_merged.groupby("step").agg(agg_dict).reset_index()
+        # 展平多层列名
+        df_mean.columns = ["step", "yield_best_mean", "yield_best_std", "cost_best_mean", "cost_best_std", "n_experiments_mean"]
+
+        mean_filename = f"results/mean_{label_benchmark}"
         df_mean.to_csv(mean_filename, index=False)
         print(f"Mean results saved to: {mean_filename}")
 
-    os.makedirs("results", exist_ok=True)
-    timing_filename = "results/timing_" + dataset_path.name.replace(".csv", "") + ".txt"
-    with open(timing_filename, "w") as f:
-        f.write("=" * 80 + "\nRandom Baseline Benchmark Timing Information\n" + "=" * 80 + "\n\n")
-        f.write(f"Dataset: {dataset}\nNumber of seeds: {num_seeds}\n")
-        f.write(f"Budget per seed: {budget} experiments, Total: {num_seeds * budget}\n")
-        f.write(f"Sampling: Random, Start points from: {start_point_path}\n\n")
-        f.write("-" * 80 + "\nTiming Information:\n" + "-" * 80 + "\n")
-        f.write(f"Start: {start_datetime}, End: {end_datetime}\n")
-        f.write(f"Total: {total_time:.2f}s ({total_time/60:.2f}min), Avg per seed: {total_time/num_seeds:.2f}s\n\n")
-        if all_results:
-            f.write("-" * 80 + "\nPerformance Summary:\n" + "-" * 80 + "\n")
-            f.write(f"Final Hypervolume (%): Mean={final_hvs.mean():.2f}%, Std={final_hvs.std():.2f}%\n")
-            f.write("-" * 80 + "\nPer Round:\n" + "-" * 80 + "\n")
-            f.write(f"{'Round':<8} {'Seed':<8} {'Final HV (%)':<15}\n")
-            for round_id in range(1, num_seeds + 1):
-                hv = final_hvs[round_id]
-                f.write(f"{round_id:<8} {round_id:<8} {hv:<15.2f}\n")
-        f.write("\n" + "=" * 80 + "\n")
+        # 3. 统计各Round最终效果并导出Timing日志
+        final_yields = df_merged.groupby("round_id")["yield_best"].last()
+        final_costs = df_merged.groupby("round_id")["cost_best"].last()
 
-    print(f"\n{'='*80}")
-    print("Benchmark completed successfully!")
-    print(f"{'='*80}\nOutput: {mean_filename}, {timing_filename}")
-    print(f"Total time: {total_time:.2f}s ({total_time/60:.2f}min)")
+        timing_filename = f"results/timing_{dataset_path.name.replace('.csv', '')}.txt"
+        with open(timing_filename, "w") as f:
+            f.write("=" * 80 + "\nRandom Baseline Benchmark Timing Information\n" + "=" * 80 + "\n\n")
+            f.write(f"Dataset: {dataset}\nNumber of seeds: {num_seeds}\n")
+            f.write(f"Budget per seed: {budget} experiments, Total: {num_seeds * budget}\n")
+            f.write(f"Sampling: Random, Start points from: {start_point_path}\n\n")
+            f.write("-" * 80 + "\nTiming Information:\n" + "-" * 80 + "\n")
+            f.write(f"Start: {start_datetime}, End: {end_datetime}\n")
+            f.write(f"Total: {total_time:.4f}s, Avg per seed: {total_time/num_seeds:.4f}s\n\n")
+
+            f.write("-" * 80 + "\nPerformance Summary:\n" + "-" * 80 + "\n")
+            f.write(f"Final Yield_best: Mean={final_yields.mean():.2f}, Std={final_yields.std():.2f}\n")
+            f.write(f"Final Cost_best : Mean={final_costs.mean():.2f}, Std={final_costs.std():.2f}\n")
+            f.write("-" * 80 + "\nPer Round:\n" + "-" * 80 + "\n")
+            f.write(f"{'Round':<8} {'Seed':<8} {'Yield_best':<15} {'Cost_best':<15}\n")
+            for round_id in range(1, num_seeds + 1):
+                f.write(f"{round_id:<8} {round_id:<8} {final_yields[round_id]:<15.2f} {final_costs[round_id]:<15.2f}\n")
+            f.write("\n" + "=" * 80 + "\n")
+
+        print(f"\n{'='*80}")
+        print("Benchmark completed successfully!")
+        print(f"Output: {all_results_filename}, {mean_filename}, {timing_filename}")
+        print(f"Total execution time: {total_time:.4f}s")
 
 
 if __name__ == "__main__":

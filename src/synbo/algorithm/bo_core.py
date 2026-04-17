@@ -136,16 +136,34 @@ class DefaultBO:
             self.ref_point = torch.tensor(ref_point_values, dtype=torch.double, device=self.device)
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
+            
+            # Check number of objectives
+            num_objectives = len(opt_metric_settings)
+            
             if self.acquisition_function_class == EHVIAcquisitionFunction:
-                partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
-                acq_func = self.acquisition_function_class(
-                    model=self.global_model,
-                    sampler=sampler,
-                    device=self.device,
-                    ref_point=self.ref_point,
-                    partitioning=partitioning,
-                    train_x=torch.Tensor(training_X).to(self.device),
-                )
+                if num_objectives > 1:
+                    # Multi-objective: use EHVI with ModelListGP
+                    partitioning = NondominatedPartitioning(ref_point=self.ref_point, Y=self.pareto_y)
+                    acq_func = self.acquisition_function_class(
+                        model=self.global_model,
+                        sampler=sampler,
+                        device=self.device,
+                        ref_point=self.ref_point,
+                        partitioning=partitioning,
+                        train_x=torch.Tensor(training_X).to(self.device),
+                    )
+                else:
+                    # Single-objective: use qExpectedImprovement directly
+                    # Get the best value from normalized training data
+                    best_value = training_y_t.max(dim=0).values
+                    from botorch.acquisition.monte_carlo import qExpectedImprovement
+                    # Use individual GP model (not ModelListGP for single objective)
+                    single_model = models[0]
+                    acq_func = qExpectedImprovement(
+                        model=single_model,
+                        best_f=best_value,
+                        sampler=sampler,
+                    )
             elif self.acquisition_function_class == UCBAcquisitionFunction:
                 weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
                 acq_func = self.acquisition_function_class(

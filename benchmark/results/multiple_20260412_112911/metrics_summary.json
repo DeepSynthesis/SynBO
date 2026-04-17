@@ -13,9 +13,9 @@
             "std_normalized": 0.007751005490635176
         },
         "hypervolume": {
-            "average_normalized": 0.9422928290593078,
-            "std_normalized": 0.03443416759062227,
-            "total_hv": 1.1566615574040002
+            "average_normalized": 0.0,
+            "std_normalized": 0.0,
+            "total_hv": 0.0
         }
     },
     "auc_of_optimization": {
@@ -32,11 +32,11 @@
             "std_normalized": 0.010431730461396057
         },
         "hypervolume": {
-            "average": 8.513092052448782,
-            "average_normalized": 0.7360054458415201,
-            "std": 0.9651415960062303,
-            "std_normalized": 0.08344200512485127,
-            "total_hv": 1.1566615574040002
+            "average": 0.0,
+            "average_normalized": 0.0,
+            "std": 0.0,
+            "std_normalized": 0.0,
+            "total_hv": 0.0
         }
     }
 }

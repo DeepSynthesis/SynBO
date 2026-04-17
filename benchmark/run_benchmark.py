@@ -26,7 +26,7 @@ NUM_ROUNDS = 10  # Number of rounds to run
 RECALC = False  # If True, force recalculation; if False, try to find existing results
 
 CONFIG = {
-    "experiment_name": "B-H_Optimization (GP1)",
+    "experiment_name": "B-H_Optimization (111)",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,  # Put NUM_ROUNDS into CONFIG for JSON comparison
     "iterations": 10,

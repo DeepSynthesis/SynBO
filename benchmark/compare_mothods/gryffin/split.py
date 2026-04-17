@@ -2,8 +2,8 @@ import pandas as pd
 import os
 
 # 文件路径
-input_csv = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/gryffin/results/merged_Gryffin_for_B-H_HTE.csv"
-hte_csv = "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
+input_csv = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/gryffin/results/merged_Gryffin_for_suzuki_HTE.csv"
+hte_csv = "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
 output_dir = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/gryffin/results"
 
 # 确保输出目录存在
@@ -17,8 +17,10 @@ df_hte = pd.read_csv(hte_csv)
 df_input = df_input.rename(columns={"step": "batch"})
 
 # HTE数据集中的所有列（包括yield和cost）
-hte_cols = ["base", "ligand", "solvent", "concentration", "temperature", "yield", "cost"]
+# hte_cols = ["base", "ligand", "solvent", "concentration", "temperature", "yield", "cost"]
 # hte_cols = ["reactant2", "catalyst1", "catalyst2", "yield", "ee"]
+hte_cols = ["solvent", "ligand", "reactant2", "reactant1", "base", "Conversion"]
+
 
 # 根据round_id分组，round_id范围是1-10，对应batch_0到batch_9
 for round_id in range(1, 11):

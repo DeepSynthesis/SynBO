@@ -38,7 +38,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 256, 2048
+            self.mc_num_samples, self.max_batch_size = 512, 2048
         self.device = device
 
         if surrogate_model == "GP":
@@ -134,11 +134,11 @@ class DefaultBO:
             self.ref_point = torch.tensor(ref_point_values, dtype=torch.double, device=self.device)
 
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([self.mc_num_samples]), seed=self.random_seed)
-            
+
             # Check number of objectives
             num_objectives = len(opt_metric_settings)
             acq_func = None
-            
+
             if self.acquisition_function_class == EHVIAcquisitionFunction:
                 if num_objectives > 1:
                     # Multi-objective: use EHVI with ModelListGP
@@ -155,6 +155,7 @@ class DefaultBO:
                 else:
                     # Single-objective: use qExpectedImprovement directly (like EDBO+)
                     from botorch.acquisition.monte_carlo import qExpectedImprovement
+
                     best_value = training_y_t.max(dim=0).values
                     single_model = models[0]
                     self.single_acq_func = qExpectedImprovement(
@@ -173,15 +174,15 @@ class DefaultBO:
                     best_samples = self.acq_result.cpu().numpy()
                     recommend_type = ["Unknown"] * batch_size
                     pred_mean, pred_std = self._get_predictions_single(single_model)
-                    
+
                     for i, d in enumerate(opt_metric_settings):
                         if d["opt_direct"] == "min":
                             pred_mean[:, i] = -pred_mean[:, i]
-                    
+
                     pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_settings).numpy()
                     pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
                     return [best_samples[i] for i in range(len(best_samples))], recommend_type, pred_mean, pred_std
-                    
+
             elif self.acquisition_function_class == UCBAcquisitionFunction:
                 weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
                 acq_func = self.acquisition_function_class(
@@ -253,23 +254,23 @@ class DefaultBO:
         pred_var = pred_var.cpu().numpy()
         pred_std = np.sqrt(pred_var)
         return pred_mean, pred_std
-    
+
     def _get_predictions_single(self, single_model) -> Tuple[np.ndarray, np.ndarray]:
         """Get predictions for single-objective case using the single model."""
         self.acq_result = self.acq_result.to(device=self.device)
-        
+
         with torch.no_grad():
             posterior = single_model.posterior(self.acq_result)
             pred_mean = posterior.mean
             pred_var = posterior.variance
-        
+
         if pred_mean.dim() == 3:
             pred_mean = pred_mean.squeeze(0)
             pred_var = pred_var.squeeze(0)
         elif pred_mean.dim() == 2 and pred_mean.shape[0] == 1:
             pred_mean = pred_mean.squeeze(0)
             pred_var = pred_var.squeeze(0)
-        
+
         pred_mean = pred_mean.cpu().numpy()
         pred_var = pred_var.cpu().numpy()
         pred_std = np.sqrt(pred_var)

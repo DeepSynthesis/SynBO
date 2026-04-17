@@ -1,6 +1,0 @@
-batch,index,type,solvent,ligand,reactant2,reactant1,base,pred Conversion,Conversion
-2,1,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],34.71±49.91,45.58
-2,2,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,CC1(C)OB(c2ccc3ncccc3c2)OC1(C)C,[Na+].[OH-],26.74±50.89,83.6500015258789
-2,3,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Clc1ccc2ncccc2c1,[Na+].[OH-],26.59±51.01,88.97
-2,4,Unknown,CC#N,CC1(C)c2cccc(P(c3ccccc3)c3ccccc3)c2Oc2c(P(c3ccccc3)c3ccccc3)cccc21,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,Clc1ccc2ncccc2c1,[Na+].[OH-],24.87±49.91,1.25
-2,5,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,OB(O)c1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],24.88±51.12,83.2699966430664

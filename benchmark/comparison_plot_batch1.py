@@ -129,7 +129,7 @@ if __name__ == "__main__":
             "direction_tags": ["max"],
         },
         "synbo (cpu)": {
-            "results_path": "results/multiple_20260416_153257/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260416_163949/all_batches_final_round_*.csv",
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],
         },

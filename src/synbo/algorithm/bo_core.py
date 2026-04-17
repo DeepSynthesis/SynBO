@@ -149,25 +149,29 @@ class DefaultBO:
                         device=self.device,
                         ref_point=self.ref_point,
                         partitioning=partitioning,
-                        train_x=torch.Tensor(training_X).to(self.device),
-                        num_objectives=num_objectives,  # Pass num_objectives for correct acq function selection
+                        train_x=training_X_t,
+                        train_y=training_y_t,
+                        num_objectives=num_objectives,
                     )
                 else:
-                    # Single-objective: use qExpectedImprovement directly (like EDBO+)
-                    from botorch.acquisition.monte_carlo import qExpectedImprovement
-
-                    best_value = training_y_t.max(dim=0).values
+                    # Fix 3: Single-objective route through EHVIAcquisitionFunction which now uses
+                    # standard qExpectedImprovement internally (matching EDBO+ behavior).
+                    # Use BoTorch native optimize_acqf_discrete for true joint q-batch optimization,
+                    # which evaluates all q candidates simultaneously rather than greedily one-by-one.
+                    # This matches exactly what EDBO+ does: optimize_acqf_discrete(q=batch_size, ...).
                     single_model = models[0]
+                    best_value = training_y_t.max()
                     self.single_acq_func = qExpectedImprovement(
                         model=single_model,
                         best_f=best_value,
                         sampler=sampler,
                     )
-                    # Directly call optimize_acqf_discrete for single-objective EI
+                    # Use BoTorch's native optimize_acqf_discrete — joint q-batch optimization
+                    # (same API as EDBO+: evaluates q candidates jointly, not greedily)
                     self.acq_result, self.acq_value = optimize_acqf_discrete(
                         acq_function=self.single_acq_func,
                         q=batch_size,
-                        choices=candidate_X_t,
+                        choices=candidate_X_t.to(self.device),
                         unique=True,
                     )
                     progress.update(progress.task_ids[-1], completed=batch_size)

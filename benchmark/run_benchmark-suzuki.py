@@ -47,7 +47,7 @@ CONFIG = {
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
         ],
         "opt_type": "auto",
-        "desc_normalize": "zscore",
+        "desc_normalize": "minmax",
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",

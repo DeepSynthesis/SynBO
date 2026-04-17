@@ -153,6 +153,7 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         ref_point: torch.Tensor,
         partitioning,
         train_x,
+        train_y,
         device,
         num_objectives: int = 1,  # Add num_objectives parameter
     ):
@@ -171,11 +172,17 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
                 partitioning=partitioning,
             )
         else:
-            # Single-objective: use qLogNoisyExpectedImprovement with proper baseline
-            self.acquisition_function = qLogNoisyExpectedImprovement(
+            # Fix 2: Single-objective: use standard qExpectedImprovement (like EDBO+)
+            # instead of qLogNoisyExpectedImprovement.
+            # qLogNoisyEI assumes noisy observations and re-infers the true best_f from X_baseline,
+            # which is overly conservative on clean HTE datasets (low noise). This causes the
+            # optimizer to underestimate the improvement potential and explore instead of exploit.
+            # Standard qEI uses the explicit observed maximum directly, matching EDBO+ behavior.
+            best_f = train_y.max()  # best observed value (already z-score normalized)
+            self.acquisition_function = qExpectedImprovement(
                 model=model,
+                best_f=best_f,
                 sampler=sampler,
-                X_baseline=train_x,
             )
 
     def optimize_acqf_discrete(

@@ -7,6 +7,7 @@ from botorch.models import SingleTaskGP
 from gpytorch.constraints import GreaterThan
 from gpytorch.priors import GammaPrior
 from gpytorch.kernels import MaternKernel, ScaleKernel
+from gpytorch.means import ConstantMean
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
 import torch
@@ -65,6 +66,10 @@ class GPSurrogateModel(BaseSurrogateModel):
             train_Y=train_y,
             covar_module=covar_module,
             likelihood=self.likelihood,
+            mean_module=ConstantMean(),  # Fix 1: Use ConstantMean instead of ZeroMean (SingleTaskGP default).
+            # ConstantMean learns the global offset of the data, which is critical in early BO stages
+            # with sparse data. ZeroMean pulls predictions toward 0 in unexplored regions, severely
+            # distorting EI computation. EDBO+ uses ConstantMean; this aligns SynBO with that approach.
         ).to(self.device)
 
         # Add noise constraint

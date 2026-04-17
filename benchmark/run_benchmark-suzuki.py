@@ -24,7 +24,7 @@ data_dir = global_dir / Path("datasets/HTE_datasets/")
 
 # Control parameters
 NUM_ROUNDS = 10  # Number of rounds to run
-RECALC = False  # If True, force recalculation; if False, try to find existing results
+RECALC = True  # If True, force recalculation; if False, try to find existing results
 
 CONFIG = {
     "experiment_name": "Suzuki_Optimization",

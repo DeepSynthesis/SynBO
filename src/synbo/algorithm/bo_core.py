@@ -6,6 +6,7 @@ from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, T
 from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
 from botorch.sampling.normal import SobolQMCNormalSampler
+from botorch.optim import optimize_acqf_discrete
 
 from synbo.utils.logger import console
 from synbo.algorithm.sg_model import (
@@ -80,7 +81,6 @@ class DefaultBO:
         training_y_t = torch.tensor(training_y).double()
         training_y_t = self._weight_y(training_y_t, opt_metric_settings).to(device=self.device)
         candidate_X_t = torch.tensor(candidate_X).double()
-        # constraint_mask_t = torch.tensor(constraints) if constraints is not None else None
 
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
@@ -123,13 +123,11 @@ class DefaultBO:
             y_max = training_y_t.max(dim=0).values
             y_range = y_max - y_min
 
-            # Reference point = min - 10% range (ensure reference point is below/worse than Pareto front)
             ref_point_values = []
             for i, omi in enumerate(opt_metric_settings):
                 if y_range[i] > 0:
-                    ref_val = y_min[i]  # - 0.1 * y_range[i]
+                    ref_val = y_min[i]
                 else:
-                    # If all values are the same, give a small offset
                     ref_val = y_min[i] - 0.1
                 ref_point_values.append(ref_val)
 
@@ -139,6 +137,7 @@ class DefaultBO:
             
             # Check number of objectives
             num_objectives = len(opt_metric_settings)
+            acq_func = None
             
             if self.acquisition_function_class == EHVIAcquisitionFunction:
                 if num_objectives > 1:
@@ -154,17 +153,35 @@ class DefaultBO:
                         num_objectives=num_objectives,  # Pass num_objectives for correct acq function selection
                     )
                 else:
-                    # Single-objective: use qExpectedImprovement directly
-                    # Get the best value from normalized training data
-                    best_value = training_y_t.max(dim=0).values
+                    # Single-objective: use qExpectedImprovement directly (like EDBO+)
                     from botorch.acquisition.monte_carlo import qExpectedImprovement
-                    # Use individual GP model (not ModelListGP for single objective)
+                    best_value = training_y_t.max(dim=0).values
                     single_model = models[0]
-                    acq_func = qExpectedImprovement(
+                    self.single_acq_func = qExpectedImprovement(
                         model=single_model,
                         best_f=best_value,
                         sampler=sampler,
                     )
+                    # Directly call optimize_acqf_discrete for single-objective EI
+                    self.acq_result, self.acq_value = optimize_acqf_discrete(
+                        acq_function=self.single_acq_func,
+                        q=batch_size,
+                        choices=candidate_X_t,
+                        unique=True,
+                    )
+                    progress.update(progress.task_ids[-1], completed=batch_size)
+                    best_samples = self.acq_result.cpu().numpy()
+                    recommend_type = ["Unknown"] * batch_size
+                    pred_mean, pred_std = self._get_predictions_single(single_model)
+                    
+                    for i, d in enumerate(opt_metric_settings):
+                        if d["opt_direct"] == "min":
+                            pred_mean[:, i] = -pred_mean[:, i]
+                    
+                    pred_mean = self._unweight_y(torch.tensor(pred_mean), opt_metric_settings).numpy()
+                    pred_std = self._unweight_y(torch.tensor(pred_std), opt_metric_settings).numpy()
+                    return [best_samples[i] for i in range(len(best_samples))], recommend_type, pred_mean, pred_std
+                    
             elif self.acquisition_function_class == UCBAcquisitionFunction:
                 weights = torch.tensor([d["metric_weight"] for d in opt_metric_settings], dtype=torch.double, device=self.device)
                 acq_func = self.acquisition_function_class(
@@ -175,7 +192,6 @@ class DefaultBO:
                     device=self.device,
                 )
             elif self.acquisition_function_class == ParEGOAcquisitionFunction:
-
                 acq_func = self.acquisition_function_class(
                     model=self.global_model,
                     sampler=sampler,
@@ -191,25 +207,23 @@ class DefaultBO:
             else:
                 raise ValueError(f"Unknown acquisition function class: {self.acquisition_function_class}")
 
-            # candidate_X_t = candidate_X_t[constraint_mask_t] if constraint_mask_t is not None else candidate_X_t
-
-            # TODO: need to Re-implementate reagent boost mechanism.
-
-            task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
-            self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
-                q=batch_size,
-                choices=candidate_X_t,
-                max_batch_size=self.max_batch_size,
-                unique=True,
-                progress=progress,
-            )
+            # For multi-objective acquisition functions, use the wrapped class
+            if acq_func is not None:
+                task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
+                self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
+                    q=batch_size,
+                    choices=candidate_X_t,
+                    max_batch_size=self.max_batch_size,
+                    unique=True,
+                    progress=progress,
+                )
 
         if self.device.type == "cuda":
             best_samples = [res.cpu().numpy() for res in self.acq_result]
         else:
             best_samples = [res.numpy() for res in self.acq_result]
 
-        recommend_type = ["Unknown"] * batch_size  # self._get_exploit_or_explore()
+        recommend_type = ["Unknown"] * batch_size
         pred_mean, pred_std = self._get_predictions()
 
         for i, d in enumerate(opt_metric_settings):
@@ -228,19 +242,34 @@ class DefaultBO:
             pred_mean = posterior.mean
             pred_var = posterior.variance
 
-        # Handle different shapes from posterior
-        if pred_mean.dim() == 2:
-            # Already in correct shape (n_points, n_outputs)
-            pass
-        elif pred_mean.dim() == 3:
-            # Shape: (1, n_points, n_outputs) -> (n_points, n_outputs)
+        if pred_mean.dim() == 3:
             pred_mean = pred_mean.squeeze(0)
             pred_var = pred_var.squeeze(0)
 
-        # Ensure correct shapes
         if pred_mean.dim() != 2:
             raise ValueError(f"Unexpected pred_mean shape: {pred_mean.shape}")
 
+        pred_mean = pred_mean.cpu().numpy()
+        pred_var = pred_var.cpu().numpy()
+        pred_std = np.sqrt(pred_var)
+        return pred_mean, pred_std
+    
+    def _get_predictions_single(self, single_model) -> Tuple[np.ndarray, np.ndarray]:
+        """Get predictions for single-objective case using the single model."""
+        self.acq_result = self.acq_result.to(device=self.device)
+        
+        with torch.no_grad():
+            posterior = single_model.posterior(self.acq_result)
+            pred_mean = posterior.mean
+            pred_var = posterior.variance
+        
+        if pred_mean.dim() == 3:
+            pred_mean = pred_mean.squeeze(0)
+            pred_var = pred_var.squeeze(0)
+        elif pred_mean.dim() == 2 and pred_mean.shape[0] == 1:
+            pred_mean = pred_mean.squeeze(0)
+            pred_var = pred_var.squeeze(0)
+        
         pred_mean = pred_mean.cpu().numpy()
         pred_var = pred_var.cpu().numpy()
         pred_std = np.sqrt(pred_var)

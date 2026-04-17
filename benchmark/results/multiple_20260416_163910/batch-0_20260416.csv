@@ -1,6 +1,0 @@
-batch,index,type,solvent,ligand,reactant2,reactant1,base,pred Conversion,Conversion
-0,1,explore,CC#N,CC(C)(C)P(C(C)(C)C)C(C)(C)C,Cc1ccc2c(cnn2C2CCCCO2)c1Br,OB(O)c1ccc2ncccc2c1,blank_cell,-,0.0
-0,2,explore,C1CCOC1,c1ccc(P(c2ccccc2)[c-]2cccc2)cc1.c1ccc(P(c2ccccc2)[c-]2cccc2)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1[B-](F)(F)F,CC1(C)OB(c2ccc3ncccc3c2)OC1(C)C,CC(C)(C)[O-].[Li+],-,0.0
-0,3,explore,CC#N,CC1(C)c2cccc(P(c3ccccc3)c3ccccc3)c2Oc2c(P(c3ccccc3)c3ccccc3)cccc21,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,Brc1ccc2ncccc2c1,O=P([O-])([O-])[O-].[K+].[K+].[K+],-,0.0
-0,4,explore,CO,c1ccc(P(c2ccccc2)[c-]2cccc2)cc1.c1ccc(P(c2ccccc2)[c-]2cccc2)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1Br,F[B-](F)(F)c1ccc2ncccc2c1,blank_cell,-,0.0
-0,5,explore,CN(C)C=O,CC1(C)c2cccc(P(c3ccccc3)c3ccccc3)c2Oc2c(P(c3ccccc3)c3ccccc3)cccc21,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Clc1ccc2ncccc2c1,blank_cell,-,0.0

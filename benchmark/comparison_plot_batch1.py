@@ -124,7 +124,7 @@ if __name__ == "__main__":
             "direction_tags": ["max"],
         },
         "synbo (new)": {
-            "results_path": "results/multiple_20260416_151710/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260417_103509/all_batches_final_round_*.csv",
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],
         },

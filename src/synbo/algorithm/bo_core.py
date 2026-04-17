@@ -151,6 +151,7 @@ class DefaultBO:
                         ref_point=self.ref_point,
                         partitioning=partitioning,
                         train_x=torch.Tensor(training_X).to(self.device),
+                        num_objectives=num_objectives,  # Pass num_objectives for correct acq function selection
                     )
                 else:
                     # Single-objective: use qExpectedImprovement directly

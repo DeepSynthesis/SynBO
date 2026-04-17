@@ -154,28 +154,29 @@ class EHVIAcquisitionFunction(BaseAcquisitionFunction):
         partitioning,
         train_x,
         device,
+        num_objectives: int = 1,  # Add num_objectives parameter
     ):
         super().__init__(model, sampler, device)
         self.ref_point = ref_point
         self.partitioning = partitioning
-        # self.acquisition_function = qLogNoisyExpectedHypervolumeImprovement(
-        #     model=model,
-        #     sampler=sampler,
-        #     ref_point=ref_point,
-        #     alpha=0.0,
-        #     incremental_nehvi=True,
-        #     X_baseline=train_x,
-        #     prune_baseline=True,
-        # )
-        self.acquisition_function = qLogNoisyExpectedImprovement(
-            model=model,
-            sampler=sampler,
-            # ref_point=ref_point,
-            # alpha=0.0,
-            # incremental_nehvi=True,
-            X_baseline=train_x,
-            # prune_baseline=True,
-        )
+        self.num_objectives = num_objectives
+
+        # Use correct EHVI acquisition function based on number of objectives
+        if num_objectives > 1:
+            # Multi-objective: use qLogExpectedHypervolumeImprovement
+            self.acquisition_function = qLogExpectedHypervolumeImprovement(
+                model=model,
+                sampler=sampler,
+                ref_point=ref_point,
+                partitioning=partitioning,
+            )
+        else:
+            # Single-objective: use qLogNoisyExpectedImprovement with proper baseline
+            self.acquisition_function = qLogNoisyExpectedImprovement(
+                model=model,
+                sampler=sampler,
+                X_baseline=train_x,
+            )
 
     def optimize_acqf_discrete(
         self,

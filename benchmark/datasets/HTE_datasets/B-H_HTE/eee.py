@@ -87,7 +87,7 @@ if __name__ == "__main__":
     df_mock = pd.read_csv("B-H_HTE.csv")
     target = "cost"
 
-    sample_size = 50
+    sample_size = 1000
 
     # 2. 计算最大值的期望
     print(f"--- 抽取 {sample_size} 个样本的最大值期望 ---")

@@ -41,41 +41,7 @@ def calculate_expected_extreme(df, col_name, n=50, extreme_type="max", num_simul
 
     sim_expected_value = np.mean(simulated_extremes)
 
-    # ==========================================
-    # 2. 精确求解法 (Exact Analytical Method)
-    # ==========================================
-    # 将数据从小到大排序
-    sorted_data = np.sort(data)
-
-    # 计算总的组合数 C(N, n)
-    total_combinations = math.comb(N, n)
-
-    # 使用 Python 的超大整数进行累加，避免浮点数精度丢失
-    numerator = 0
-
-    if extreme_type == "max":
-        # 若排序后的第 i 个元素作为样本的最大值
-        # 必须选中该元素，且剩下的 n-1 个元素必须从比它小的 i 个元素中选
-        # 因此组合数为 C(i, n-1)
-        # 有效索引从 n-1 开始，一直到 N-1
-        for i in range(n - 1, N):
-            ways = math.comb(i, n - 1)
-            numerator += sorted_data[i] * ways
-
-    elif extreme_type == "min":
-        # 若排序后的第 i 个元素作为样本的最小值
-        # 必须选中该元素，且剩下的 n-1 个元素必须从比它大的 N-1-i 个元素中选
-        # 因此组合数为 C(N-1-i, n-1)
-        # 有效索引从 0 开始，一直到 N-n
-        for i in range(N - n + 1):
-            ways = math.comb(N - 1 - i, n - 1)
-            numerator += sorted_data[i] * ways
-
-    # 为了防止 N 极大时除法溢出，使用 Decimal 模块进行高精度除法
-    getcontext().prec = 50
-    exact_expected_value = float(Decimal(numerator) / Decimal(total_combinations))
-
-    return sim_expected_value, exact_expected_value
+    return sim_expected_value
 
 
 # ==========================================
@@ -87,18 +53,15 @@ if __name__ == "__main__":
     df_mock = pd.read_csv("suzuki_HTE.csv")
     target = "Conversion"
 
-    sample_size = 10
+    sample_size = 300
 
     # 2. 计算最大值的期望
     print(f"--- 抽取 {sample_size} 个样本的最大值期望 ---")
-    sim_max, exact_max = calculate_expected_extreme(df_mock, target, n=sample_size, extreme_type="max", num_simulations=10000)
+    sim_max= calculate_expected_extreme(df_mock, target, n=sample_size, extreme_type="max", num_simulations=10000)
     print(f"模拟解: {sim_max:.4f}")
-    print(f"精确解: {exact_max:.4f}")
-    print(f"误差率: {abs(sim_max - exact_max) / exact_max * 100:.4f}%\n")
+
 
     # 3. 计算最小值的期望
     print(f"--- 抽取 {sample_size} 个样本的最小值期望 ---")
-    sim_min, exact_min = calculate_expected_extreme(df_mock, target, n=sample_size, extreme_type="min", num_simulations=10000)
+    sim_min = calculate_expected_extreme(df_mock, target, n=sample_size, extreme_type="min", num_simulations=10000)
     print(f"模拟解: {sim_min:.4f}")
-    print(f"精确解: {exact_min:.4f}")
-    print(f"误差率: {abs(sim_min - exact_min) / abs(exact_min) * 100:.4f}%")

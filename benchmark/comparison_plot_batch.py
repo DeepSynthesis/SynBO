@@ -140,7 +140,7 @@ if __name__ == "__main__":
     }
 
     full_space_file = "datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
-    output_dir = "comparison_results"
+    output_dir = "comparison_results/B-H_HTE"
 
     plot_comparison(
         model_results=model_results,

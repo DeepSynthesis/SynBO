@@ -141,7 +141,7 @@ if __name__ == "__main__":
     }
 
     full_space_file = "datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
-    output_dir = "comparison_results"
+    output_dir = "comparison_results/suzuki_HTE"
 
     plot_comparison(
         model_results=model_results,

@@ -1,0 +1,11 @@
+SMILES,name
+ClCCl,DCM
+CC#N,CH3CN
+Cc1ccccc1,Toluene
+ClCCCl,DCE
+ClC(Cl)Cl,Chloroform
+C1CCOC1,THF
+CCOCC,Ether
+CN(C)C=O,DMF
+CS(C)=O,DMSO
+OC(C(F)(F)F)C(F)(F)F,HFIP

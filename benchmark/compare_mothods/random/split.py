@@ -4,7 +4,7 @@ import os
 # 文件路径
 input_csv = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/random/results/all_results_Random_for_suzuki_HTE.csv"
 hte_csv = "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
-output_dir = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/random/results/EDBOplus_for_suzuki_HTE"
+output_dir = "/home/tzz/AIChem/synbo/benchmark/compare_mothods/random/results/suzuki_HTE"
 
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)

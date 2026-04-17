@@ -35,11 +35,9 @@ def run_random_sampling(df_ground, sort_column, objectives, objective_modes, bat
     Run random sampling benchmark in memory.
     """
     np.random.seed(seed)
-
     # 建立 O(1) 复杂度的哈希索引，避免循环中慢速的全表搜索
     df_lookup = df_ground.set_index(sort_column)
     all_indices = df_ground[sort_column].values
-
     # 初始化已被选中的索引
     selected_set = set()
     best_values = [float("-inf") if mode == "max" else float("inf") for mode in objective_modes]
@@ -49,38 +47,58 @@ def run_random_sampling(df_ground, sort_column, objectives, objective_modes, bat
             return current
         return max(current, new_val) if mode == "max" else min(current, new_val)
 
-    # 如果有初始点，加载它们并更新初始的 "best_values" 基础值
+    results_data = []
+    n_experiments = 0
+    # ================= 修复点：正确记录初始点数据 =================
     if init_indices is not None:
         selected_set.update(init_indices)
+        n_experiments = len(selected_set)
+
+        # 1. 先计算初始批次所有样本产生后的最优值 (Historical Best)
         for idx in init_indices:
             row = df_lookup.loc[idx]
             for i, obj in enumerate(objectives):
                 best_values[i] = update_best(best_values[i], row[obj], objective_modes[i])
-
-    n_experiments = len(selected_set)
-    results_data = []
-
-    for step in range(steps):
+        # 2. 记录初始批次的每一条样本结果
+        for idx in init_indices:
+            row = df_lookup.loc[idx]
+            dict_init = {
+                "step": 0,  # 初始点记作第 0 步
+                "init_method": "random_with_start_points",
+                "init_sample": seed,
+                "batch": len(init_indices),  # 初始批次的大小
+                "n_experiments": n_experiments,
+                "sample_index": int(idx),
+            }
+            # 记录当前样本的实际值
+            for obj in objectives:
+                dict_init[obj] = float(row[obj])
+            # 记录此时的历史最优值
+            for i, obj in enumerate(objectives):
+                dict_init[f"{obj}_best"] = float(best_values[i])
+            results_data.append(dict_init)
+    # ==============================================================
+    # 确定后续循环的 step 序号
+    # 如果有初始点，循环从 step 1 开始；如果没有，从 step 0 开始
+    start_step = 1 if init_indices is not None else 0
+    end_step = steps if init_indices is not None else steps - 1
+    for step in range(start_step, end_step):
         # 找出还未被采样的索引
         available_indices = np.array([idx for idx in all_indices if idx not in selected_set])
-
         # 随机采样 batch_size 个候选
         if len(available_indices) >= batch_size:
             batch_indices = np.random.choice(available_indices, size=batch_size, replace=False)
         else:
             batch_indices = np.random.choice(all_indices, size=batch_size, replace=False)
-
-        # 1. 更新已选中集合 & 实验计数 (按照原版的 batch 逻辑，这一批次共享相同的计数)
+        # 1. 更新已选中集合 & 实验计数
         for batch_idx in batch_indices:
             selected_set.add(batch_idx)
         n_experiments += len(batch_indices)
-
         # 2. 计算当前批次产生后的最优值 (Historical Best)
         for batch_idx in batch_indices:
             row = df_lookup.loc[batch_idx]
             for i, obj in enumerate(objectives):
                 best_values[i] = update_best(best_values[i], row[obj], objective_modes[i])
-
         # 3. 记录本批次每一条样本的结果数据
         for batch_idx in batch_indices:
             row = df_lookup.loc[batch_idx]
@@ -92,17 +110,13 @@ def run_random_sampling(df_ground, sort_column, objectives, objective_modes, bat
                 "n_experiments": n_experiments,
                 "sample_index": int(batch_idx),
             }
-
             # 记录当前样本的实际值
             for obj in objectives:
                 dict_i[obj] = float(row[obj])
-
             # 记录此时的历史最优值
             for i, obj in enumerate(objectives):
                 dict_i[f"{obj}_best"] = float(best_values[i])
-
             results_data.append(dict_i)
-
     return pd.DataFrame(results_data)
 
 
@@ -145,8 +159,7 @@ def demo_random_benchmark(dataset="HTE_datasets/suzuki_HTE/suzuki_HTE.csv", desc
         if start_key in start_points:
             start_indices = start_points[start_key]
         else:
-            print(f"Warning: No start indices found for {start_key}")
-            start_indices = None
+            raise Exception("ERROR!!!")
 
         print(f"[Round {round_id}/{num_seeds}] Seed = {seed}")
 

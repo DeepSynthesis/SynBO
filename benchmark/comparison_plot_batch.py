@@ -128,7 +128,12 @@ if __name__ == "__main__":
             "direction_tags": ["max", "min"],
         },
         "Gryffin": {
-            "results_path": "compare_mothods/gryffin/results/batch_*.csv",
+            "results_path": "compare_mothods/gryffin/results/B-H_HTE/batch_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
+        },
+        "Random": {
+            "results_path": "compare_mothods/random/results/B-H_HTE/batch_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },

@@ -199,8 +199,6 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
                 cummax=False,
             )
 
-            if model_name == "EDBOplus" or model_name == "SynBO(GP_boost)":
-                print(model_name, round(float(hv_by_batch_df.loc[5, "hv_normalized"]), 3))
             cumulative_best_hv = hv_by_batch_df["hv_normalized"].cummax()
 
             for batch_idx, hv_value in cumulative_best_hv.items():

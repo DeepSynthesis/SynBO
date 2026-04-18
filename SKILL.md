@@ -35,21 +35,20 @@ Bayesian optimization for chemical reactions using the `synbo` package. This ski
 * **Validation & Saving (CRITICAL):** Upon receiving the user's optimization goals, format the data and immediately save it as `optimization_settings.json` in the `project_wd`. The JSON file MUST strictly adhere to the following structure:
 ```json
 {
-    "optimization_settings": {
-        "opt_metrics": ["yield", "ee"],
-        "opt_direct_info": [
-            {
-                "opt_direct": "max",
-                "opt_range": [0, 100],
-                "metric_weight": 1.0
-            },
-            {
-                "opt_direct": "max",
-                "opt_range": [0, 100],
-                "metric_weight": 1.0
-            }
-        ]
-    }
+    "reagent_types": ["reagent1", "reagent2", "condition1", "condition2"],
+    "opt_metrics": ["target1", "target2"],
+    "opt_direct_info": [
+        {
+            "opt_direct": "max",
+            "opt_range": [0, 100],
+            "metric_weight": 1.0
+        },
+        {
+            "opt_direct": "min",
+            "opt_range": [0, 100],
+            "metric_weight": 1.0
+        }
+    ]
 }
 ```
 
@@ -108,7 +107,7 @@ Name,value
 
 ## Initialize
 
-The `initialize.py` script is used for initial sampling without previous reaction data. This is the starting point for Bayesian optimization when no experimental results are available yet.
+The `initialize.py` script is used for initial sampling without previous reaction data. This is the starting point for Bayesian optimization when NO experimental results are available yet.
 
 **Script Location:** `scripts/initialize.py`
 

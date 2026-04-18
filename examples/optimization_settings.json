@@ -1,26 +1,31 @@
 {
-    "optimization_settings": {
-        "opt_metrics": [
-            "yield",
-            "ee"
-        ],
-        "opt_direct_info": [
-            {
-                "opt_direct": "max",
-                "opt_range": [
-                    0,
-                    100
-                ],
-                "metric_weight": 1.0
-            },
-            {
-                "opt_direct": "max",
-                "opt_range": [
-                    0,
-                    100
-                ],
-                "metric_weight": 1.0
-            }
-        ]
-    }
+    "reagent_types": [
+        "alkali",
+        "cobalt_catalyst",
+        "organo_catalyst",
+        "oxidant",
+        "solvent"
+    ],
+    "opt_metrics": [
+        "yield",
+        "ee"
+    ],
+    "opt_direct_info": [
+        {
+            "opt_direct": "max",
+            "opt_range": [
+                0,
+                100
+            ],
+            "metric_weight": 1.0
+        },
+        {
+            "opt_direct": "max",
+            "opt_range": [
+                0,
+                100
+            ],
+            "metric_weight": 1.0
+        }
+    ]
 }

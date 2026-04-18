@@ -1,0 +1,6 @@
+batch,index,type,alkali,cobalt_catalyst,organo_catalyst,oxidant,solvent,pred yield,pred ee,yield,ee
+0,1,EXPLORE,no_alkali,[Co]-8,DPEN,NCS,DCM,-,-,[exp_data],[exp_data]
+0,2,EXPLORE,no_alkali,[Co]-8,DPEN,NCS,DCM,-,-,[exp_data],[exp_data]
+0,3,EXPLORE,no_alkali,[Co]-8,DPEN,KHSO5_2H2SO4,CH3CN,-,-,[exp_data],[exp_data]
+0,4,EXPLORE,no_alkali,[Co]-8,DPEN,NCS,CH3CN,-,-,[exp_data],[exp_data]
+0,5,EXPLORE,no_alkali,[Co]-8,DPEN,NCS,CH3CN,-,-,[exp_data],[exp_data]

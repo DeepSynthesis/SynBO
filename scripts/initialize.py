@@ -11,46 +11,38 @@ Usage:
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 from synbo import ReactionOptimizer
 from synbo.utils import load_desc_dict
 
 
-def load_optimization_settings():
+def load_optimization_settings(project_dir: Path):
     """Load optimization settings from config.json and optimization_settings.json."""
     # Read config.json to get project_wd
-    config_path = Path(__file__).parent.parent / "config.json"
-    if not config_path.exists():
-        raise FileNotFoundError(f"config.json not found at {config_path}. Please configure project first.")
-    
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    
-    project_wd = Path(config.get("project_wd"))
-    if not project_wd or not project_wd.exists():
-        raise ValueError(f"Invalid project_wd in config.json: {project_wd}")
-    
+
     # Read optimization_settings.json
-    opt_settings_path = project_wd / "optimization_settings.json"
+    opt_settings_path = Path(project_dir) / "optimization_settings.json"
     if not opt_settings_path.exists():
         raise FileNotFoundError(
-            f"optimization_settings.json not found at {opt_settings_path}. "
-            "Please define optimization metrics first."
+            f"optimization_settings.json not found at {opt_settings_path}. " "Please define optimization metrics first."
         )
-    
+
     with open(opt_settings_path, "r") as f:
-        opt_settings = json.load(f)
-    
-    settings = opt_settings.get("optimization_settings", {})
-    opt_metrics = settings.get("opt_metrics", [])
-    opt_direct_info = settings.get("opt_direct_info", [])
-    
+        settings = json.load(f)
+
+    reagent_types = settings.get("reagent_types")
+    opt_metrics = settings.get("opt_metrics")
+    opt_direct_info = settings.get("opt_direct_info")
+
+    assert reagent_types is not None, "reagent_types must be defined in optimization_settings.json"
+    assert opt_metrics is not None, "opt_metrics must be defined in optimization_settings.json"
+    assert opt_direct_info is not None, "opt_direct_info must be defined in optimization_settings.json"
+
     if not opt_metrics:
         raise ValueError("No optimization metrics found in optimization_settings.json")
-    
-    return opt_metrics, opt_direct_info
+
+    return reagent_types, opt_metrics, opt_direct_info
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -74,28 +66,21 @@ Examples:
     )
 
     parser.add_argument(
-        "--desc-dir",
+        "--project-dir",
         type=Path,
         required=True,
-        help="Directory containing descriptor files",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("output/initialize"),
-        help="Output directory for results (default: output/initialize)",
-    )
-    parser.add_argument(
-        "--reagent-types",
-        nargs="+",
-        default=["base", "ligand", "solvent", "concentration", "temperature"],
-        help="List of reagent types (default: base ligand solvent concentration temperature)",
+        help="Project directory",
     )
     parser.add_argument(
         "--name-suffix",
         nargs="+",
-        default=["_dft", "_dft", "_dft", None, None],
-        help="Name suffixes for descriptor files (default: _dft _dft _dft None None)",
+        default="_RDKit",
+        help="Name suffixes for descriptor files (default: _RDKit)",
+    )
+    parser.add_argument(
+        "--index-col",
+        default="name",
+        help="Index column for descriptor files (default: 'name')",
     )
     parser.add_argument(
         "--batch-size",
@@ -111,15 +96,9 @@ Examples:
     )
     parser.add_argument(
         "--sampling-method",
-        default="kmeans",
+        default="lhs",
         choices=["sobol", "random", "lhs", "kmeans"],
         help="Sampling strategy for initial points (default: kmeans)",
-    )
-    parser.add_argument(
-        "--refine-desc",
-        default="filter_0.8",
-        choices=["auto_select", "filter_only", "pass", "filter_0.8"],
-        help="Descriptor refinement method (default: filter_0.8)",
     )
     parser.add_argument(
         "--random-seed",
@@ -145,14 +124,13 @@ def main() -> int:
     print("=" * 60)
     print()
 
-    # Handle None values in name_suffix
-    name_suffix = [s if s != "None" else None for s in args.name_suffix]
-
     # Load optimization settings from configuration files
     print("Step 1: Loading optimization settings...")
     print("-" * 60)
     try:
-        opt_metrics, opt_direct_info = load_optimization_settings()
+        reagent_types, opt_metrics, opt_direct_info = load_optimization_settings(args.project_dir)
+        name_suffix = [args.name_suffix] * len(reagent_types) if isinstance(args.name_suffix, str) else args.name_suffix
+        print(f"✓ Loaded reagent types: {reagent_types}")
         print(f"✓ Loaded optimization metrics: {opt_metrics}")
         print(f"  Metrics configuration: {len(opt_direct_info)} metric(s)")
     except (FileNotFoundError, ValueError) as e:
@@ -165,11 +143,11 @@ def main() -> int:
 
     # Load descriptors
     desc_dict, condition_dict = load_desc_dict(
-        reagent_types=args.reagent_types,
-        desc_dir=str(args.desc_dir),
+        reagent_types=reagent_types,
+        desc_dir=Path(args.project_dir) / "descriptors",
         name_suffix=name_suffix,
         return_condition_dict=True,
-        index_col=args.reagent_types,
+        index_col=args.index_col,
     )
     print(f"✓ Loaded {len(desc_dict)} descriptor files")
     print()
@@ -184,6 +162,7 @@ def main() -> int:
         opt_type="init",
         random_seed=args.random_seed,
         quiet=args.quiet,
+        save_dir=Path(args.project_dir) / "output",
     )
     print("✓ ReactionOptimizer instance created")
     print()
@@ -212,7 +191,6 @@ def main() -> int:
         batch_size=args.batch_size,
         desc_normalize=args.desc_normalize,
         sampling_method=args.sampling_method,
-        refine_desc=args.refine_desc,
     )
     print()
 
@@ -220,12 +198,13 @@ def main() -> int:
     print("-" * 60)
 
     # Create output directory
-    args.output.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(args.project_dir) / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save results
-    sbo.save_results(save_dir=str(args.output), filetype="csv")
-    sbo.save_results(save_dir=str(args.output), filetype="excel")
-    print(f"✓ Results saved to {args.output}")
+    sbo.save_results(filetype="csv")
+    sbo.save_results(filetype="excel")
+    print(f"✓ Results saved to {output_dir}")
     print()
 
     print("=" * 60)
@@ -242,7 +221,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"\n[ERROR] Initialization failed: {e}")
+    main()

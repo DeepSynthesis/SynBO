@@ -11,7 +11,7 @@ Bayesian optimization for chemical reactions using the `synbo` package. This ski
 
 ## CRITICAL: BO Optimization Prerequisites
 
-**Before executing ANY Bayesian Optimization (synbo) tasks, you MUST sequentially verify the following 3 prerequisites. Do NOT proceed with the optimization process until ALL criteria are met:**
+**Before executing ANY Bayesian Optimization (synbo) tasks, you MUST sequentially verify the following 5 prerequisites. Do NOT proceed with the optimization process until ALL criteria are met:**
 
 **1. Working Directory (`project_wd`) & Project Name (`project_name`)**
 * **Initial Check:** Read `config.json` located in the skill's directory. If both `project_wd` and `project_name` are found, display the project name to the user (e.g., "Found existing project: [Project Name]") and use them.

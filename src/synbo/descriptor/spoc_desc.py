@@ -13,7 +13,13 @@ from rdkit.ML.Descriptors import MoleculeDescriptors
 
 class SPOCDescriptor:
     def __init__(
-        self, smiles_list: Sequence[str], name_list: Sequence[str] = None, desc_type: str = "OneHot", desc_type_to_filename: bool = False
+        self,
+        smiles_list: Sequence[str],
+        name_list: Sequence[str] = None,
+        desc_type: str = "OneHot",
+        desc_type_to_filename: bool = False,
+        rtype: str = None,
+        fill_zero_row: str = None,
     ) -> None:
         self.smiles_list = smiles_list
         self.name_list = smiles_list if name_list is None else name_list
@@ -24,6 +30,7 @@ class SPOCDescriptor:
         self.desc_type = desc_type
         self.desc_type_to_filename = desc_type_to_filename
         self.desc_names = None
+        self.rtype = rtype
         self.console = Console()
 
     def _smiles_to_mol(self) -> List[Any]:
@@ -102,13 +109,18 @@ class SPOCDescriptor:
 
         self.desc_array = self.desc_array.round(5)
 
-    def save_results(self, save_path: Path | str, index_name: str = "name"):
+    def save_results(self, save_path: Path | str, index_name: str = "name", fill_zero_row: str = None):
         desc_df = pd.DataFrame(self.desc_array, index=self.name_list)
         if self.desc_names is not None:
-            desc_df.columns = self.desc_names
+            desc_df.columns = [f"{self.rtype}_{name}" if self.rtype is not None else name for name in self.desc_names]
         if desc_df.empty:
             self.console.print("⚠️ No data to save. DataFrame is empty.", style="bold yellow")
             raise Exception("No data to save. DataFrame is empty.")
+
+        desc_df = desc_df.dropna(how="any", axis=1)
+
+        if fill_zero_row is not None:
+            desc_df.loc[fill_zero_row, :] = 0.0
 
         save_path = Path(save_path)
         if self.desc_type_to_filename:
@@ -144,6 +156,8 @@ def calc_spoc_desc(
     radius: int = 2,
     desc_type_to_filename: bool = True,
     index_name: str = "name",
+    rtype: str = None,
+    fill_zero_row: str = None,
 ) -> None:
     """Generate molecular descriptors based on fingerprint type.
 
@@ -158,7 +172,9 @@ def calc_spoc_desc(
         name_list = smiles_list
     else:
         assert len(name_list) == len(smiles_list), "Length of name_list and smiles_list must be the same"
-    spoc_desc = SPOCDescriptor(smiles_list=smiles_list, name_list=name_list, desc_type=fp_type, desc_type_to_filename=desc_type_to_filename)
+    spoc_desc = SPOCDescriptor(
+        smiles_list=smiles_list, name_list=name_list, desc_type=fp_type, desc_type_to_filename=desc_type_to_filename, rtype=rtype
+    )
     match fp_type:
         case "OneHot":
             spoc_desc.one_hot_descriptor()
@@ -184,4 +200,4 @@ def calc_spoc_desc(
         case _:
             raise ValueError(f"Unsupported SPOC descriptor type: {fp_type}")
 
-    spoc_desc.save_results(save_path, index_name=index_name)
+    spoc_desc.save_results(save_path, index_name=index_name, fill_zero_row=fill_zero_row)

@@ -36,10 +36,10 @@ Examples:
 
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument("--input", type=Path, help="Path to CSV file with SMILES and name columns")
-    parser.add_argument("--name", required=True, help="Name for the output file (without extension)")
+    parser.add_argument("--smiles-col", default="SMILES", required=True, help="Name of the column containing SMILES strings")
+    parser.add_argument("--name-col", default="name", help="Name of the column containing names")
     parser.add_argument(
-        "--output", type=Path, default=Path("./descriptors"),
-        help="Output directory for the descriptor CSV file (default: ./descriptors)"
+        "--output", type=Path, default=Path("./descriptors"), help="Output directory for the descriptor CSV file (default: ./descriptors)"
     )
     parser.add_argument("--index-name", default="Name", help="Name for the index column in the output CSV (default: Name)")
     parser.add_argument("--fp-type", default="RDKit", help="Fingerprint/descriptor type (default: RDKit)")
@@ -55,87 +55,58 @@ def is_valid_smiles(smiles: str) -> bool:
     return mol is not None
 
 
-def read_smiles_from_file(file_path: Path) -> Tuple[pd.DataFrame, List[int]]:
+def read_smiles_from_file(smiles_col: str, file_path: Path) -> Tuple[pd.DataFrame, List[int]]:
     """Read SMILES and name from CSV. Returns (df, list of invalid SMILES row indices)."""
     assert file_path.exists(), f"Error: File {file_path} does not exist."
     df = pd.read_csv(file_path)
-    assert "SMILES" in df.columns, f"Error: File {file_path} does not contain a 'SMILES' column."
+    assert smiles_col in df.columns, f"Error: File {file_path} does not contain a '{smiles_col}' column."
 
     invalid_indices = []
     for idx, row in df.iterrows():
-        if not is_valid_smiles(row["SMILES"]):
+        if not is_valid_smiles(row[smiles_col]):
             invalid_indices.append(idx)
 
     return df, invalid_indices
 
 
-def generate_descriptors(
-    smiles_list: List[str], output_dir: Path, base_name: str,
-    fp_type: str, index_name: str = "Name"
-) -> pd.DataFrame:
+def generate_descriptors(valid_df: pd.DataFrame, args: argparse.Namespace, output_dir: Path, fill_zero_row: str = None) -> None:
     """
     Generate SPOC descriptors and return the result DataFrame.
     The actual saved file will be named {base_name}_{fp_type}.csv
     """
-    save_path = output_dir / f"{base_name}.csv"
+    save_path = output_dir / f"{args.input.stem}.csv"
+    smiles_list = valid_df[args.smiles_col].tolist()
+    name_list = valid_df[args.name_col].tolist() if args.name_col in valid_df.columns else None
     try:
-        print(f"Generating {fp_type} descriptors for {len(smiles_list)} SMILES strings...")
+        print(f"Generating {args.fp_type} descriptors for {len(smiles_list)} SMILES strings...")
         spoc_desc.calc_spoc_desc(
             smiles_list=smiles_list,
+            name_list=name_list,
             save_path=save_path,
-            fp_type=fp_type,
-            index_name=index_name,
+            fp_type=args.fp_type,
+            index_name="name",
+            rtype=args.input.stem,
+            fill_zero_row=fill_zero_row,
         )
-        # The actual file saved is {base_name}_{fp_type}.csv
-        actual_path = output_dir / f"{base_name}_{fp_type}.csv"
-        print(f"✅ Saved to: {actual_path}")
-        result_df = pd.read_csv(actual_path, index_col=0)
-        return result_df
     except Exception as e:
         raise RuntimeError(f"Failed to generate descriptors: {e}") from e
 
 
 def main() -> int:
     args = parse_arguments()
-    df, invalid_indices = read_smiles_from_file(args.input)
+    df, invalid_indices = read_smiles_from_file(args.smiles_col, args.input)
+    if len(invalid_indices) > 1:
+        raise Exception(f"More than one invalid SMILES found in the input file: {invalid_indices}. Please fix the input data.")
+    elif len(invalid_indices) == 1:
+        invalid_names = df.loc[invalid_indices, args.name_col].tolist()
+        print(f"the `{invalid_names[0]}` is invalid SMILES. using 0.0 as placeholder for its descriptors.")
 
-    if invalid_indices:
-        invalid_names = df.loc[invalid_indices, "name"].tolist()
-        print(f"⚠️  Found {len(invalid_indices)} entries with invalid SMILES (will use 0.0 placeholders):")
-        for name in invalid_names:
-            print(f"    - {name}")
-
-    # Separate valid and invalid entries
-    valid_df = df.drop(index=invalid_indices).reset_index(drop=True)
-    
-    if valid_df.empty:
-        print("⚠️  No valid SMILES found. Nothing to generate.")
-        return 0
-
+    df = df.drop(index=invalid_indices) if invalid_indices else df
     output_dir = args.output
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate descriptors for valid SMILES
-    result_df = generate_descriptors(
-        valid_df["SMILES"].tolist(), output_dir, args.name, args.fp_type, args.index_name
-    )
-
-    # Handle invalid SMILES: fill with 0.0 placeholders
-    if invalid_indices:
-        descriptor_cols = [c for c in result_df.columns if c != args.index_name]
-        placeholder_rows = []
-        for idx in invalid_indices:
-            row = {args.index_name: df.loc[idx, "name"]}
-            for col in descriptor_cols:
-                row[col] = 0.0
-            placeholder_rows.append(row)
-        
-        placeholder_df = pd.DataFrame(placeholder_rows)
-        result_df = pd.concat([result_df, placeholder_df], ignore_index=True)
-        
-        actual_path = output_dir / f"{args.name}_{args.fp_type}.csv"
-        result_df.to_csv(actual_path, index=False)
-        print(f"✅ Added {len(invalid_indices)} placeholder entries (0.0-filled) to: {actual_path}")
+    generate_descriptors(df, args, output_dir, fill_zero_row=invalid_names[0] if invalid_indices else None)
 
     return 0
 

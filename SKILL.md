@@ -92,3 +92,4 @@ see `[reference/initialize.md](reference/initialize.md)`
 
 ## Optimize
 
+see `[reference/optimize.md](reference/optimize.md)`

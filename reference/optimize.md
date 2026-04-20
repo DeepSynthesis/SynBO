@@ -66,3 +66,5 @@ Previous reaction data should be stored in `project_wd/results` directory as `ba
 
 **ATTENTION:** You should send the Excel file to USER and ask them to run the experiments with the recommended conditions.
 
+**ATTENTION:** Optimize could cost a lot of time. The Timeout period should be more than 10 min.
+

@@ -263,9 +263,25 @@ def array_process(
     console.print(f"Final total descriptor dimension: [bold cyan]{final_total_dims}[/bold cyan]")
     # 4. Perform cartesian product (Perform cartesian product)
     # cartesian_product_3d needs to handle concatenation of descriptor vectors
-    # Note: normalization is not done here but unified after getting done_arr_index
     total_desc_arr = cartesian_product_3d(desc_arrs, data_type=float, info="descriptors")
     total_name_arr = cartesian_product_3d(name_arrs, data_type=object, info="names")
+    
+    # 5. Apply normalization for sampling purposes
+    # For initialization, normalize based on the full candidate space
+    if desc_normalize != "none":
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
+        match desc_normalize:
+            case "minmax":
+                scaler = MinMaxScaler()
+            case "zscore":
+                scaler = StandardScaler()
+            case "l2":
+                scaler = Normalizer(norm="l2")
+            case _:
+                raise ValueError(f"Unknown normalization method: {desc_normalize}")
+        total_desc_arr = scaler.fit_transform(total_desc_arr)
+        console.print(f"Applied {desc_normalize} normalization on {len(total_desc_arr)} candidates")
+    
     if len(total_desc_arr) > 0:
         console.print(f"Generated [bold]{len(total_desc_arr):,}[/bold] total combinations", style="green")
     else:

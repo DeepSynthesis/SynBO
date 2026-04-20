@@ -1,0 +1,92 @@
+{
+    "90": {
+        "threshold": 90,
+        "n_simulations": 1000,
+        "mean": 30.399,
+        "median": 20.0,
+        "std": 29.601111448727735,
+        "min": 1,
+        "max": 179
+    },
+    "91": {
+        "threshold": 91,
+        "n_simulations": 1000,
+        "mean": 34.464,
+        "median": 24.0,
+        "std": 32.736412509619925,
+        "min": 1,
+        "max": 222
+    },
+    "92": {
+        "threshold": 92,
+        "n_simulations": 1000,
+        "mean": 43.071,
+        "median": 31.5,
+        "std": 40.987168223725824,
+        "min": 1,
+        "max": 285
+    },
+    "93": {
+        "threshold": 93,
+        "n_simulations": 1000,
+        "mean": 56.931,
+        "median": 42.0,
+        "std": 54.745540813841636,
+        "min": 1,
+        "max": 383
+    },
+    "94": {
+        "threshold": 94,
+        "n_simulations": 1000,
+        "mean": 77.774,
+        "median": 53.0,
+        "std": 75.57842895959138,
+        "min": 1,
+        "max": 549
+    },
+    "95": {
+        "threshold": 95,
+        "n_simulations": 1000,
+        "mean": 116.769,
+        "median": 84.0,
+        "std": 117.33318217367156,
+        "min": 1,
+        "max": 927
+    },
+    "96": {
+        "threshold": 96,
+        "n_simulations": 1000,
+        "mean": 200.955,
+        "median": 138.0,
+        "std": 203.37153432818465,
+        "min": 1,
+        "max": 1192
+    },
+    "97": {
+        "threshold": 97,
+        "n_simulations": 1000,
+        "mean": 481.89,
+        "median": 354.5,
+        "std": 440.68109773395093,
+        "min": 1,
+        "max": 2499
+    },
+    "98": {
+        "threshold": 98,
+        "n_simulations": 1000,
+        "mean": 900.671,
+        "median": 656.5,
+        "std": 837.3696703123419,
+        "min": 1,
+        "max": 4812
+    },
+    "99": {
+        "threshold": 99,
+        "n_simulations": 1000,
+        "mean": 1708.615,
+        "median": 1331.5,
+        "std": 1482.2513527654478,
+        "min": 1,
+        "max": 9109
+    }
+}

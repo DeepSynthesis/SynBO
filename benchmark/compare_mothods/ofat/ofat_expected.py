@@ -11,7 +11,8 @@ OFAT Algorithm:
 3. For the selected reagent_type, test all its candidates to find the optimal one
 4. Fix the optimal candidate and move to the next reagent_type
 5. If target not reached after all reagent_types, use the best known condition and
-   restart from the first reagent_type (using second-best if already tested, etc.)
+   restart from the first reagent_type. If a reagent_type has been fully optimized,
+   step down to its second-best (or third-best) to escape local optima.
 6. Avoid duplicate testing
 """
 
@@ -21,6 +22,7 @@ from pathlib import Path
 import json
 from typing import Dict, List, Tuple, Set, Optional
 import random
+from tqdm import tqdm
 
 
 class OFATSimulator:
@@ -32,10 +34,14 @@ class OFATSimulator:
         self.reagent_types = reagent_types
         self.target_col = target_col
 
+        # 优化提速：记录试剂类型对应的索引，将后续的字典操作转化为更快的列表操作
+        self.rt_to_idx = {rt: i for i, rt in enumerate(reagent_types)}
+
         self.candidates = {}
         for rt in reagent_types:
             self.candidates[rt] = self.dataset[rt].unique().tolist()
 
+        self.total_space_size = len(self.dataset)
         self._build_lookup_table()
 
     def _build_lookup_table(self):
@@ -45,9 +51,8 @@ class OFATSimulator:
             key = tuple(row[rt] for rt in self.reagent_types)
             self.lookup[key] = row[self.target_col]
 
-    def get_conversion(self, condition: Dict[str, str]) -> float:
-        """Get the conversion value for a given condition."""
-        key = tuple(condition[rt] for rt in self.reagent_types)
+    def get_conversion_by_key(self, key: Tuple) -> float:
+        """Get the conversion value for a given condition key."""
         return self.lookup.get(key, 0.0)
 
     def simulate_ofat_run(self, target_threshold: float, random_seed: Optional[int] = None) -> int:
@@ -57,90 +62,110 @@ class OFATSimulator:
             np.random.seed(random_seed)
 
         tested_conditions: Set[Tuple] = set()
-        best_condition: Dict[str, str] = {}
+
+        # 1 & 2. 初始化：其他试剂随机选择 candidates
+        current_state = [random.choice(self.candidates[rt]) for rt in self.reagent_types]
+        best_state = current_state.copy()
         best_conversion = -np.inf
-        candidate_rankings: Dict[str, List[Tuple[str, float]]] = {}
-        current_candidate_idx: Dict[str, int] = {rt: 0 for rt in self.reagent_types}
 
         experiment_count = 0
-        max_iterations = 50000
 
-        current_condition = {rt: random.choice(self.candidates[rt]) for rt in self.reagent_types}
+        # 随机决定遍历试剂的顺序
+        order = self.reagent_types.copy()
+        random.shuffle(order)
 
-        first_pass_order = self.reagent_types.copy()
-        random.shuffle(first_pass_order)
+        # 记录每个试剂当前选用的排名索引 (0代表最优, 1代表次优, ...)
+        rank_target = {rt: 0 for rt in self.reagent_types}
 
-        for rt_to_explore in first_pass_order:
-            if experiment_count >= max_iterations:
-                return experiment_count
+        while experiment_count < self.total_space_size:
+            start_exp_count = experiment_count
+            start_best_conv = best_conversion
+            improved_in_pass = False
 
-            results = []
-            for candidate in self.candidates[rt_to_explore]:
-                test_condition = current_condition.copy()
-                test_condition[rt_to_explore] = candidate
-                key = tuple(test_condition[r] for r in self.reagent_types)
-                if key in tested_conditions:
-                    continue
+            # 3 & 4. 遍历每个 reagent_type 进行寻优
+            for rt in order:
+                rt_idx = self.rt_to_idx[rt]
+                results = []
 
-                tested_conditions.add(key)
-                conv = self.get_conversion(test_condition)
-                experiment_count += 1
-                results.append((candidate, conv))
+                for candidate in self.candidates[rt]:
+                    test_state = current_state.copy()
+                    test_state[rt_idx] = candidate
+                    key = tuple(test_state)
 
-                if conv > best_conversion:
-                    best_conversion = conv
-                    best_condition = test_condition.copy()
-                if conv > target_threshold:
-                    return experiment_count
+                    # 6. 不重复遍历：若未测试过，则增加实验计数
+                    if key not in tested_conditions:
+                        tested_conditions.add(key)
+                        conv = self.get_conversion_by_key(key)
+                        experiment_count += 1
 
-            results.sort(key=lambda x: x[1], reverse=True)
-            candidate_rankings[rt_to_explore] = results
-            if results:
-                current_condition[rt_to_explore] = results[0][0]
-                current_candidate_idx[rt_to_explore] = 0
-
-        while experiment_count < max_iterations:
-            improved = False
-            for rt in self.reagent_types:
-                if experiment_count >= max_iterations:
-                    return experiment_count
-
-                rankings = candidate_rankings.get(rt, [])
-                current_idx = current_candidate_idx.get(rt, 0)
-
-                for next_idx in range(current_idx + 1, len(rankings)):
-                    candidate, _ = rankings[next_idx]
-                    test_condition = current_condition.copy()
-                    test_condition[rt] = candidate
-                    key = tuple(test_condition[r] for r in self.reagent_types)
-                    if key in tested_conditions:
-                        continue
-
-                    tested_conditions.add(key)
-                    conv = self.get_conversion(test_condition)
-                    experiment_count += 1
-
-                    if conv > self.get_conversion(current_condition):
-                        current_condition[rt] = candidate
-                        current_candidate_idx[rt] = next_idx
-                        improved = True
-
-                        if conv > best_conversion:
-                            best_conversion = conv
-                            best_condition = test_condition.copy()
+                        # 发现超过阈值，立刻成功返回
                         if conv > target_threshold:
                             return experiment_count
+
+                        # 更新全局已知最优条件
+                        if conv > best_conversion:
+                            best_conversion = conv
+                            best_state = test_state.copy()
+                    else:
+                        # 虽然测过，但仍需要取值用于当前轮次的排名
+                        conv = self.get_conversion_by_key(key)
+
+                    results.append((candidate, conv))
+
+                # 根据 Conversion 降序排列
+                results.sort(key=lambda x: x[1], reverse=True)
+
+                # 获取当前试剂应该选择的排名（0是最优，1是次优...）
+                target_idx = rank_target[rt]
+
+                # 如果超出了候选数量，只能用回最优的
+                if target_idx >= len(results):
+                    target_idx = 0
+
+                chosen_cand, chosen_conv = results[target_idx]
+
+                # 如果条件发生了变化，说明这一轮探索有动作
+                if current_state[rt_idx] != chosen_cand:
+                    current_state[rt_idx] = chosen_cand
+                    improved_in_pass = True
+
+            # 5. 逃逸机制及状态重置
+            if best_conversion > start_best_conv:
+                # 机制A：在本轮中发现了全新的全局最优峰！
+                # 既然找到了新峰，说明之前的逃逸策略生效了。
+                # 此时应把所有变量强制重置回寻找最优解（rank=0）的状态，以便在新峰周围进行正常的OFAT局部寻优。
+                for rt in order:
+                    rank_target[rt] = 0
+
+            elif (not improved_in_pass) or (experiment_count == start_exp_count):
+                # 机制B：陷入局部最优，或者陷入已测条件的死循环。
+                # 选择目前已知最优条件的条件
+                current_state = best_state.copy()
+
+                # 从第一个reagent_type开始，强制它取“次优”（或次次优...），以跳出局部最优
+                escaped = False
+                for rt in order:
+                    if rank_target[rt] + 1 < len(self.candidates[rt]):
+                        rank_target[rt] += 1
+                        # 类似里程计机制：当高优先级试剂进位时，后续试剂归零
+                        idx = order.index(rt)
+                        for sub_rt in order[idx + 1 :]:
+                            rank_target[sub_rt] = 0
+                        escaped = True
                         break
 
-            if not improved:
-                break
+                if not escaped:
+                    # 如果所有试剂的所有组合排名都试过了，说明这套搜索策略已经被彻底耗尽却没达到阈值
+                    break
 
         return experiment_count
 
     def run_monte_carlo(self, target_threshold: float, n_simulations: int = 1000) -> Dict:
         """Run Monte Carlo simulations for a given target threshold."""
         results = []
-        for i in range(n_simulations):
+
+        # leave=False 意味着跑完一个阈值后进度条会消失，保持控制台整洁
+        for i in tqdm(range(n_simulations), desc=f"Threshold {target_threshold: >2}", leave=False, ncols=80):
             n_exp = self.simulate_ofat_run(target_threshold, random_seed=i)
             results.append(n_exp)
 
@@ -153,11 +178,6 @@ class OFATSimulator:
             "std": float(np.std(results)),
             "min": int(np.min(results)),
             "max": int(np.max(results)),
-            "percentile_25": float(np.percentile(results, 25)),
-            "percentile_75": float(np.percentile(results, 75)),
-            "percentile_90": float(np.percentile(results, 90)),
-            "percentile_95": float(np.percentile(results, 95)),
-            "all_results": results.tolist(),
         }
 
 
@@ -165,7 +185,9 @@ def main():
     """Main function to run OFAT expected experiments calculation."""
     dataset_path = "/home/tzz/.cline/worktrees/bdca9/synbo/benchmark/datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
     reagent_types = ["solvent", "ligand", "reactant2", "base", "catalyst"]
-    thresholds = list(range(85, 96))
+
+    # 阈值 85 到 95 (包含95)
+    thresholds = list(range(90, 100))
     n_simulations = 1000
 
     print("Loading dataset and initializing simulator...")
@@ -189,13 +211,9 @@ def main():
         print(f"  Mean experiments needed: {result['mean']:.2f} ± {result['std']:.2f}")
         print(f"  Median experiments needed: {result['median']:.2f}")
         print(f"  Min/Max: {result['min']} / {result['max']}")
-        print(f"  25th percentile: {result['percentile_25']:.2f}")
-        print(f"  75th percentile: {result['percentile_75']:.2f}")
-        print(f"  90th percentile: {result['percentile_90']:.2f}")
-        print(f"  95th percentile: {result['percentile_95']:.2f}")
 
     output_dir = Path(__file__).parent / "results"
-    output_dir.mkdir(exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir / "ofat_expected_results.json"
     with open(output_file, "w") as f:

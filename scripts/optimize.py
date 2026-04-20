@@ -14,43 +14,35 @@ import json
 from pathlib import Path
 
 from synbo import ReactionOptimizer
-from synbo.utils import load_desc_dict
-import pandas as pd
+from synbo.utils import load_desc_dict, get_prev_rxn
 
 
-def load_optimization_settings():
+def load_optimization_settings(project_dir: Path):
     """Load optimization settings from config.json and optimization_settings.json."""
     # Read config.json to get project_wd
-    config_path = Path(__file__).parent.parent / "config.json"
-    if not config_path.exists():
-        raise FileNotFoundError(f"config.json not found at {config_path}. Please configure project first.")
-    
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    
-    project_wd = Path(config.get("project_wd"))
-    if not project_wd or not project_wd.exists():
-        raise ValueError(f"Invalid project_wd in config.json: {project_wd}")
-    
+
     # Read optimization_settings.json
-    opt_settings_path = project_wd / "optimization_settings.json"
+    opt_settings_path = Path(project_dir) / "optimization_settings.json"
     if not opt_settings_path.exists():
         raise FileNotFoundError(
-            f"optimization_settings.json not found at {opt_settings_path}. "
-            "Please define optimization metrics first."
+            f"optimization_settings.json not found at {opt_settings_path}. " "Please define optimization metrics first."
         )
-    
+
     with open(opt_settings_path, "r") as f:
-        opt_settings = json.load(f)
-    
-    settings = opt_settings.get("optimization_settings", {})
-    opt_metrics = settings.get("opt_metrics", [])
-    opt_direct_info = settings.get("opt_direct_info", [])
-    
+        settings = json.load(f)
+
+    reagent_types = settings.get("reagent_types")
+    opt_metrics = settings.get("opt_metrics")
+    opt_direct_info = settings.get("opt_direct_info")
+
+    assert reagent_types is not None, "reagent_types must be defined in optimization_settings.json"
+    assert opt_metrics is not None, "opt_metrics must be defined in optimization_settings.json"
+    assert opt_direct_info is not None, "opt_direct_info must be defined in optimization_settings.json"
+
     if not opt_metrics:
         raise ValueError("No optimization metrics found in optimization_settings.json")
-    
-    return opt_metrics, opt_direct_info
+
+    return reagent_types, opt_metrics, opt_direct_info
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -75,36 +67,33 @@ Examples:
     )
 
     parser.add_argument(
-        "--desc-dir",
+        "--project-dir",
         type=Path,
         required=True,
-        help="Directory containing descriptor files",
+        help="Project directory containing configuration files",
     )
     parser.add_argument(
-        "--input",
+        "--input-dir",
         type=Path,
-        required=True,
-        help="Path to CSV file with previous reaction data",
+        default="results",
+        help="Path to CSV file with previous reaction data. Prefixed with {project-dir} (default: {project-dir}/results/)",
     )
     parser.add_argument(
-        "--output",
+        "--output-dir",
         type=Path,
-        help="Output directory for results (default: output/optimize)",
-    )
-    parser.add_argument(
-        "--reagent-types",
-        nargs="+",
-        help="List of reagent types",
+        default="results",
+        help="Output directory for results. Prefixed with {project-dir} (default: {project-dir}/results/)",
     )
     parser.add_argument(
         "--name-suffix",
         nargs="+",
+        default="_RDKit",
         help="Name suffixes for descriptor files",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=1,
+        default=5,
         help="Number of new conditions to recommend",
     )
     parser.add_argument(
@@ -114,20 +103,9 @@ Examples:
         help="Descriptor normalization method (default: zscore)",
     )
     parser.add_argument(
-        "--refine-desc",
-        default="pass",
-        choices=["auto_select", "filter_only", "pass"],
-        help="Descriptor refinement method (default: pass)",
-    )
-    parser.add_argument(
         "--optimize-method",
         default="default_BO",
         help="Optimization algorithm to use (default: default_BO)",
-    )
-    parser.add_argument(
-        "--surrogate-model",
-        default="GP",
-        help="Surrogate model type (default: GP)",
     )
     parser.add_argument(
         "--random-seed",
@@ -168,7 +146,7 @@ def main() -> int:
     # Load descriptors
     desc_dict, condition_dict = load_desc_dict(
         reagent_types=args.reagent_types,
-        desc_dir=str(args.desc_dir),
+        desc_dir=Path(args.project_dir) / "descriptors",
         name_suffix=name_suffix,
         return_condition_dict=True,
         index_col=args.reagent_types,
@@ -186,6 +164,7 @@ def main() -> int:
         opt_type="auto",
         random_seed=args.random_seed,
         quiet=args.quiet,
+        save_dir=Path(args.project_dir) / args.output,
     )
     print("✓ ReactionOptimizer instance created")
     print()
@@ -217,7 +196,7 @@ def main() -> int:
         print("If you want to start with initial sampling, use initialize.py instead.")
         return 1
 
-    prev_rxn_data = pd.read_csv(args.input, index_col=False)
+    prev_rxn_data = get_prev_rxn(Path(args.project_dir / args.input), "batch-*.csv")
     sbo.load_prev_rxn(prev_rxn_data)
     print(f"✓ Loaded previous reactions from {args.input}")
     print(f"  Total reactions: {len(prev_rxn_data)}")
@@ -246,8 +225,8 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
 
     # Save results
-    sbo.save_results(save_dir=str(args.output), filetype="csv")
-    sbo.save_results(save_dir=str(args.output), filetype="excel")
+    sbo.save_results(filetype="csv")
+    sbo.save_results(filetype="excel")
     print(f"✓ Results saved to {args.output}")
     print()
 

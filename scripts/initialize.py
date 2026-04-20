@@ -162,7 +162,7 @@ def main() -> int:
         opt_type="init",
         random_seed=args.random_seed,
         quiet=args.quiet,
-        save_dir=Path(args.project_dir) / "output",
+        save_dir=Path(args.project_dir) / "results",
     )
     print("✓ ReactionOptimizer instance created")
     print()
@@ -198,7 +198,7 @@ def main() -> int:
     print("-" * 60)
 
     # Create output directory
-    output_dir = Path(args.project_dir) / "output"
+    output_dir = Path(args.project_dir) / "results"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save results

@@ -6,7 +6,7 @@ This script demonstrates how to run Bayesian optimization with previous
 reaction data to recommend new experimental conditions.
 
 Usage:
-    python optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv --output output/optimize
+    python optimize.py --project-dir examples
 """
 
 import argparse
@@ -53,16 +53,8 @@ def parse_arguments() -> argparse.Namespace:
         epilog="""
 Examples:
   # Optimize with default settings
-  python optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv --output output/optimize
+  python optimize.py --project-dir examples
 
-  # Optimize with custom batch size
-  python optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv \\
-                     --output output/optimize --batch-size 5
-
-  # Optimize with custom configuration
-  python optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv \\
-                     --output output/optimize --reagent-types base ligand solvent \\
-                     --surrogate-model RF --temperature 0.2
         """,
     )
 
@@ -76,13 +68,13 @@ Examples:
         "--input-dir",
         type=Path,
         default="results",
-        help="Path to CSV file with previous reaction data. Prefixed with {project-dir} (default: {project-dir}/results/)",
+        help="Directory containing previous reaction data. Relative to --project-dir (default: results)",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default="results",
-        help="Output directory for results. Prefixed with {project-dir} (default: {project-dir}/results/)",
+        help="Output directory for results. Relative to --project-dir (default: results)",
     )
     parser.add_argument(
         "--name-suffix",

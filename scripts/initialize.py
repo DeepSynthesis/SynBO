@@ -6,7 +6,7 @@ This script demonstrates how to initialize the ReactionOptimizer and perform
 initial sampling without previous reaction data.
 
 Usage:
-    python initialize.py --desc-dir dataset/descriptors --output output/initialize
+    python initialize.py --project-dir examples
 """
 
 import argparse
@@ -53,22 +53,14 @@ def parse_arguments() -> argparse.Namespace:
         epilog="""
 Examples:
   # Initialize with default settings
-  python initialize.py --desc-dir dataset/descriptors --output output/initialize
+  python initialize.py --project-dir examples
 
   # Initialize with custom batch size and sampling method
-  python initialize.py --desc-dir dataset/descriptors --output output/initialize \\
+  python initialize.py --project-dir examples \\
                        --batch-size 10 --sampling-method sobol
 
   # Initialize with custom configuration
-  python initialize.py --desc-dir dataset/descriptors --output output/initialize \\
-                       --reagent-types base ligand solvent --batch-size 5
-        """,
-    )
-
-    parser.add_argument(
-        "--project-dir",
-        type=Path,
-        required=True,
+  python initialize.py --project-dir examples \\
         help="Project directory",
     )
     parser.add_argument(

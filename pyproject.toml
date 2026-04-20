@@ -4,7 +4,11 @@ requires = ["setuptools>=61.0", "wheel"]
 
 [project]
 authors = [
+<<<<<<< HEAD
   {name = "Zhenzhi Tan", email = "zhenzhitan8@gmail.com"},
+=======
+  {name = "Zhenzhi Tan", email = "tanzhenzhi8@gmail.com"},
+>>>>>>> dev-beta
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -32,6 +36,12 @@ dependencies = [
   "ax-platform>=0.2.0",
   "rdkit>=2024.9.1",
   "pyDOE>=0.3.8",
+  "lxml>=6.0.2",
+  "epam.indigo>=1.36.1",
+  "xgboost>=2.0.0",
+  "hyperopt>=0.2.7",
+  "openai>=2.20.0",
+  "tabulate>=0.10.0",
 ]
 description = "A multi-objective reaction optimization framework based on Bayesian optimization"
 keywords = ["chemistry", "reaction optimization", "bayesian optimization", "machine learning", "catalysis"]
@@ -39,10 +49,10 @@ license = {file = "LICENSE"}
 maintainers = [
   {name = "Zhenzhi Tan", email = "tanzhenzhi8@gmail.com"},
 ]
-name = "rxnopt"
+name = "synbo"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.0.1"
+version = "0.6.0"
 
 [project.optional-dependencies]
 dev = [
@@ -65,7 +75,7 @@ test = [
 ]
 
 [project.scripts]
-rxnopt = "rxnopt.cli:app"
+synbo = "synbo.cli:app"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/yourusername/reactionopt/issues"
@@ -74,15 +84,15 @@ Homepage = "https://github.com/yourusername/reactionopt"
 Repository = "https://github.com/yourusername/reactionopt"
 
 [tool.setuptools.packages.find]
-include = ["rxnopt*"]
+include = ["synbo*"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-rxnopt = ["*.json", "*.yaml", "*.yml"]
+synbo = ["*.json", "*.yaml", "*.yml"]
 
 [tool.pytest.ini_options]
 addopts = [
-  "--cov=rxnopt",
+  "--cov=synbo",
   "--cov-report=term-missing",
   "--cov-report=html",
   "--cov-report=xml",
@@ -117,7 +127,7 @@ disallow_incomplete_defs = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
 no_implicit_optional = true
-python_version = "3.8"
+python_version = "3.13"
 strict_equality = true
 warn_no_return = true
 warn_redundant_casts = true

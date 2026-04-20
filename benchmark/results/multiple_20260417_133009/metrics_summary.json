@@ -1,0 +1,30 @@
+{
+    "average_optimal_targets": {
+        "Conversion": {
+            "average": 97.133,
+            "average_normalized": 0.97133,
+            "std": 1.65759494449036,
+            "std_normalized": 0.016575949444903596
+        },
+        "hypervolume": {
+            "average_normalized": 0.0,
+            "std_normalized": 0.0,
+            "total_hv": 0.0
+        }
+    },
+    "auc_of_optimization": {
+        "Conversion": {
+            "average": 778.6194994974136,
+            "average_normalized": 0.7786194994974137,
+            "std": 77.55344856903663,
+            "std_normalized": 0.07755344856903663
+        },
+        "hypervolume": {
+            "average": 0.0,
+            "average_normalized": 0.0,
+            "std": 0.0,
+            "std_normalized": 0.0,
+            "total_hv": 0.0
+        }
+    }
+}

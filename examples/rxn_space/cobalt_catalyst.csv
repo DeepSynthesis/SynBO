@@ -1,0 +1,9 @@
+SMILES,name
+CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,[Co]-1
+CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCCN1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,[Co]-2
+CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)C(C)(C)C(C)(C)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,[Co]-3
+CC(C)(C)c1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)[C@H](c2ccccc2)[C@@H](c2ccccc2)N1=Cc1cc(C(C)(C)C)cc(C(C)(C)C)c1O3,[Co]-4
+Clc1cc(Cl)c2c(c1)C=N1[Co]3(N(=Cc4cc(Cl)cc(Cl)c4O3)CC1)O2,[Co]-5
+COc1cc2c(c(C(C)(C)C)c1)O[Co]13N(=C2)CCN1=Cc1cc(OC)cc(C(C)(C)C)c1O3,[Co]-6
+Cl[Co]1(Cl)[P](c2ccccc2)(c2ccccc2)CC[P]1(c1ccccc1)c1ccccc1,[Co]-7
+Cl[Co]Cl,[Co]-8

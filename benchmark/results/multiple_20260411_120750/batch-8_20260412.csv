@@ -1,0 +1,6 @@
+batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost
+8,1,Unknown,0.057,105,CsOAc,PCy3 HBF4,BuCN,30.84±5.28,0.20±0.03,1.13,0.118348998
+8,2,Unknown,0.057,105,CsOAc,PCy3 HBF4,BuOAc,30.84±5.28,0.20±0.03,0.0,0.107934644
+8,3,Unknown,0.057,105,CsOAc,PCy3 HBF4,DMAc,30.84±5.28,0.20±0.03,15.26,0.087831752
+8,4,Unknown,0.057,105,CsOAc,PCy3 HBF4,p-Xylene,30.84±5.28,0.20±0.03,0.0,0.09175506
+8,5,Unknown,0.057,105,CsOAc,PPh2Me,BuCN,30.84±5.28,0.20±0.03,0.04,0.113531412

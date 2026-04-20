@@ -1,0 +1,560 @@
+"""Reaction Optimization Framework.
+
+A modern, efficient framework for multi-objective reaction optimization
+using Bayesian Optimization techniques.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Union
+
+import numpy as np
+import pandas as pd
+from sklearn.discriminant_analysis import StandardScaler
+import torch
+
+from rich.panel import Panel
+from rich.table import Table
+from rich.rule import Rule
+
+from synbo.utils.export_data import save_df
+
+from .optimize import Optimizer
+from .descriptor.desc_proc import array_process, done_array_process, array_standarization
+from .utils.util_func import check_desc_completeness, generate_constraint_mask, generate_onehot_desc, track_called, get_opt_type
+from .initialize import Initializer
+from .utils.logger import _logger_default, console
+
+default_settings = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0}
+
+
+class ReactionOptimizer:
+    """Reaction Optimization Framework.
+
+    A sophisticated framework for optimizing chemical reactions using
+    Bayesian Optimization .
+
+    Args:
+        opt_metrics: Optimization metrics (str or list of str)
+        opt_type: Optimization type ("init", "opt", or "auto")
+
+    Raises:
+        ValueError: If invalid parameters are provided
+    """
+
+    def __init__(
+        self,
+        opt_metrics: Union[str, List[str]],
+        opt_metric_settings: Union[dict, List[dict]] = {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+        opt_type: Literal["init", "opt", "auto"] = "auto",
+        random_seed: int = 42,
+        quiet: bool = False,
+        save_dir: str = None,
+    ) -> None:
+        if isinstance(opt_metrics, str):
+            opt_metrics = [opt_metrics]
+        elif not isinstance(opt_metrics, list):
+            raise ValueError("opt_metrics must be str or list")
+
+        if isinstance(opt_metric_settings, dict):
+            opt_metric_settings = [opt_metric_settings] * len(opt_metrics)
+        elif not isinstance(opt_metric_settings, list):
+            raise ValueError("opt_metric_settings must be str or list")
+        opt_metric_settings = [{**default_settings, **d} for d in opt_metric_settings]
+
+        assert all(type(d) == dict for d in opt_metric_settings), "opt_metric_settings must be dict or list of dict"
+        assert all(d["opt_direct"] in ["max", "min"] for d in opt_metric_settings), "opt_direct must be 'max' or 'min'"
+
+        if opt_type not in ["init", "opt", "auto"]:
+            raise ValueError("opt_type must be 'init', 'opt' or 'auto'")
+
+        _logger_default._set_quiet(quiet)
+
+        self.condition_dict = {}
+        self.desc_dict = {}
+        self.opt_metrics = opt_metrics
+        self.opt_metric_settings = opt_metric_settings
+        self.opt_type = opt_type
+        self.batch_id = 0
+        self.random_seed = random_seed
+        self.quiet = quiet
+
+        # Set global random seeds for reproducibility
+        self._set_random_seeds(random_seed)
+
+        self.save_dir = Path(save_dir) if save_dir else Path.cwd()
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
+        self.opt_console = console
+
+        self.opt_console.print(
+            Panel(
+                f"[bold blue]ReactionOptimizer initialized[/bold blue]\n" f"Metrics: {', '.join(self.opt_metrics)}\n" f"Mode: {opt_type}",
+                title="Reaction Optimizer",
+                expand=False,
+            )
+        )
+
+    def _set_random_seeds(self, seed: int) -> None:
+        """Set global random seeds for reproducibility.
+
+        Args:
+            seed: Random seed to use
+        """
+        import random
+
+        random.seed(seed)
+
+        np.random.seed(seed)
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+
+    def load_rxn_space(self, condition_dict: Dict[str, List[Any]]) -> None:
+        """Load reaction condition space.
+
+        Args:
+            condition_dict: Dictionary of condition types and their possible values
+        """
+        # Sort conditions for reproducibility
+        try:
+            for k, v in condition_dict.items():
+                if isinstance(v, pd.Series) or (type(v) == list and type(v[0]) in (str, int, float)):
+                    if pd.Series(v).duplicated().sum() > 0:
+                        print(pd.Series(v)[pd.Series(v).duplicated()].values)
+                    assert pd.Series(v).duplicated().sum() == 0, f"Condition type `{k}` contains duplicate values"
+                    condition_dict[k] = sorted(pd.Series(v).fillna("None").drop_duplicates().tolist())
+                elif isinstance(v, pd.DataFrame):
+                    assert k in v.columns, f"Condition type `{k}` not found in DataFrame!"
+                    assert v[k].duplicated().sum() == 0, f"Condition type `{k}` contains duplicate values"
+                    condition_dict[k] = sorted(v[k].fillna("None").tolist())
+                else:
+                    raise TypeError(f"the type of {k} is {type(v)}, which is not supported")
+        except Exception as e:
+            self.opt_console.print(f"Error: {e}", style="bold red")
+            raise Exception(e)
+
+        self.condition_types = list(condition_dict.keys())
+        self.condition_dict = condition_dict
+
+        # Display reaction space summary
+        table = Table(title="🔬 Reaction Space Summary")
+        table.add_column("Condition Type", style="cyan")
+        table.add_column("Count", style="magenta", justify="right")
+        table.add_column("Sample Values", style="yellow")
+
+        for ctype, values in condition_dict.items():
+            sample_str = ", ".join(map(str, values[:3]))
+            if len(values) > 6:
+                sample_str += "..."
+            table.add_row(ctype, str(len(values)), sample_str)
+
+        self.opt_console.print(table)
+
+    def load_desc(self, desc_dict: Optional[Dict[str, Any]] = None) -> None:
+        """Load descriptor dictionary.
+
+        Args:
+            desc_dict: Optional descriptor dictionary. If None, uses OneHot encoding.
+
+        Raises:
+            AssertionError: If condition types don't match
+        """
+        if desc_dict is None:
+            self.opt_console.print(
+                "****Warning: No descriptor dictionary provided, using OneHot encoding as alternative!!!****", style="yellow bold"
+            )
+            self.desc_dict = generate_onehot_desc(self.condition_dict)
+        else:
+            if set(desc_dict.keys()) != set(self.condition_types):
+                raise ValueError("Condition types do not match")
+            self.desc_dict = desc_dict
+
+        for k, v in self.desc_dict.items():
+            not_numeric_col = [col for col in v.columns if not pd.api.types.is_numeric_dtype(v[col])]
+
+            if not_numeric_col:
+                self.opt_console.print(
+                    f"🚨 Warning: Non-numeric columns found in descriptors for {k} condition type,"
+                    f"including {not_numeric_col}."
+                    "Now removing these columns...",
+                    style="bold yellow",
+                )
+            v.drop(columns=not_numeric_col, inplace=True)
+
+        self.opt_console.print("✓ Descriptors loaded successfully", style="green")
+
+    @track_called
+    def load_prev_rxn(self, prev_rxn_info: pd.DataFrame, drop_rxn: bool = False) -> None:
+        """Load previous reaction information.
+
+        Args:
+            prev_rxn_info: DataFrame containing previous reaction data
+            drop_rxn: Whether to drop reactions with missing species
+
+        Raises:
+            ValueError: If species not found in condition space
+        """
+
+        self.opt_type = "opt" if self.opt_type == "auto" else self.opt_type
+        self.batch_id = prev_rxn_info["batch"].max() + 1
+
+        # Validate condition types
+        missing_types = [t for t in self.condition_types if t not in prev_rxn_info.columns]
+        if missing_types:
+            raise ValueError(f"Missing condition types: {missing_types}")
+
+        prev_rxn_info[self.condition_types] = prev_rxn_info[self.condition_types].astype(str)
+        # Check for missing species in each condition type
+        for condition_type in self.condition_types:
+            missing_species = set(prev_rxn_info[condition_type]) - set(self.condition_dict[condition_type])
+
+            if missing_species:
+                if drop_rxn:
+                    self.opt_console.print(
+                        f"Warning: {missing_species} not in {condition_type} condition space, dropping these reactions", style="yellow"
+                    )
+                    prev_rxn_info = prev_rxn_info[~prev_rxn_info[condition_type].isin(missing_species)]
+                else:
+                    raise ValueError(f"{missing_species} not in {condition_type} condition space")
+
+        # Convert metrics to float
+        for opt_metric in self.opt_metrics:
+            try:
+                prev_rxn_info[opt_metric] = prev_rxn_info[opt_metric].astype(float)
+                assert any(np.isnan(prev_rxn_info[opt_metric])) == False
+            except:
+                raise ValueError("Some of target properties do not have any value or be '[exp_data]'. Check your input previous data.")
+
+        # drop non metric columns
+        prev_rxn_info = prev_rxn_info[prev_rxn_info[opt_metric].notna()]
+
+        self.prev_rxn_info = prev_rxn_info
+        try:
+            assert len(prev_rxn_info) > 0
+        except:
+            self.opt_console.print("No previous data was loaded. Check input information.", style="red")
+            raise ValueError("Cannot input previous data.")
+        self.opt_console.print(f"✓ Loaded {len(prev_rxn_info)} previous reactions", style="green")
+
+    def run(
+        self, batch_size: int = 5, desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax", expand_rxn_space: bool = False
+    ) -> None:
+        """Run optimization or initialization.
+
+        Args:
+            batch_size: Number of reactions to recommend
+            desc_normalize: Descriptor normalization method
+            expand_rxn_space: Whether to expand reaction space (future feature)
+        """
+
+        if self.opt_type == "auto":
+            if getattr(self, "_load_prev_rxn_called", False):
+                self.opt_type = "opt"
+            else:
+                self.opt_type = "init"
+
+        if expand_rxn_space:
+            self.opt_console.print("Reaction space expansion not yet implemented", style="yellow bold")
+
+        self.opt_console.print(Rule(title="🚀 Running Calculation", style="bold"))
+
+        self.opt_console.print(
+            "Running settings:\n"
+            f"_ Optimization type: [bold]{get_opt_type(self.opt_type)}[/bold]\n"
+            f"_ Batch size: [bold]{batch_size}[/bold]\n"
+            f"_ Normalization: [bold]{desc_normalize}[/bold]\n"
+        )
+
+        if self.opt_type == "init":
+            self.initialize(batch_size=batch_size, desc_normalize=desc_normalize)
+        elif self.opt_type == "opt":
+            self.optimize(batch_size=batch_size, desc_normalize=desc_normalize)
+        else:
+            raise ValueError("opt_type must be 'init' or 'opt'")
+
+    def initialize(
+        self,
+        batch_size: int = 5,
+        desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
+        sampling_method: Literal["sobol", "random", "lhs", "kmeans"] = "lhs",
+        refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
+    ) -> None:
+        """Initialize reaction optimization with initial sampling.
+
+        Args:
+            batch_size: Number of initial samples
+            desc_normalize: Descriptor normalization method
+            sampling_method: Sampling strategy for initial points
+        """
+
+        # progress.update(task, description="Checking descriptor completeness...")
+        check_desc_completeness(self.desc_dict, self.condition_dict)
+
+        total_name_arr, total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc)
+
+        total_desc_arr = array_standarization(total_desc_arr, desc_normalize=desc_normalize)
+
+        initializer = Initializer(numerical_data=total_desc_arr, name_data=total_name_arr, random_seed=self.random_seed)
+        self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
+
+        # All initial points are exploration
+        self.recommend_type = ["EXPLORE"] * batch_size
+
+        # For initialization, no prediction values available
+        self.pred_mean = None
+        self.pred_std = None
+
+        self.opt_console.print(
+            f"✓ Selected [bold]{batch_size}[/bold] initial conditions using [bold]{sampling_method}[/bold] sampling", style="green"
+        )
+
+    def optimize(
+        self,
+        batch_size: int = 5,
+        desc_normalize: Literal["minmax", "zscore", "l2"] = "minmax",
+        refine_desc: Literal["auto_select", "filter_only", "pass"] = "auto_select",
+        optimize_method: str = "default_BO",
+        constraints: Optional[Dict[str, List[Any]]] = None,
+        device: str = "auto",
+        **optimization_kwargs: Any,
+    ) -> None:
+        """Optimize reaction conditions using Bayesian Optimization."""
+        try:
+            assert getattr(self, "_load_prev_rxn_called", False) == True
+        except:
+            self.opt_console.print("Must load previous reaction information before optimization.", style="red")
+            raise Exception("No previous reaction information was loaded.")
+
+        # Load prohibited reagents from file if they exist
+        if self.save_dir:
+            from synbo.utils.constraints_io import load_prohibited_reagents, merge_constraints
+
+            file_prohibited = load_prohibited_reagents(self.save_dir)
+            if file_prohibited:
+                self.opt_console.print("📋 Loading prohibited reagents from file...", style="cyan")
+                # Merge with provided constraints
+                constraints = merge_constraints(constraints, file_prohibited)
+                if constraints:
+                    total_prohibited = sum(len(v) for v in constraints.values())
+                    self.opt_console.print(f"  Total constraints loaded: {total_prohibited} prohibited reagents", style="cyan")
+
+        check_desc_completeness(self.desc_dict, self.condition_dict)
+
+        total_name_arr, total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc)
+
+        done_arr_index = done_array_process(self.prev_rxn_info, total_name_arr, self.condition_types)
+        total_desc_arr = array_standarization(total_desc_arr, done_arr_index, desc_normalize)
+
+        done_arr_desc = total_desc_arr[done_arr_index]
+        done_name = total_name_arr[done_arr_index]
+        done_arr_metrics = {k: self.prev_rxn_info[k].values for k in self.opt_metrics}
+
+        y_scaler = StandardScaler()
+        normalized_metrics = y_scaler.fit_transform(np.array(list(done_arr_metrics.values())).T).T
+
+        if device == "auto":
+            device = torch.device(f"cuda") if torch.cuda.is_available() else torch.device("cpu")
+        elif device.split(":")[0] == "cuda" and torch.cuda.is_available():
+            try:
+                device = torch.device(f"cuda:{device.split(':')[1]}")
+            except:
+                self.opt_console(f"Device {device} is not valid. Using CPU instead.", style="yellow")
+                device = torch.device("cpu")
+        else:
+            device = torch.device("cpu")
+
+        if device.type == "cpu":
+            self.opt_console.print("Now using CPU for optimization.", style="yellow")
+
+        optimizer = Optimizer(method=optimize_method, random_seed=self.random_seed, device=device, optimization_kwargs=optimization_kwargs)
+
+        mask = np.ones(len(total_desc_arr), dtype=bool)
+        mask[done_arr_index] = False
+        candidate_indices = np.where(mask)[0]
+
+        if constraints is not None and total_name_arr is not None and self.condition_types is not None:
+            constraint_mask = generate_constraint_mask(
+                total_name_arr=total_name_arr,
+                condition_types=self.condition_types,
+                constraints=constraints,
+            )
+
+            self.opt_console.log(f"Constraints applied: {constraint_mask.sum()}/{len(constraint_mask)} candidates available", style="cyan")
+
+            candidate_indices = candidate_indices[constraint_mask[candidate_indices]]
+
+        candidate_X = total_desc_arr[candidate_indices]
+        candidate_name = total_name_arr[candidate_indices]
+
+        self.selected_conditions, self.recommend_type, self.pred_mean, self.pred_std = optimizer.optimize(
+            training_X=done_arr_desc,
+            training_y=normalized_metrics,
+            candidate_X=candidate_X,
+            opt_metric_settings=self.opt_metric_settings,
+            batch_size=batch_size,
+            done_name=done_name,
+            candidate_name=candidate_name,
+            condition_types=self.condition_types,
+        )
+
+        # Denormalize prediction values using the same scalers
+        if self.pred_mean is not None and self.pred_std is not None:
+            # Update the attributes with denormalized values
+            self.pred_mean = y_scaler.inverse_transform(self.pred_mean)
+            self.pred_std = self.pred_std * y_scaler.scale_
+
+        # Display optimization summary
+        exploit_count = sum(1 for t in self.recommend_type if t == "exploit")
+        explore_count = sum(1 for t in self.recommend_type if t == "explore")
+
+        self.opt_console.print(
+            Panel(
+                f"[green]Optimization Complete![/green]\n"
+                f"Recommended: {batch_size} conditions\n"
+                f"Exploit: {exploit_count} | Explore: {explore_count}\n"
+                f"Method: {optimize_method} | Device: {device}",
+                title="🎯 Results Summary",
+            )
+        )
+
+    def save_results(
+        self,
+        filetype: Literal["csv", "excel", "json"] = "csv",
+        figure_output: List[str] = None,
+        figure_path: Optional[Union[str, Path]] = None,
+        suffix: Optional[str] = None,
+        transpose: Optional[bool] = False,
+    ) -> None:
+        """Save recommendations to file.
+
+        Args:
+            save_task: Directory path to save results
+            filetype: Output file format
+            figure_output: List of figure types to generate
+            figure_path: Path for figures
+            suffix: Optional filename suffix
+        """
+        # Prepare prediction info dictionary
+        pred_info = None
+        if self.pred_mean is not None and self.pred_std is not None:
+            pred_info = {}
+            for i, metric in enumerate(self.opt_metrics):
+                pred_info[f"pred {metric}"] = [f"{mean:.2f}±{sigma:.2f}" for mean, sigma in zip(self.pred_mean[:, i], self.pred_std[:, i])]
+
+        save_df(
+            save_path=self.save_dir,
+            filetype=filetype,
+            selected_conditions=self.selected_conditions,
+            condition_dict=self.condition_dict,
+            recommend_type=self.recommend_type,
+            batch_id=self.batch_id,
+            pred_info=pred_info,
+            opt_metrics=self.opt_metrics,
+            figure_output=figure_output,
+            figure_path=figure_path,
+            suffix=suffix,
+            transpose=transpose,
+        )
+
+    def get_rxn_space_size(self) -> int:
+        """Get the size of the reaction space.
+
+        Returns:
+            Size of the reaction space
+        """
+        size = 1
+        for values in self.condition_dict.values():
+            size *= len(values)
+        return size
+
+    def get_descriptor_shape(self) -> int:
+        """Get the shape of the descriptor array.
+
+        Returns:
+            Shape of the descriptor array
+        """
+        if not self.desc_dict:
+            raise ValueError("Descriptor dictionary is empty. Load descriptors first.")
+        total_shape = 0
+        for desc_df in self.desc_dict.values():
+            total_shape += desc_df.shape[1]
+        return total_shape
+
+    def calculate_current_hv(self, batch_id: Optional[int] = None, reference_point_multiplier: float = 1.0) -> Dict[str, any]:
+        """Calculate hypervolume (HV) for current optimization progress.
+
+        This method calculates the hypervolume metric for multi-objective optimization,
+        which measures the volume of the objective space dominated by the Pareto front.
+
+        Args:
+            batch_id: Optional batch ID to calculate HV up to. If None, uses all available data
+            reference_point_multiplier: Multiplier for reference point (default: 1.0)
+
+        Returns:
+            Dictionary containing:
+                - 'hv': Hypervolume value
+                - 'hv_normalized': Normalized hypervolume (0 to 1)
+                - 'total_hv': Total theoretical hypervolume (reference)
+                - 'num_points': Number of points used in calculation
+                - 'batch_id': Batch ID used for calculation
+
+        Raises:
+            ValueError: If prev_rxn_info has not been loaded
+        """
+        from synbo.utils.hv_calculator import calculate_hypervolume_for_batch
+
+        if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
+            raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
+
+        if batch_id is None:
+            # Use the current batch_id if available, otherwise calculate HV for all data
+            batch_id = getattr(self, "batch_id", None)
+
+        hv_result = calculate_hypervolume_for_batch(
+            prev_rxn_info=self.prev_rxn_info,
+            opt_metrics=self.opt_metrics,
+            opt_metric_settings=self.opt_metric_settings,
+            batch_id=batch_id,
+            reference_point_multiplier=reference_point_multiplier,
+        )
+
+        return hv_result
+
+    def calculate_hv_by_batch(self, reference_point_multiplier: float = 1.0) -> pd.DataFrame:
+        """Calculate hypervolume for each batch cumulatively.
+
+        This method calculates the hypervolume at each batch, including all data
+        from previous batches. This shows the progress of optimization over time.
+
+        Args:
+            reference_point_multiplier: Multiplier for reference point (default: 1.0)
+
+        Returns:
+            DataFrame with columns:
+                - 'batch': Batch index
+                - 'hv': Hypervolume value
+                - 'hv_normalized': Normalized hypervolume (0 to 1)
+                - 'num_points': Cumulative number of points
+
+        Raises:
+            ValueError: If prev_rxn_info has not been loaded
+        """
+        from synbo.utils.hv_calculator import calculate_hypervolume_by_batch
+
+        if not hasattr(self, "prev_rxn_info") or self.prev_rxn_info is None:
+            raise ValueError("Previous reaction information must be loaded before calculating hypervolume. Call load_prev_rxn() first.")
+
+        hv_results = calculate_hypervolume_by_batch(
+            prev_rxn_info=self.prev_rxn_info,
+            opt_metrics=self.opt_metrics,
+            opt_metric_settings=self.opt_metric_settings,
+            reference_point_multiplier=reference_point_multiplier,
+        )
+
+        return hv_results

@@ -1,0 +1,10 @@
+name,SMILES
+(S)-Proline,O=C(O)[C@@H]1CCCN1
+"MacMillan Gen 1",CN1C(=O)[C@H](Cc2ccccc2)NC1(C)C
+Hayashi-Jorgensen,C[Si](C)(C)OC(c1ccccc1)(c2ccccc2)[C@@H]3CCCN3
+"Takemoto Catalyst",CN(C)[C@H]1CCCC[C@@H]1NC(=S)Nc2cc(C(F)(F)F)cc(C(F)(F)F)c2
+Quinine,COC1=CC=C2N=CC=C([C@H](O)[C@@H]3C[C@@H]4CCN3C[C@@H]4C=C)C2=C1
+BINOL-PA,O=P1(Oc(c2c3cc4ccccc4cc3O1)ccc5c2cccc5)O
+Me-CBS,C[B]1O[C@](c2ccccc2)(c3ccccc3)[C@@H]4CCCN14
+"DPEN",N[C@H](c1ccccc1)[C@H](c2ccccc2)N
+"Rawal Squaramide",O=C1C(=O)C(=C1Nc2cc(C(F)(F)F)cc(C(F)(F)F)c2)N[C@H]3CCCC[C@@H]3N(C)C

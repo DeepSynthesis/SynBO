@@ -1,0 +1,17 @@
+================================================================================
+Gryffin Benchmark Timing Information
+================================================================================
+
+Dataset:           HTE_datasets/suzuki_HTE/suzuki_HTE.csv
+Number of seeds:   10
+Budget per seed:   50 experiments
+Total experiments: 500
+Desc columns:      ['solvent', 'ligand', 'reactant2', 'reactant1', 'base']
+
+--------------------------------------------------------------------------------
+Timing Information:
+--------------------------------------------------------------------------------
+Start time:        2026-04-17 14:34:42
+End time:          2026-04-17 15:13:40
+Total time:        2338.04 s (38.97 min)
+Avg time/seed:     233.80 s

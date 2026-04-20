@@ -1,0 +1,6 @@
+batch,index,type,alkali,cobalt_catalyst,organo_catalyst,oxidant,solvent,pred yield,pred ee,yield,ee
+0,1,EXPLORE,DBU,[Co]-5,Me-CBS,KHSO5_2H2SO4,CH3CN,-,-,0,0
+0,2,EXPLORE,no_alkali,[Co]-2,Hayashi-Jorgensen,Cl-2,Chloroform,-,-,0,0
+0,3,EXPLORE,no_alkali,[Co]-8,(S)-Proline,K2S2O8,THF,-,-,0,0
+0,4,EXPLORE,DBU,[Co]-5,Hayashi-Jorgensen,Iodine_ox,Toluene,-,-,0,0
+0,5,EXPLORE,acetic acid,[Co]-5,MacMillan Gen 1,F-1_BF4,Ether,-,-,0,0

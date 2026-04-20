@@ -10,7 +10,7 @@ Here's a simple example of using ReactionOpt to optimize a reaction:
 
 .. code-block:: python
 
-    from rxnopt import ReactionOptimizer
+    from synbo import ReactionOptimizer
     import pandas as pd
     import numpy as np
 

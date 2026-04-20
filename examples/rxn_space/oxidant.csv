@@ -1,0 +1,9 @@
+SMILES,name
+Cc1cc(C)[n+](F)c(C)c1.O=S(=O)([O-])C(F)(F)F,F_OTf
+O=C(O)c1ccccc1I(=O)=O,Iodine_ox
+O=C1CCC(=O)N1Cl,NCS
+O=C1c2ccccc2S(=O)(=O)N1Cl,Cl-1
+CC1(C)C(=O)N(Cl)C(=O)N1Cl,Cl-2
+O=S(=O)([O-])OOS(=O)(=O)[O-].[K+].[K+],K2S2O8
+O=S(=O)(O)O.O=S(=O)(O)O.O=S(=O)(O)O[O-].[K+],KHSO5_2H2SO4
+Cc1cc(C)[n+](F)c(C)c1.F[B-](F)(F)F,F-1_BF4

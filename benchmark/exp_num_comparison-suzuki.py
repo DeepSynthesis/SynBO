@@ -1,14 +1,3 @@
-"""
-Compare experiment efficiency between SynBO, OFAT, and Random methods.
-
-This script generates a plot showing the expected target value (e.g., Conversion)
-versus the number of experiments conducted.
-
-- SynBO: Reads CSV files from multiple runs, plots cumulative best values per batch (5 experiments per batch)
-- OFAT: Reads from ofat_expected_results.json
-- Random: Reads from random_expected_results.json
-"""
-
 import json
 import glob
 import numpy as np
@@ -16,115 +5,90 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 
-def load_synbo_data(results_pattern: str, target_column: str = "Conversion", direction: str = "max") -> Tuple[np.ndarray, np.ndarray]:
+def load_batch_csv_data(
+    results_pattern: str,
+    target_column: str = "Conversion",
+    direction: str = "max",
+    experiments_per_batch: int = 5,  # 新增：从配置中读取每批次实验数
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Load SynBO data from CSV files and compute cumulative best values.
-
-    Args:
-        results_pattern: Glob pattern to find CSV files (e.g., "results/multiple_*/all_batches_final_round_*.csv")
-        target_column: Name of the target column
-        direction: Optimization direction ("max" or "min")
-
-    Returns:
-        Tuple of (experiment_numbers, mean_best_values)
+    Load data from CSV files (SynBO style) and compute cumulative best values.
+    Correctly aligns by actual batch index and forward-fills missing batches.
     """
-    # Find all matching files
     matching_files = glob.glob(results_pattern)
 
     if not matching_files:
         print(f"Warning: No files found with pattern: {results_pattern}")
         return np.array([]), np.array([])
 
-    print(f"Found {len(matching_files)} total files, filtering for '{target_column}' column...")
-
-    # Store cumulative best trajectories from all runs
-    all_trajectories = []
-    max_batches = 0
+    all_series = []  # 存放每个 run 的 Series (index=batch, value=cum_best)
     valid_files = 0
 
     for file_path in matching_files:
         df = pd.read_csv(file_path)
-
-        # Skip files that don't have the target column (different experiment type)
         if target_column not in df.columns:
             continue
 
         valid_files += 1
 
-        # Sort by batch
-        df = df.sort_values("batch").copy()
-
-        # Group by batch and get best value per batch
+        # 核心：按 batch 分组求单批次最优
         if direction == "max":
             batch_best = df.groupby("batch")[target_column].max()
+            cumulative_best = batch_best.cummax()
         elif direction == "min":
             batch_best = df.groupby("batch")[target_column].min()
-        else:
-            raise ValueError(f"Unknown direction '{direction}'. Use 'max' or 'min'.")
-
-        # Calculate cumulative best
-        if direction == "max":
-            cumulative_best = batch_best.cummax()
-        else:
             cumulative_best = batch_best.cummin()
+        else:
+            raise ValueError(f"Unknown direction '{direction}'")
 
-        # Store trajectory
-        trajectory = cumulative_best.values
-        all_trajectories.append(trajectory)
-        max_batches = max(max_batches, len(trajectory))
+        # 此时 cumulative_best 是一个 Pandas Series，Index 就是真实的 batch 编号
+        all_series.append(cumulative_best)
 
-    print(f"Found {valid_files} valid SynBO runs with '{target_column}' column")
-
-    if not all_trajectories:
+    if not all_series:
         return np.array([]), np.array([])
 
-    # Pad trajectories to same length and compute mean
-    # Each batch has 5 experiments
-    experiments_per_batch = 5
+    # 1. 对齐：使用 pandas.concat 沿列合并，它会自动根据 Index (真实的 batch 号) 对齐！
+    # 如果某个 run 缺少某个 batch，对应位置会变成 NaN
+    df_all_runs = pd.concat(all_series, axis=1)
 
-    padded_trajectories = []
-    for traj in all_trajectories:
-        if len(traj) < max_batches:
-            # Pad with last value
-            padded = np.pad(traj, (0, max_batches - len(traj)), mode='edge')
-        else:
-            padded = traj
-        padded_trajectories.append(padded)
+    # 2. 填充：排序 batch 索引，并使用 ffill() 向前填充 NaN
+    # (如果 Run A 停在 batch 8，它在 batch 9,10 的值会保持 batch 8 的最大值)
+    df_all_runs = df_all_runs.sort_index().ffill()
 
-    # Convert to array: shape (n_runs, n_batches)
-    trajectories_array = np.array(padded_trajectories)
+    # 如果开头有 NaN (比如某个 run 没有 batch 0)，用该 run 之后第一个有效值反向填充
+    df_all_runs = df_all_runs.bfill()
 
-    # Compute mean and std across runs
-    mean_best_values = trajectories_array.mean(axis=0)
+    # 3. 聚合：计算每一行 (每一个真实 batch) 跨所有 runs 的平均值
+    mean_best_values = df_all_runs.mean(axis=1).values
 
-    # Experiment numbers: each batch corresponds to 5 experiments
-    # Batch 0 is the first batch (5 experiments), Batch 1 is next (10 experiments total), etc.
-    experiment_numbers = np.arange(1, max_batches + 1) * experiments_per_batch
+    # 4. 映射 X 轴：获取真实的 batch 编号序列
+    actual_batches = df_all_runs.index.values
+
+    # 按照你的逻辑：第 k 个 batch 对应第 k * experiments_per_batch 个实验
+    # 注意：如果你的 batch 是从 0 开始算作第一批次，需要 (actual_batches + 1) * 5
+    # 如果你的 batch 在 CSV 里本来就是从 1 开始的，直接 actual_batches * 5 即可
+    # 这里我做个智能判断：如果最小的 batch 是 0，自动加 1。
+    if actual_batches.min() == 0:
+        experiment_numbers = (actual_batches + 1) * experiments_per_batch
+    else:
+        experiment_numbers = actual_batches * experiments_per_batch
 
     return experiment_numbers, mean_best_values
 
-def load_baseline_data(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
+
+def load_threshold_json_data(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Load baseline method (OFAT or Random) data from JSON file.
-
-    The JSON format is:
-    {
-        "90": {"threshold": 90, "mean": 30.399, ...},
-        "91": {"threshold": 91, "mean": 34.464, ...},
-        ...
-    }
-
-    Args:
-        json_path: Path to the JSON file
-
-    Returns:
-        Tuple of (mean_experiment_numbers, thresholds)
+    Load baseline method data from JSON file (OFAT/Random style).
     """
-    with open(json_path, 'r') as f:
-        data = json.load(f)
+    try:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        print(f"Warning: File not found: {json_path}")
+        return np.array([]), np.array([])
 
     thresholds = []
     mean_experiments = []
@@ -133,7 +97,6 @@ def load_baseline_data(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
         thresholds.append(float(value["threshold"]))
         mean_experiments.append(float(value["mean"]))
 
-    # Sort by threshold
     sorted_indices = np.argsort(thresholds)
     thresholds = np.array(thresholds)[sorted_indices]
     mean_experiments = np.array(mean_experiments)[sorted_indices]
@@ -142,86 +105,62 @@ def load_baseline_data(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def plot_experiment_comparison(
-    synbo_pattern: str,
-    ofat_json: str,
-    random_json: str,
+    methods_config: Dict[str, Dict[str, Any]],
     output_dir: str = "comparison_results/exp_num_comparison",
     target_column: str = "Conversion",
     direction: str = "max",
+    reference_method: str = "SynBO",
 ):
     """
-    Generate comparison plot of experiment efficiency.
-
-    Args:
-        synbo_pattern: Glob pattern for SynBO CSV files
-        ofat_json: Path to OFAT results JSON
-        random_json: Path to Random results JSON
-        output_dir: Output directory for the plot
-        target_column: Name of the target column
-        direction: Optimization direction ("max" or "min")
+    Generate comparison plot of experiment efficiency dynamically based on config.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*20} Starting Experiment Number Comparison {'='*20}")
 
-    # Load data for all methods
-    print("\nLoading SynBO data...")
-    synbo_exp_nums, synbo_values = load_synbo_data(synbo_pattern, target_column, direction)
+    # 1. Load Data Dynamically
+    loaded_data = {}
+    for method_name, config in methods_config.items():
+        print(f"Loading data for {method_name}...")
+        data_type = config.get("type")
+        path = config.get("path")
 
-    print("\nLoading OFAT data...")
-    ofat_exp_nums, ofat_values = load_baseline_data(ofat_json)
+        if data_type == "batch_csv":
+            exp_nums, values = load_batch_csv_data(path, target_column, direction)
+        elif data_type == "threshold_json":
+            exp_nums, values = load_threshold_json_data(path)
+        else:
+            print(f"Warning: Unknown data type '{data_type}' for {method_name}")
+            continue
 
-    print("\nLoading Random data...")
-    random_exp_nums, random_values = load_baseline_data(random_json)
+        if len(exp_nums) > 0:
+            loaded_data[method_name] = (exp_nums, values)
+            print(f"  -> Loaded {len(exp_nums)} data points.")
+        else:
+            print(f"  -> No data loaded for {method_name}.")
 
-    # Set style
+    if not loaded_data:
+        print("No valid data loaded. Exiting.")
+        return
+
+    # 2. Plotting
     sns.set_theme(style="whitegrid")
     plt.figure(figsize=(10, 7))
 
-    # Plot SynBO
-    if len(synbo_exp_nums) > 0:
+    for method_name, (exp_nums, values) in loaded_data.items():
+        config = methods_config[method_name]
         plt.plot(
-            synbo_exp_nums,
-            synbo_values,
-            marker='o',
+            exp_nums,
+            values,
+            marker=config.get("marker", "o"),
             markersize=6,
             linewidth=2.5,
-            label='SynBO',
-            color='#2E86AB',
-            zorder=10,
+            label=method_name,
+            color=config.get("color"),
+            zorder=config.get("zorder", 5),
         )
-        print(f"SynBO: {len(synbo_exp_nums)} batches plotted")
 
-    # Plot OFAT
-    if len(ofat_exp_nums) > 0:
-        plt.plot(
-            ofat_exp_nums,
-            ofat_values,
-            marker='s',
-            markersize=6,
-            linewidth=2.5,
-            label='OFAT',
-            color='#A23B72',
-            zorder=9,
-        )
-        print(f"OFAT: {len(ofat_exp_nums)} thresholds plotted")
-
-    # Plot Random
-    if len(random_exp_nums) > 0:
-        plt.plot(
-            random_exp_nums,
-            random_values,
-            marker='^',
-            markersize=6,
-            linewidth=2.5,
-            label='Random',
-            color='#F18F01',
-            zorder=8,
-        )
-        print(f"Random: {len(random_exp_nums)} thresholds plotted")
-
-    # Formatting
     plt.xlabel("Number of Experiments", fontsize=14, fontname="Arial", fontweight="bold")
     plt.ylabel(f"Expected {target_column}", fontsize=14, fontname="Arial", fontweight="bold")
     plt.title(f"Experiment Efficiency Comparison: {target_column}", fontsize=16, fontname="Arial", fontweight="bold")
@@ -232,100 +171,110 @@ def plot_experiment_comparison(
 
     plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
     ax = plt.gca()
-    ax.spines["top"].set_linewidth(1.2)
-    ax.spines["right"].set_linewidth(1.2)
-    ax.spines["bottom"].set_linewidth(1.2)
-    ax.spines["left"].set_linewidth(1.2)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.2)
 
     plt.legend(loc="best", fontsize=12, framealpha=0.9)
 
-    # Save plot
     save_path = output_dir / f"exp_num_comparison_{target_column.lower()}.png"
+    plt.ylim(90, 100)
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"\nPlot saved: {save_path}")
 
-    # Print summary statistics
+    # 3. Summary Statistics
     print(f"\n{'='*20} Summary Statistics {'='*20}")
-    if len(synbo_exp_nums) > 0:
-        print(f"SynBO final: {synbo_values[-1]:.2f} at {synbo_exp_nums[-1]} experiments")
-    if len(ofat_exp_nums) > 0:
-        print(f"OFAT max threshold: {ofat_values[-1]:.2f} at {ofat_exp_nums[-1]:.1f} experiments (on average)")
-    if len(random_exp_nums) > 0:
-        print(f"Random max threshold: {random_values[-1]:.2f} at {random_exp_nums[-1]:.1f} experiments (on average)")
+    for method_name, (exp_nums, values) in loaded_data.items():
+        print(f"{method_name} final/max: {values[-1]:.2f} at {exp_nums[-1]:.1f} experiments")
 
-    # Calculate efficiency gains
+    # 4. Efficiency Analysis (Compared to Reference Method)
     print(f"\n{'='*20} Efficiency Analysis {'='*20}")
-    if len(synbo_exp_nums) > 0 and len(ofat_exp_nums) > 0 and len(random_exp_nums) > 0:
-        # Compare at common target values (e.g., 90, 92, 94, 95)
+    if reference_method in loaded_data:
+        ref_exp_nums, ref_values = loaded_data[reference_method]
         comparison_thresholds = [90, 92, 94, 95]
 
         for threshold in comparison_thresholds:
-            # Check if SynBO reaches this threshold
-            synbo_idx = np.where(synbo_values >= threshold)[0]
-            if len(synbo_idx) > 0:
-                synbo_exp_needed = synbo_exp_nums[synbo_idx[0]]
+            ref_idx = np.where(ref_values >= threshold)[0]
+            if len(ref_idx) == 0:
+                continue
 
-                # Find OFAT experiments needed for this threshold
-                ofat_idx = np.where(ofat_values >= threshold)[0]
-                if len(ofat_idx) > 0:
-                    ofat_exp_needed = ofat_exp_nums[ofat_idx[0]]
+            ref_exp_needed = ref_exp_nums[ref_idx[0]]
+            print(f"\nTo achieve {target_column} ≥ {threshold}:")
+            print(f"  - {reference_method} needs: {ref_exp_needed:.1f} experiments")
+
+            for method_name, (exp_nums, values) in loaded_data.items():
+                if method_name == reference_method:
+                    continue
+
+                other_idx = np.where(values >= threshold)[0]
+                if len(other_idx) > 0:
+                    other_exp_needed = exp_nums[other_idx[0]]
+                    savings = (other_exp_needed - ref_exp_needed) / other_exp_needed * 100
+                    print(f"  - {method_name} needs: {other_exp_needed:.1f} experiments")
+                    print(f"  - {reference_method} saves {savings:.1f}% experiments vs {method_name}")
                 else:
-                    ofat_exp_needed = None
-
-                # Find Random experiments needed for this threshold
-                random_idx = np.where(random_values >= threshold)[0]
-                if len(random_idx) > 0:
-                    random_exp_needed = random_exp_nums[random_idx[0]]
-                else:
-                    random_exp_needed = None
-
-                print(f"\nTo achieve {target_column} ≥ {threshold}:")
-                print(f"  - SynBO needs: {synbo_exp_needed:.0f} experiments")
-
-                if ofat_exp_needed:
-                    savings = (ofat_exp_needed - synbo_exp_needed) / ofat_exp_needed * 100
-                    print(f"  - OFAT needs: {ofat_exp_needed:.1f} experiments (on average)")
-                    print(f"  - SynBO saves {savings:.1f}% experiments vs OFAT")
-                else:
-                    print(f"  - OFAT: threshold not reached")
-
-                if random_exp_needed:
-                    savings = (random_exp_needed - synbo_exp_needed) / random_exp_needed * 100
-                    print(f"  - Random needs: {random_exp_needed:.1f} experiments (on average)")
-                    print(f"  - SynBO saves {savings:.1f}% experiments vs Random")
-                else:
-                    print(f"  - Random: threshold not reached")
-
-        # Also show final comparison at SynBO's final value
-        synbo_final_value = synbo_values[-1]
-        synbo_final_exp = synbo_exp_nums[-1]
-
-        # Find the closest threshold in OFAT and Random data
-        ofat_idx = np.argmin(np.abs(ofat_values - synbo_final_value))
-        random_idx = np.argmin(np.abs(random_values - synbo_final_value))
-
-        print(f"\n{'='*20} Summary at SynBO's Final Performance {'='*20}")
-        print(f"SynBO achieves {synbo_final_value:.2f} {target_column} at {synbo_final_exp:.0f} experiments")
-        print(f"OFAT needs {ofat_exp_nums[ofat_idx]:.1f} experiments to reach {ofat_values[ofat_idx]:.2f} (on average)")
-        print(f"Random needs {random_exp_nums[random_idx]:.1f} experiments to reach {random_values[random_idx]:.2f} (on average)")
+                    print(f"  - {method_name}: threshold not reached")
 
     print(f"\n{'='*20} Comparison Complete {'='*20}")
 
 
 if __name__ == "__main__":
-    # Configuration
-    synbo_pattern = "results/multiple_*/all_batches_final_round_*.csv"
-    ofat_json = "compare_mothods/ofat/results/ofat_expected_results.json"
-    random_json = "compare_mothods/random/results/random_expected_results.json"
-    output_dir = "comparison_results/exp_num_comparison"
+    # ==========================================
+    # 核心配置字典 (Configuration Dictionary)
+    # 若要新增数据，只需在这里添加一个新的字典项即可
+    # type: "batch_csv" (读取多轮实验CSV) 或 "threshold_json" (读取OFAT/Random的JSON)
+    # ==========================================
+    methods_config = {
+        "SynBO": {
+            "type": "batch_csv",
+            "path": "results/multiple_20260417_133009/all_batches_final_round_*.csv",
+            "color": "#2E86AB",
+            "marker": "o",
+            "zorder": 10,
+        },
+        # "EDBO": {
+        #     "type": "batch_csv",
+        #     "path": "compare_mothods/edboplus/results/EDBOplus_for_suzuki_HTE/batch_*.csv",
+        #     "color": "#2D9255",
+        #     "marker": "o",
+        #     "zorder": 10,
+        # },
+        # "Gryffin": {
+        #     "type": "batch_csv",
+        #     "path": "compare_mothods/gryffin/results/suzuki_HTE/batch_*.csv",
+        #     "color": "#772D92",
+        #     "marker": "o",
+        #     "zorder": 10,
+        # },
+        "OFAT": {
+            "type": "threshold_json",
+            "path": "compare_mothods/ofat/results/ofat_expected_results.json",
+            "color": "#A23B72",
+            "marker": "s",
+            "zorder": 9,
+        },
+        "Random": {
+            "type": "threshold_json",
+            "path": "compare_mothods/random/results/random_expected_results.json",
+            "color": "#F18F01",
+            "marker": "^",
+            "zorder": 8,
+        },
+        # 如果你想加入传统的 BO (Bayesian Optimization)，只需取消下面的注释并修改路径：
+        # , "TraditionalBO": {
+        #     "type": "batch_csv",
+        #     "path": "results_bo/multiple_*/all_batches_*.csv",
+        #     "color": "#43AA8B",
+        #     "marker": "D",
+        #     "zorder": 7
+        # }
+    }
 
-    # Generate comparison plot
+    # Generate comparison plot dynamically
     plot_experiment_comparison(
-        synbo_pattern=synbo_pattern,
-        ofat_json=ofat_json,
-        random_json=random_json,
-        output_dir=output_dir,
+        methods_config=methods_config,
+        output_dir="comparison_results/exp_num_comparison",
         target_column="Conversion",
         direction="max",
+        reference_method="SynBO",  # 用于计算 "相比于XXX节省了多少实验" 的基准方法
     )

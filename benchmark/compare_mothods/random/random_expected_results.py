@@ -78,10 +78,10 @@ class RandomSimulator:
 
 def main():
     """Main function to run Random Expected experiments calculation."""
-    dataset_path = "/home/tzz/.cline/worktrees/bdca9/synbo/benchmark/datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
+    dataset_path = "../../datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
 
     # 测试阈值从 85 到 95 (包含95)
-    thresholds = list(range(90, 100))
+    thresholds = list(range(90, 97))
     n_simulations = 1000
 
     print("Loading dataset and initializing Random simulator...")

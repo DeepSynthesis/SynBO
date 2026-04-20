@@ -50,12 +50,6 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run Bayesian optimization with previous reaction data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Optimize with default settings
-  python optimize.py --project-dir examples
-
-        """,
     )
 
     parser.add_argument(

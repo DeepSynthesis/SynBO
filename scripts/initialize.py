@@ -50,17 +50,6 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Initialize reaction optimization with initial sampling",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Initialize with default settings
-  python initialize.py --project-dir examples
-
-  # Initialize with custom batch size and sampling method
-  python initialize.py --project-dir examples \\
-                       --batch-size 10 --sampling-method sobol
-
-  # Initialize with custom configuration
-  python initialize.py --project-dir examples \\
         help="Project directory",
     )
     parser.add_argument(

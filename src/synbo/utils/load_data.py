@@ -19,19 +19,17 @@ def load_desc_from_file(desc_file: str, idx_col: str = "SMILES", fillna: bool = 
         df.fillna(0.0, inplace=True)
     else:
         assert not df.isna().any().any(), f"Descriptor file `{desc_file}` contains NaN values. Please check the data."
-    
+
     if df.duplicated().any():
         duplicates = df[df.duplicated(keep=False)]
         dup_groups = duplicates.groupby(list(duplicates.columns)).apply(lambda x: list(x.index))
-        
+
         error_msg = f"Descriptor file {desc_file} contains duplicated rows (grouped by content):\n"
         for content, indices in dup_groups.items():
             error_msg += f"Indices {indices} are identical\n"
-            
+
         raise ValueError(error_msg)
 
-
-    
     df.index = df.index.astype("str")
     return df
 

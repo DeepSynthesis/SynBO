@@ -76,7 +76,7 @@ class Initializer:
         self.name_data = name_data
         self.random_seed = random_seed
 
-    def sampling(self, method: Literal["LHS", "sobol", "kmeans", "hypersphere", "random"] = "LHS", batch_size: int = 5) -> np.ndarray:
+    def sampling(self, method: Literal["lhs", "sobol", "kmeans", "hypersphere", "random"] = "lhs", batch_size: int = 5) -> np.ndarray:
         """Sample initial conditions using specified method.
 
         Args:
@@ -102,7 +102,7 @@ class Initializer:
         ) as progress:
             task = progress.add_task(f"Sampling with {method}...", total=None)
 
-            match method.lower():
+            match method:
                 case "lhs":
                     selected_indices = self.lhs_sampling()
                 case "sobol":

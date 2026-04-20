@@ -296,11 +296,11 @@ class ReactionOptimizer:
         # progress.update(task, description="Checking descriptor completeness...")
         check_desc_completeness(self.desc_dict, self.condition_dict)
 
-        self.total_name_arr, self.total_desc_arr = array_process(
-            self.desc_dict, self.condition_dict, self.condition_types, desc_normalize, refine_desc
-        )
+        total_name_arr, total_desc_arr = array_process(self.desc_dict, self.condition_dict, self.condition_types, "none", refine_desc)
 
-        initializer = Initializer(numerical_data=self.total_desc_arr, name_data=self.total_name_arr, random_seed=self.random_seed)
+        total_desc_arr = array_standarization(total_desc_arr, desc_normalize=desc_normalize)
+
+        initializer = Initializer(numerical_data=total_desc_arr, name_data=total_name_arr, random_seed=self.random_seed)
         self.selected_conditions = initializer.sampling(method=sampling_method, batch_size=batch_size)
 
         # All initial points are exploration

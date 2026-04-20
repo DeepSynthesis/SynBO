@@ -26,8 +26,8 @@ Bayesian optimization for chemical reactions using the `synbo` package. This ski
 * **If NOT found:** Stop and prompt the user: "Reaction space data is missing in the `project_wd/rxn_space` directory. Please provide the standard reaction space data." Do not proceed until provided.
 
 **3. Condition Descriptors**
-* **Check:** Verify if the corresponding Condition Descriptors exist specifically within the `project_wd/mol_desc` directory.
-* **If NOT found:** Stop and prompt the user: "Condition Descriptors are missing in the `project_wd/mol_desc` directory. Please provide the standard Condition Descriptors, OR let me know if you would like me to automatically generate them for you."
+* **Check:** Verify if the corresponding Condition Descriptors exist specifically within the `project_wd/descriptors` directory.
+* **If NOT found:** Stop and prompt the user: "Condition Descriptors are missing in the `project_wd/descriptors` directory. Please provide the standard Condition Descriptors, OR let me know if you would like me to automatically generate them for you."
 
 **4. Optimization Metrics**
 * **Check:** Verify if the optimization settings file (e.g., `optimization_settings.json`) exists directly within the `project_wd` directory.
@@ -86,7 +86,7 @@ If the user requests automated generation, you must strictly adhere to the follo
 3. **Execution:** Once the categories are confirmed, invoke `scripts/get_desc.py` to compute the descriptors for each specified reagent category sequentially. The script should be executed with the following command:
 ```bash
 # --smiles-col and --name-col should be set according to the actual column names in the input CSV files, if they differ from 'SMILES' and 'name'.
-python scripts/get_desc.py --input rxn_space/{reagent_type}.csv --smiles-col 'SMILES' --name-col 'name'
+python scripts/get_desc.py --input rxn_space/{reagent_type}.csv --smiles-col 'SMILES' --name-col 'name' --project-dir {project_dir}
 ```
 
 **Attention**: if there are ANY error raised from the descriptor calculation process, you MUST report the error to the user.
@@ -114,55 +114,49 @@ The `initialize.py` script is used for initial sampling without previous reactio
 **Prerequisites:**
 - Working directory and project name configured in `config.json`
 - Reaction space data in `project_wd/rxn_space` directory
-- Condition descriptors in `project_wd/mol_desc` directory
+- Condition descriptors in `project_wd/descriptors` directory
 - Optimization settings file (`optimization_settings.json`) in `project_wd` directory
 
 **Usage:**
 ```bash
-python scripts/initialize.py --desc-dir <path_to_descriptors> --output <output_directory>
+python scripts/initialize.py --project-dir <project_directory>
 ```
 
 **Key Parameters:**
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--desc-dir` | Required | Directory containing descriptor files |
-| `--output` | `output/initialize` | Output directory for results |
-| `--reagent-types` | `base ligand solvent concentration temperature` | List of reagent types |
-| `--name-suffix` | `_dft _dft _dft None None` | Name suffixes for descriptor files |
+| `--project-dir` | Required | Project directory containing configuration files |
+| `--name-suffix` | `_RDKit` | Name suffixes for descriptor files |
+| `--index-col` | `name` | Index column for descriptor files |
 | `--batch-size` | `5` | Number of initial samples to generate |
 | `--desc-normalize` | `minmax` | Descriptor normalization method (`minmax`, `zscore`, `l2`) |
-| `--sampling-method` | `kmeans` | Sampling strategy (`sobol`, `random`, `lhs`, `kmeans`) |
-| `--refine-desc` | `filter_0.8` | Descriptor refinement method (`auto_select`, `filter_only`, `pass`, `filter_0.8`) |
+| `--sampling-method` | `lhs` | Sampling strategy (`sobol`, `random`, `lhs`, `kmeans`) |
 | `--random-seed` | `42` | Random seed for reproducibility |
 | `--quiet` | - | Suppress verbose output |
 
 **Examples:**
 ```bash
 # Initialize with default settings
-python scripts/initialize.py --desc-dir dataset/descriptors --output output/initialize
+python scripts/initialize.py --project-dir examples
 
 # Initialize with custom batch size and sampling method
-python scripts/initialize.py --desc-dir dataset/descriptors --output output/initialize \
+python scripts/initialize.py --project-dir examples \
     --batch-size 10 --sampling-method sobol
-
-# Initialize with custom configuration
-python scripts/initialize.py --desc-dir dataset/descriptors --output output/initialize \
-    --reagent-types base ligand solvent --batch-size 5
 ```
 
 **Workflow Steps:**
-1. Load optimization settings from `config.json` and `optimization_settings.json`
-2. Load descriptors from specified directory
+1. Load optimization settings from `optimization_settings.json`
+2. Load descriptors from `project_wd/descriptors` directory
 3. Create `ReactionOptimizer` instance with `opt_type="init"`
 4. Load reaction space
 5. Load descriptors
 6. Run initialization with sampling (initial design generation)
-7. Save recommended conditions to output directory
+7. Save recommended conditions to `project_wd/results` directory
 
 **Output:**
 - Excel file (`recommended_conditions.xlsx`) containing recommended experimental conditions
-- Results saved to the specified output directory
+- Results saved to the `project_wd/results` directory
 
 **Next Steps:**
 1. Download the Excel file with recommended experimental conditions
@@ -181,67 +175,60 @@ The `optimize.py` script runs Bayesian optimization with previous reaction data 
 **Prerequisites:**
 - Working directory and project name configured in `config.json`
 - Reaction space data in `project_wd/rxn_space` directory
-- Condition descriptors in `project_wd/mol_desc` directory
+- Condition descriptors in `project_wd/descriptors` directory
 - Optimization settings file (`optimization_settings.json`) in `project_wd` directory
-- Previous reaction data in CSV format (input file)
+- Previous reaction data in CSV format in `project_wd/results` directory
 
 **Usage:**
 ```bash
-python scripts/optimize.py --desc-dir <path_to_descriptors> --input <previous_data.csv> --output <output_directory>
+python scripts/optimize.py --project-dir <project_directory>
 ```
 
 **Key Parameters:**
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--desc-dir` | Required | Directory containing descriptor files |
-| `--input` | Required | Path to CSV file with previous reaction data |
-| `--output` | `output/optimize` | Output directory for results |
-| `--reagent-types` | `base ligand solvent concentration temperature` | List of reagent types |
-| `--name-suffix` | `_dft _dft _dft None None` | Name suffixes for descriptor files |
-| `--batch-size` | `1` | Number of new conditions to recommend |
+| `--project-dir` | Required | Project directory containing configuration files |
+| `--input-dir` | `results` | Directory containing previous reaction data (relative to project-dir) |
+| `--output-dir` | `results` | Output directory for results (relative to project-dir) |
+| `--name-suffix` | `_RDKit` | Name suffixes for descriptor files |
+| `--index-col` | `name` | Index column for descriptor files |
+| `--batch-size` | `5` | Number of new conditions to recommend |
 | `--desc-normalize` | `zscore` | Descriptor normalization method (`minmax`, `zscore`, `l2`) |
-| `--refine-desc` | `pass` | Descriptor refinement method (`auto_select`, `filter_only`, `pass`) |
 | `--optimize-method` | `default_BO` | Optimization algorithm to use |
-| `--surrogate-model` | `GP` | Surrogate model type |
 | `--random-seed` | `42` | Random seed for reproducibility |
 | `--quiet` | - | Suppress verbose output |
 
 **Examples:**
 ```bash
 # Optimize with default settings
-python scripts/optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv --output output/optimize
+python scripts/optimize.py --project-dir examples
 
 # Optimize with custom batch size
-python scripts/optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv \
-    --output output/optimize --batch-size 5
-
-# Optimize with custom configuration
-python scripts/optimize.py --desc-dir dataset/descriptors --input testfile/start_file.csv \
-    --output output/optimize --reagent-types base ligand solvent \
-    --surrogate-model RF 
+python scripts/optimize.py --project-dir examples \
+    --batch-size 5
 ```
 
 **Workflow Steps:**
-1. Load optimization settings from `config.json` and `optimization_settings.json`
-2. Load descriptors from specified directory
+1. Load optimization settings from `optimization_settings.json`
+2. Load descriptors from `project_wd/descriptors` directory
 3. Create `ReactionOptimizer` instance with `opt_type="auto"`
 4. Load reaction space
 5. Load descriptors
-6. Load previous reaction data from input CSV file
+6. Load previous reaction data from `project_wd/results` directory
 7. Run Bayesian optimization to recommend new conditions
-8. Save recommended conditions to output directory
+8. Save recommended conditions to `project_wd/results` directory
 
 **Input Data Format:**
-The input CSV file should contain previous reaction data with columns corresponding to:
-- Reagent types (matching those specified in `--reagent-types`)
+Previous reaction data should be stored in `project_wd/results` directory as `batch-*.csv` files. Each file should contain columns corresponding to:
+- Reagent types (matching those specified in `optimization_settings.json`)
 - Optimization metrics (matching those defined in `optimization_settings.json`)
-- Optional: `batch` column indicating batch numbers
+- `batch` column indicating batch numbers
 
 **Output:**
 - Excel file (`recommended_conditions.xlsx`) containing recommended experimental conditions
 - Summary including number of exploit vs explore recommendations
-- Results saved to the specified output directory
+- Results saved to the `project_wd/results` directory
 
 **Summary Information:**
 After optimization, the script displays:

@@ -91,6 +91,11 @@ Examples:
         help="Name suffixes for descriptor files",
     )
     parser.add_argument(
+        "--index-col",
+        default="name",
+        help="Index column for descriptor files (default: 'name')",
+    )
+    parser.add_argument(
         "--batch-size",
         type=int,
         default=5,
@@ -132,7 +137,9 @@ def main() -> int:
     print("Step 1: Loading optimization settings...")
     print("-" * 60)
     try:
-        opt_metrics, opt_direct_info = load_optimization_settings()
+        reagent_types, opt_metrics, opt_direct_info = load_optimization_settings(args.project_dir)
+        name_suffix = [args.name_suffix] * len(reagent_types) if isinstance(args.name_suffix, str) else args.name_suffix
+        print(f"✓ Loaded reagent types: {reagent_types}")
         print(f"✓ Loaded optimization metrics: {opt_metrics}")
         print(f"  Metrics configuration: {len(opt_direct_info)} metric(s)")
     except (FileNotFoundError, ValueError) as e:
@@ -145,11 +152,11 @@ def main() -> int:
 
     # Load descriptors
     desc_dict, condition_dict = load_desc_dict(
-        reagent_types=args.reagent_types,
+        reagent_types=reagent_types,
         desc_dir=Path(args.project_dir) / "descriptors",
         name_suffix=name_suffix,
         return_condition_dict=True,
-        index_col=args.reagent_types,
+        index_col=args.index_col,
     )
     print(f"✓ Loaded {len(desc_dict)} descriptor files")
     print()
@@ -164,7 +171,7 @@ def main() -> int:
         opt_type="auto",
         random_seed=args.random_seed,
         quiet=args.quiet,
-        save_dir=Path(args.project_dir) / args.output,
+        save_dir=Path(args.project_dir) / args.output_dir,
     )
     print("✓ ReactionOptimizer instance created")
     print()
@@ -189,16 +196,16 @@ def main() -> int:
     print("-" * 60)
 
     # Load previous reaction data
-    if not args.input.exists():
-        print(f"[ERROR] Input file not found: {args.input}")
+    if not Path(args.project_dir / args.input_dir).exists():
+        print(f"[ERROR] Input file not found: {Path(args.project_dir / args.input_dir)}")
         print()
         print("Please provide previous reaction data to run optimization.")
         print("If you want to start with initial sampling, use initialize.py instead.")
         return 1
 
-    prev_rxn_data = get_prev_rxn(Path(args.project_dir / args.input), "batch-*.csv")
+    prev_rxn_data = get_prev_rxn(Path(args.project_dir / args.input_dir), "batch-*.csv")
     sbo.load_prev_rxn(prev_rxn_data)
-    print(f"✓ Loaded previous reactions from {args.input}")
+    print(f"✓ Loaded previous reactions from {args.input_dir}")
     print(f"  Total reactions: {len(prev_rxn_data)}")
     if "batch" in prev_rxn_data.columns:
         print(f"  Batch range: {prev_rxn_data['batch'].min()} to {prev_rxn_data['batch'].max()}")
@@ -211,23 +218,17 @@ def main() -> int:
     sbo.optimize(
         batch_size=args.batch_size,
         desc_normalize=args.desc_normalize,
-        refine_desc=args.refine_desc,
         optimize_method=args.optimize_method,
-        surrogate_model=args.surrogate_model,
-        temperature=args.temperature,
     )
     print()
 
     print("Step 8: Saving results...")
     print("-" * 60)
 
-    # Create output directory
-    args.output.mkdir(parents=True, exist_ok=True)
-
     # Save results
     sbo.save_results(filetype="csv")
     sbo.save_results(filetype="excel")
-    print(f"✓ Results saved to {args.output}")
+    print(f"✓ Results saved to {Path(args.project_dir) / args.output_dir}")
     print()
 
     # Display optimization summary
@@ -251,7 +252,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"\n[ERROR] Optimization failed: {e}")
+    main()

@@ -1,0 +1,128 @@
+{
+  "0.55": {
+    "threshold": 0.55,
+    "n_simulations": 100,
+    "mean": 14.02,
+    "median": 11.0,
+    "std": 11.793201431333225,
+    "min": 1,
+    "max": 56
+  },
+  "0.6": {
+    "threshold": 0.6,
+    "n_simulations": 100,
+    "mean": 16.56,
+    "median": 13.0,
+    "std": 12.75172145241575,
+    "min": 1,
+    "max": 59
+  },
+  "0.65": {
+    "threshold": 0.65,
+    "n_simulations": 100,
+    "mean": 18.94,
+    "median": 15.0,
+    "std": 14.398486031524286,
+    "min": 1,
+    "max": 63
+  },
+  "0.7": {
+    "threshold": 0.7,
+    "n_simulations": 100,
+    "mean": 22.76,
+    "median": 18.5,
+    "std": 17.061723242392603,
+    "min": 1,
+    "max": 70
+  },
+  "0.75": {
+    "threshold": 0.75,
+    "n_simulations": 100,
+    "mean": 34.51,
+    "median": 28.0,
+    "std": 27.68483158699002,
+    "min": 1,
+    "max": 121
+  },
+  "0.8": {
+    "threshold": 0.8,
+    "n_simulations": 100,
+    "mean": 57.18,
+    "median": 48.0,
+    "std": 40.23788761851198,
+    "min": 2,
+    "max": 147
+  },
+  "0.85": {
+    "threshold": 0.85,
+    "n_simulations": 100,
+    "mean": 126.57,
+    "median": 113.5,
+    "std": 93.0630168219363,
+    "min": 2,
+    "max": 466
+  },
+  "0.86": {
+    "threshold": 0.86,
+    "n_simulations": 100,
+    "mean": 156.13,
+    "median": 130.5,
+    "std": 127.9222150371076,
+    "min": 2,
+    "max": 640
+  },
+  "0.87": {
+    "threshold": 0.87,
+    "n_simulations": 100,
+    "mean": 187.77,
+    "median": 158.0,
+    "std": 155.9566513490207,
+    "min": 2,
+    "max": 868
+  },
+  "0.88": {
+    "threshold": 0.88,
+    "n_simulations": 100,
+    "mean": 197.16,
+    "median": 167.0,
+    "std": 162.1658854383375,
+    "min": 2,
+    "max": 878
+  },
+  "0.89": {
+    "threshold": 0.89,
+    "n_simulations": 100,
+    "mean": 208.54,
+    "median": 168.5,
+    "std": 167.0647431387006,
+    "min": 2,
+    "max": 878
+  },
+  "0.9": {
+    "threshold": 0.9,
+    "n_simulations": 100,
+    "mean": 228.36,
+    "median": 187.0,
+    "std": 170.10152968154048,
+    "min": 3,
+    "max": 895
+  },
+  "0.91": {
+    "threshold": 0.91,
+    "n_simulations": 100,
+    "mean": 248.75,
+    "median": 194.0,
+    "std": 177.32869903092393,
+    "min": 13,
+    "max": 895
+  },
+  "0.92": {
+    "threshold": 0.92,
+    "n_simulations": 100,
+    "mean": 284.85,
+    "median": 250.5,
+    "std": 178.6310933180447,
+    "min": 41,
+    "max": 895
+  }
+}

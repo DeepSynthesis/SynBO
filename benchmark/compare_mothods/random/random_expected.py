@@ -1,7 +1,7 @@
 """
-OFAT (One-Factor-At-A-Time) Method Expected Experiments Calculation (Refactored)
+Random Search Method Expected Experiments Calculation
 
-This script simulates the OFAT method for optimization on different datasets based on a configuration dictionary.
+This script simulates the Random Search method for optimization on different datasets based on a configuration dictionary.
 Supports both single-objective (e.g., Conversion) and multi-objective (e.g., Hypervolume).
 """
 
@@ -16,8 +16,8 @@ from tqdm import tqdm
 from synbo.utils.hv_calculator import calculate_hypervolume_by_batch
 
 
-class OFATSimulator:
-    """Simulator for One-Factor-At-A-Time (OFAT) optimization method."""
+class RandomSearchSimulator:
+    """Simulator for Random Search optimization method."""
 
     def __init__(
         self,
@@ -28,7 +28,7 @@ class OFATSimulator:
         opt_metric_settings: Optional[List[Dict]] = None,
         index_col: str = "index",
     ):
-        """Initialize the OFAT simulator."""
+        """Initialize the Random Search simulator."""
         self.dataset = pd.read_csv(dataset_path)
         self.reagent_types = reagent_types
         self.target_col = target_col
@@ -39,13 +39,6 @@ class OFATSimulator:
 
         # 错误标志位，防止满屏报错
         self._hv_warned = False
-
-        # Map reagent types to indices for faster list operations
-        self.rt_to_idx = {rt: i for i, rt in enumerate(reagent_types)}
-
-        self.candidates = {}
-        for rt in reagent_types:
-            self.candidates[rt] = self.dataset[rt].unique().tolist()
 
         self.total_space_size = len(self.dataset)
         self._build_lookup_table()
@@ -93,131 +86,45 @@ class OFATSimulator:
             )
             return float(hv_results["hv_normalized"].iloc[-1])
         except Exception as e:
-            # 【重要修复】不要再静默返回 0.0 了，这会掩盖配置错误！
             if not self._hv_warned:
                 print(f"\n[CRITICAL WARNING] HV calculation failed! Error: {e}")
                 print("Are you missing 'opt_metric_settings' in your config? Returning 0.0 for now.")
                 self._hv_warned = True
             return 0.0
 
-    def simulate_ofat_run(
+    def simulate_random_search_run(
         self,
         target_threshold: Optional[float] = None,
         hv_threshold: Optional[float] = None,
         random_seed: Optional[int] = None,
     ) -> int:
-        """Run a single OFAT simulation."""
+        """Run a single Random Search simulation (Sampling without replacement)."""
         if random_seed is not None:
             random.seed(random_seed)
             np.random.seed(random_seed)
 
-        tested_conditions: Set[Tuple] = set()
+        # 获取所有可能的实验组合 (基于数据集)
+        all_possible_keys = list(self.lookup.keys())
+
+        # 随机打乱搜索空间（这等同于无放回的随机均匀采样）
+        random.shuffle(all_possible_keys)
+
         tested_keys_list: List[Tuple] = []
 
-        current_state = [random.choice(self.candidates[rt]) for rt in self.reagent_types]
-        best_state = current_state.copy()
+        for experiment_count, key in enumerate(all_possible_keys, start=1):
+            tested_keys_list.append(key)
 
-        if self.is_multi_objective:
-            best_hv = 0.0
-        else:
-            best_conversion = -np.inf
+            if self.is_multi_objective:
+                current_global_hv = self.calculate_hypervolume_for_tested(tested_keys_list)
+                if hv_threshold is not None and current_global_hv >= hv_threshold:
+                    return experiment_count
+            else:
+                conv = self.get_value_by_key(key)
+                if target_threshold is not None and conv >= target_threshold:
+                    return experiment_count
 
-        experiment_count = 0
-        order = self.reagent_types.copy()
-        random.shuffle(order)
-        rank_target = {rt: 0 for rt in self.reagent_types}
-
-        while experiment_count < self.total_space_size:
-            start_exp_count = experiment_count
-            start_best_val = best_hv if self.is_multi_objective else best_conversion
-            improved_in_pass = False
-
-            for rt in order:
-                rt_idx = self.rt_to_idx[rt]
-                results = []
-
-                # 【重要修复】记录进入当前 reagent 遍历前的 baseline，
-                # 只有计算 candidate + baseline 的 HV，才能公平地评价这个 candidate 的独立贡献。
-                baseline_keys = tested_keys_list.copy()
-
-                for candidate in self.candidates[rt]:
-                    test_state = current_state.copy()
-                    test_state[rt_idx] = candidate
-                    key = tuple(test_state)
-
-                    if key not in tested_conditions:
-                        tested_conditions.add(key)
-                        tested_keys_list.append(key)
-                        experiment_count += 1
-
-                        if self.is_multi_objective:
-                            # 1. 全局判断：是否已经达到了目标 HV？
-                            current_global_hv = self.calculate_hypervolume_for_tested(tested_keys_list)
-
-                            if hv_threshold is not None and current_global_hv >= hv_threshold:
-                                return experiment_count
-
-                            if current_global_hv > best_hv:
-                                best_hv = current_global_hv
-                                best_state = test_state.copy()
-
-                            # 2. 个体评价：当前 candidate 对 baseline 的独立贡献
-                            isolated_hv = self.calculate_hypervolume_for_tested(baseline_keys + [key])
-                            results.append((candidate, isolated_hv))
-                        else:
-                            conv = self.get_value_by_key(key)
-
-                            if target_threshold is not None and conv >= target_threshold:
-                                return experiment_count
-
-                            if conv > best_conversion:
-                                best_conversion = conv
-                                best_state = test_state.copy()
-
-                            results.append((candidate, conv))
-                    else:
-                        if self.is_multi_objective:
-                            isolated_hv = self.calculate_hypervolume_for_tested(baseline_keys + [key])
-                            results.append((candidate, isolated_hv))
-                        else:
-                            conv = self.get_value_by_key(key)
-                            results.append((candidate, conv))
-
-                # 降序排列，选出本轮最优
-                results.sort(key=lambda x: x[1], reverse=True)
-
-                target_idx = rank_target[rt]
-                if target_idx >= len(results):
-                    target_idx = 0
-
-                chosen_cand, chosen_val = results[target_idx]
-
-                if current_state[rt_idx] != chosen_cand:
-                    current_state[rt_idx] = chosen_cand
-                    improved_in_pass = True
-
-            current_best = best_hv if self.is_multi_objective else best_conversion
-
-            if current_best > start_best_val:
-                for rt in order:
-                    rank_target[rt] = 0
-            elif not improved_in_pass or experiment_count == start_exp_count:
-                current_state = best_state.copy()
-
-                escaped = False
-                for rt in order:
-                    if rank_target[rt] + 1 < len(self.candidates[rt]):
-                        rank_target[rt] += 1
-                        idx = order.index(rt)
-                        for sub_rt in order[idx + 1 :]:
-                            rank_target[sub_rt] = 0
-                        escaped = True
-                        break
-
-                if not escaped:
-                    break
-
-        return experiment_count
+        # 如果穷尽了整个搜索空间都没有达到阈值，返回总实验数
+        return self.total_space_size
 
     def run_monte_carlo(
         self,
@@ -230,7 +137,7 @@ class OFATSimulator:
         desc = f"Threshold {target_threshold}" if target_threshold else f"HV Threshold {hv_threshold:.3f}"
 
         for i in tqdm(range(n_simulations), desc=desc, leave=False, ncols=80):
-            n_exp = self.simulate_ofat_run(
+            n_exp = self.simulate_random_search_run(
                 target_threshold=target_threshold,
                 hv_threshold=hv_threshold,
                 random_seed=i,
@@ -250,10 +157,10 @@ class OFATSimulator:
 
 
 def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List, bool]:
-    """Run OFAT benchmark based on dictionary configuration."""
+    """Run Random Search benchmark based on dictionary configuration."""
 
     print("=" * 70)
-    print(f"OFAT Benchmark for Dataset: {dataset_name}")
+    print(f"Random Search Benchmark for Dataset: {dataset_name}")
     print("=" * 70)
 
     is_multi_obj = "opt_metrics" in config
@@ -261,7 +168,7 @@ def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List
     thresholds = config.get("thresholds", [])
 
     print("\nLoading dataset and initializing simulator...")
-    simulator = OFATSimulator(
+    simulator = RandomSearchSimulator(
         dataset_path=config["dataset_path"],
         reagent_types=config["reagent_types"],
         target_col=config.get("target_col"),
@@ -273,7 +180,6 @@ def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List
     print(f"Dataset loaded: {len(simulator.dataset)} rows")
     print(f"Mode: {'Multi-Objective' if is_multi_obj else 'Single-Objective'}")
 
-    # 【新增极其关键的一步】：帮你看清全局 HV 天花板
     if is_multi_obj:
         print("\nCalculating Global Maximum Hypervolume for this dataset...")
         all_keys = list(simulator.lookup.keys())
@@ -282,7 +188,7 @@ def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List
 
         for t in thresholds:
             if t > global_max_hv:
-                print(f"[Warning] Threshold {t} is GREATER than the global maximum! OFAT will exhaust the search space.")
+                print(f"[Warning] Threshold {t} is GREATER than the global maximum! Random Search will exhaust the search space.")
 
     all_results = {}
     for threshold in thresholds:
@@ -309,10 +215,6 @@ def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List
 
     return all_results, thresholds, is_multi_obj
 
-
-# ---------------------- 忽略无关代码，直接看下面 ----------------------
-# 补充你在运行 B-H 时极度可能缺失的 opt_metric_settings
-# （如果 synbo 强制要求，请参考下面补上。如果不强制，会自动走默认逻辑）
 
 DEFAULT_CONFIG = {
     "suzuki": {
@@ -341,7 +243,7 @@ def save_and_print_results(all_results: Dict, thresholds: List, dataset_name: st
     """Save results to JSON file and print summary."""
     output_dir = Path(__file__).parent / "results"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / f"ofat_expected_results_{dataset_name}.json"
+    output_file = output_dir / f"random_expected_results_{dataset_name}.json"
     with open(output_file, "w") as f:
         json.dump(all_results, f, indent=2)
     print(f"\n{'='*60}")
@@ -360,7 +262,7 @@ def save_and_print_results(all_results: Dict, thresholds: List, dataset_name: st
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="OFAT Benchmark for HTE datasets")
+    parser = argparse.ArgumentParser(description="Random Search Benchmark for HTE datasets")
     parser.add_argument(
         "--config", type=str, default=None, help="Path to a JSON configuration file. If not provided, built-in defaults are used."
     )
@@ -371,7 +273,7 @@ def main():
         help="Specific dataset key to run from the config. Default runs all datasets in config.",
     )
     args = parser.parse_args()
-    # Load configuration
+
     if args.config:
         print(f"Loading configuration from {args.config}...")
         with open(args.config, "r") as f:
@@ -379,7 +281,7 @@ def main():
     else:
         print("No external config provided. Using built-in default configurations.")
         full_config = DEFAULT_CONFIG
-    # Determine which datasets to run
+
     datasets_to_run = list(full_config.keys()) if args.dataset == "all" else [args.dataset]
     for ds_name in datasets_to_run:
         if ds_name not in full_config:
@@ -388,6 +290,7 @@ def main():
         ds_config = full_config[ds_name]
         results, thresholds, is_multi = run_benchmark(ds_name, ds_config)
         save_and_print_results(results, thresholds, ds_name, is_multi)
+
     print("\n" + "=" * 70)
     print("All benchmarks completed successfully!")
     print("=" * 70)

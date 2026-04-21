@@ -194,7 +194,8 @@ def plot_experiment_comparison_hv(
     plt.legend(loc="lower right", fontsize=12, framealpha=0.9)  # HV 图通常图例在右下角比较好
 
     # 设置 Y 轴范围为 [0, 1.05]，因为归一化的 HV 最大值为 1
-    plt.ylim(0.5, 0.95)
+    plt.xlim(0, 200)  # 根据实际数据调整 X 轴范围
+    plt.ylim(0.55, 0.95)
 
     save_path = output_dir / "exp_num_comparison_bh_hv.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
@@ -267,13 +268,13 @@ if __name__ == "__main__":
             "marker": "s",
             "zorder": 9,
         },
-        # "Random": {
-        #     "type": "threshold_json",
-        #     "path": "compare_mothods/random/results/random_expected_results_B-H.json",
-        #     "color": "#F18F01",
-        #     "marker": "^",
-        #     "zorder": 8,
-        # },
+        "Random": {
+            "type": "threshold_json",
+            "path": "compare_mothods/random/results/random_expected_results_B-H.json",
+            "color": "#F18F01",
+            "marker": "^",
+            "zorder": 8,
+        },
     }
 
     # 执行针对 HV 的对比绘图

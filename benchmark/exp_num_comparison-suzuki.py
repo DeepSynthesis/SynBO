@@ -242,10 +242,6 @@ def plot_experiment_comparison(
 
 
 if __name__ == "__main__":
-
-    # 可以在这里定义你想要的自定义阈值列表
-    MY_CUSTOM_THRESHOLDS = [10, 20, 30, 40, 50, 60, 70, 80, 85, 90, 95]
-
     # ==========================================
     # 核心配置字典 (Configuration Dictionary)
     # ==========================================
@@ -253,22 +249,7 @@ if __name__ == "__main__":
         "SynBO": {
             "type": "batch_csv",
             "path": "results/multiple_20260421_142852/all_batches_final_round_*.csv",
-            "custom_thresholds": [
-                0.55,
-                0.6,
-                0.65,
-                0.7,
-                0.75,
-                0.8,
-                0.85,
-                0.86,
-                0.87,
-                0.88,
-                0.89,
-                0.9,
-                0.91,
-                0.92,
-            ],  # <--- 这里传入自定义阈值
+            "custom_thresholds": list(range(80, 90, 2)) + list(range(90, 96, 1)),
             "color": "#2E86AB",
             "marker": "o",
             "zorder": 10,
@@ -282,7 +263,7 @@ if __name__ == "__main__":
         },
         "Random": {
             "type": "threshold_json",
-            "path": "compare_mothods/random/results/random_expected_results.json",
+            "path": "compare_mothods/random/results/random_expected_results_suzuki.json",
             "color": "#F18F01",
             "marker": "^",
             "zorder": 8,

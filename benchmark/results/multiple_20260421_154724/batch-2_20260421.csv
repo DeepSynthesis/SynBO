@@ -1,0 +1,6 @@
+batch,index,type,concentration,temperature,base,ligand,solvent,pred yield,pred cost,yield,cost
+2,1,Unknown,0.057,120,KOPiv,X-Phos,BuOAc,53.59±15.14,0.06±0.06,21.74,0.063791616
+2,2,Unknown,0.153,105,KOPiv,CgMe-PPh,BuOAc,28.54±30.62,0.15±0.18,32.43,0.060046832
+2,3,Unknown,0.057,120,KOPiv,CgMe-PPh,BuCN,28.59±30.62,0.15±0.18,77.52,0.097944781
+2,4,Unknown,0.153,90,CsOPiv,CgMe-PPh,p-Xylene,28.63±30.62,0.15±0.18,13.02,0.141107495
+2,5,Unknown,0.1,90,CsOAc,X-Phos,BuCN,28.64±30.62,0.15±0.18,86.37,0.098475032

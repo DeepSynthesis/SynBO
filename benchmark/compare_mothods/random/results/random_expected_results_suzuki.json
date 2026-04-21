@@ -1,10 +1,28 @@
 {
-  "85": {
-    "threshold": 85,
+  "80": {
+    "threshold": 80,
     "n_simulations": 1000,
-    "mean": 16.017,
-    "median": 11.0,
-    "std": 16.39630174765029,
+    "mean": 10.41,
+    "median": 7.0,
+    "std": 9.738988653859291,
+    "min": 1,
+    "max": 71
+  },
+  "82": {
+    "threshold": 82,
+    "n_simulations": 1000,
+    "mean": 12.098,
+    "median": 8.0,
+    "std": 11.671178003954871,
+    "min": 1,
+    "max": 86
+  },
+  "84": {
+    "threshold": 84,
+    "n_simulations": 1000,
+    "mean": 14.772,
+    "median": 10.0,
+    "std": 14.81317035613916,
     "min": 1,
     "max": 121
   },
@@ -17,15 +35,6 @@
     "min": 1,
     "max": 121
   },
-  "87": {
-    "threshold": 87,
-    "n_simulations": 1000,
-    "mean": 19.327,
-    "median": 13.0,
-    "std": 19.507590086937956,
-    "min": 1,
-    "max": 145
-  },
   "88": {
     "threshold": 88,
     "n_simulations": 1000,
@@ -34,15 +43,6 @@
     "std": 22.243947289094177,
     "min": 1,
     "max": 152
-  },
-  "89": {
-    "threshold": 89,
-    "n_simulations": 1000,
-    "mean": 24.671,
-    "median": 16.0,
-    "std": 25.394738805508517,
-    "min": 1,
-    "max": 190
   },
   "90": {
     "threshold": 90,
@@ -97,23 +97,5 @@
     "std": 128.83502144603383,
     "min": 1,
     "max": 1243
-  },
-  "96": {
-    "threshold": 96,
-    "n_simulations": 1000,
-    "mean": 195.872,
-    "median": 133.0,
-    "std": 197.05749317394657,
-    "min": 1,
-    "max": 1501
-  },
-  "97": {
-    "threshold": 97,
-    "n_simulations": 1000,
-    "mean": 483.081,
-    "median": 364.5,
-    "std": 439.07487794110926,
-    "min": 1,
-    "max": 3144
   }
 }

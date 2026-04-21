@@ -23,7 +23,7 @@ global_dir = Path(__file__).parent
 data_dir = global_dir / Path("datasets/HTE_datasets/")
 
 NUM_ROUNDS = 10
-RECALC = True
+RECALC = False
 
 CONFIG = {
     "experiment_name": "B-H_Optimization",
@@ -37,13 +37,14 @@ CONFIG = {
         "results_base_dir": str(global_dir / "results"),
     },
     "reaction_space": {
-        "reagent_types": ["electrophile", "nucleophile", "base", "ligand", "solvent"],
-        "name_suffix": "_RDKit",
+        "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
+        "name_suffix": [None, None, "_dft", "_dft", "_dft"],
     },
     "optimization_settings": {
-        "opt_metrics": ["yield"],
+        "opt_metrics": ["yield", "cost"],
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
         ],
         "hv_target_threshold": 0.95,
         "opt_type": "auto",
@@ -67,7 +68,7 @@ CONFIG = {
     },
 }
 
-CONFIG["reaction_space"]["index_col"] = [f"name" for r in CONFIG["reaction_space"]["reagent_types"]]
+CONFIG["reaction_space"]["index_col"] = [f"index" for r in CONFIG["reaction_space"]["reagent_types"]]
 
 
 def fill_done_dir(batch_idx, output_dir, dataset_path):
@@ -113,7 +114,7 @@ def find_existing_experiment(base_dir_str, current_config):
     Returns:
         - (experiment_dir, resume_info): if partial or complete match found
         - (None, None): if no match found
-    
+
     resume_info = {
         'completed_rounds': list of completed round indices,
         'current_round': current round index (if partial),
@@ -124,38 +125,38 @@ def find_existing_experiment(base_dir_str, current_config):
     base_dir = Path(base_dir_str)
     if not base_dir.exists():
         return None, None
-    
+
     # Remove timestamp and results_base_dir from comparison as they may differ
-    config_for_comparison = {k: v for k, v in current_config.items() if k not in ['data_paths']}
+    config_for_comparison = {k: v for k, v in current_config.items() if k not in ["data_paths"]}
     # For data_paths, only compare the dataset_file and descriptor_dir
     current_cfg_str = json.dumps(config_for_comparison, sort_keys=True)
-    
+
     print(f"Scanning {base_dir} for existing experiments...")
-    
+
     for run_dir in base_dir.iterdir():
         if not run_dir.is_dir():
             continue
         config_path = run_dir / "config.json"
         if not config_path.exists():
             continue
-        
+
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 saved_config = json.load(f)
-            
-            saved_config_for_comparison = {k: v for k, v in saved_config.items() if k not in ['data_paths']}
+
+            saved_config_for_comparison = {k: v for k, v in saved_config.items() if k not in ["data_paths"]}
             saved_cfg_str = json.dumps(saved_config_for_comparison, sort_keys=True)
-            
+
             if current_cfg_str != saved_cfg_str:
                 continue
-            
+
             # Config matches, check completion status
             num_rounds = current_config["num_rounds"]
             completed_rounds = []
             current_round = None
             current_iteration = 0
             is_complete = True
-            
+
             for r_idx in range(num_rounds):
                 expected_file = run_dir / f"all_batches_final_round_{r_idx}.csv"
                 if expected_file.exists():
@@ -164,7 +165,7 @@ def find_existing_experiment(base_dir_str, current_config):
                     is_complete = False
                     if current_round is None:
                         current_round = r_idx
-            
+
             # If there's a partial round, check how many iterations are done
             if current_round is not None:
                 # Find batch files for the current round
@@ -173,7 +174,7 @@ def find_existing_experiment(base_dir_str, current_config):
                     # Extract iteration numbers from batch files
                     iterations = []
                     for bf in batch_files:
-                        match = bf.name.split('_')[0].replace('batch-', '')
+                        match = bf.name.split("_")[0].replace("batch-", "")
                         try:
                             iterations.append(int(match))
                         except ValueError:
@@ -183,14 +184,14 @@ def find_existing_experiment(base_dir_str, current_config):
                         print(f"Found partial progress: Round {current_round}, {current_iteration} iterations completed")
                 else:
                     current_iteration = 0
-            
+
             resume_info = {
-                'completed_rounds': completed_rounds,
-                'current_round': current_round,
-                'current_iteration': current_iteration,
-                'is_complete': is_complete,
+                "completed_rounds": completed_rounds,
+                "current_round": current_round,
+                "current_iteration": current_iteration,
+                "is_complete": is_complete,
             }
-            
+
             if is_complete:
                 print(f"Found complete matching experiment: {run_dir.name}")
             else:
@@ -198,25 +199,19 @@ def find_existing_experiment(base_dir_str, current_config):
                 print(f"  - Completed rounds: {completed_rounds}")
                 if current_round is not None:
                     print(f"  - Resuming from: Round {current_round}, Iteration {current_iteration}")
-            
+
             return run_dir, resume_info
-            
+
         except Exception as e:
             print(f"Warning: Failed to read config in {run_dir}: {e}")
             continue
-    
+
     return None, None
 
 
 def save_checkpoint(experiment_dir, round_idx, iteration, status="running", **extra_data):
     """Save checkpoint to track progress"""
-    checkpoint = {
-        "round_idx": round_idx,
-        "iteration": iteration,
-        "status": status,
-        "timestamp": datetime.now().isoformat(),
-        **extra_data
-    }
+    checkpoint = {"round_idx": round_idx, "iteration": iteration, "status": status, "timestamp": datetime.now().isoformat(), **extra_data}
     checkpoint_path = Path(experiment_dir) / "checkpoint.json"
     with open(checkpoint_path, "w", encoding="utf-8") as f:
         json.dump(checkpoint, f, indent=4)
@@ -248,7 +243,7 @@ def load_start_points(start_point_path):
 
 def run_simulation(experiment_dir, desc_dict, condition_dict, resume_info=None):
     """Execute main optimization calculation loop with HV > 0.95 stop condition
-    
+
     Args:
         experiment_dir: Path to the experiment directory
         desc_dict: Descriptor dictionary
@@ -298,40 +293,40 @@ def run_simulation(experiment_dir, desc_dict, condition_dict, resume_info=None):
     start_round = 0
     completed_rounds = []
     if resume_info:
-        completed_rounds = resume_info.get('completed_rounds', [])
-        current_round = resume_info.get('current_round')
+        completed_rounds = resume_info.get("completed_rounds", [])
+        current_round = resume_info.get("current_round")
         if current_round is not None:
             start_round = current_round
-        elif resume_info.get('is_complete'):
+        elif resume_info.get("is_complete"):
             print(f"\n[RESUME] All {CONFIG['num_rounds']} rounds already completed!")
             return
-    
+
     # Resume partially completed round if needed
     resume_round_iteration = 0
     resume_round_batch_files_map = {}
     resume_hv_history = []
     resume_stagnation_count = 0
     resume_best_hv_so_far = 0.0
-    
-    if resume_info and resume_info.get('current_round') is not None:
-        resume_round_iteration = resume_info.get('current_iteration', 0)
+
+    if resume_info and resume_info.get("current_round") is not None:
+        resume_round_iteration = resume_info.get("current_iteration", 0)
         if resume_round_iteration > 0:
             # Load existing batch files for the current round
             batch_files = sorted(Path(experiment_dir).glob("batch-*.csv"))
             for bf in batch_files:
                 try:
-                    iter_num = int(bf.name.split('_')[0].replace('batch-', ''))
+                    iter_num = int(bf.name.split("_")[0].replace("batch-", ""))
                     resume_round_batch_files_map[iter_num] = bf
                 except (ValueError, IndexError):
                     continue
             print(f"[RESUME] Loaded {len(resume_round_batch_files_map)} existing batch files for round {start_round}")
-            
+
             # Try to recover HV history from existing checkpoint
             checkpoint = load_checkpoint(experiment_dir)
-            if checkpoint and checkpoint.get('round_idx') == start_round:
-                resume_hv_history = checkpoint.get('hv_history', [])
-                resume_stagnation_count = checkpoint.get('stagnation_count', 0)
-                resume_best_hv_so_far = checkpoint.get('best_hv_so_far', 0.0)
+            if checkpoint and checkpoint.get("round_idx") == start_round:
+                resume_hv_history = checkpoint.get("hv_history", [])
+                resume_stagnation_count = checkpoint.get("stagnation_count", 0)
+                resume_best_hv_so_far = checkpoint.get("best_hv_so_far", 0.0)
                 print(f"[RESUME] Restored checkpoint: HV history length={len(resume_hv_history)}, best_HV={resume_best_hv_so_far:.4f}")
 
     for round_idx in range(start_round, CONFIG["num_rounds"]):
@@ -339,7 +334,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict, resume_info=None):
         if round_idx in completed_rounds:
             print(f"\n[RESUME] Skipping completed round {round_idx}")
             continue
-            
+
         current_seed = base_seed + round_idx
         print(f"\n{'='*20} Starting Round {round_idx + 1}/{CONFIG['num_rounds']} (Seed: {current_seed}) {'='*20}")
         print(f"Optimization Goal: Maximize yield until HV >= {hv_target_threshold} (Max Iter: {max_iterations})")
@@ -350,7 +345,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict, resume_info=None):
         stagnation_count = 0
         best_hv_so_far = 0.0
         threshold_met = False
-        
+
         # Restore state if resuming this round
         if round_idx == start_round and resume_round_iteration > 0:
             batch_files_map = resume_round_batch_files_map.copy()
@@ -363,19 +358,19 @@ def run_simulation(experiment_dir, desc_dict, condition_dict, resume_info=None):
 
         # Calculate starting iteration
         start_iter = resume_round_iteration if round_idx == start_round else 0
-        
+
         for i in range(start_iter, max_iterations):
             print(f"\n--- Round {round_idx+1} | Iteration {i} ---")
-            
+
             # Save checkpoint
             save_checkpoint(
-                experiment_dir, 
-                round_idx, 
-                i, 
+                experiment_dir,
+                round_idx,
+                i,
                 status="running",
                 hv_history=hv_history,
                 stagnation_count=stagnation_count,
-                best_hv_so_far=best_hv_so_far
+                best_hv_so_far=best_hv_so_far,
             )
 
             sbo = ReactionOptimizer(
@@ -510,14 +505,12 @@ def run_simulation(experiment_dir, desc_dict, condition_dict, resume_info=None):
 
         cleanup_temp_files(experiment_dir, round_idx)
         print(f"Cleaned temp files for round {round_idx}")
-        
+
         # Mark checkpoint for completed round
         save_checkpoint(experiment_dir, round_idx + 1, 0, status="round_complete")
-        
+
         # Reset resume iteration for subsequent rounds
         resume_round_iteration = 0
-
-
 
 
 def run_plotting(experiment_dir):
@@ -627,7 +620,8 @@ def main():
     if not RECALC:
         existing_dir, resume_info = find_existing_experiment(results_base, CONFIG)
 
-    if existing_dir and resume_info and resume_info.get('is_complete'):
+    # from IPython import embed; embed(); exit()
+    if existing_dir and resume_info and resume_info.get("is_complete"):
         print(f"\n[CACHE HIT] Identical experiment found at: {existing_dir}")
         print("Skipping simulation, proceeding directly to metrics...")
         experiment_dir = existing_dir
@@ -636,7 +630,7 @@ def main():
         # Partial match - resume from checkpoint
         print(f"\n[RESUME] Partial experiment found at: {existing_dir}")
         print(f"[RESUME] Completed rounds: {resume_info.get('completed_rounds', [])}")
-        if resume_info.get('current_round') is not None:
+        if resume_info.get("current_round") is not None:
             print(f"[RESUME] Resuming from Round {resume_info['current_round']}, Iteration {resume_info['current_iteration']}")
         experiment_dir = existing_dir
         should_run_sim = True

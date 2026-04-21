@@ -39,7 +39,7 @@ class DefaultBO:
         self.console = console
 
         if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 256, 2048
+            self.mc_num_samples, self.max_batch_size = 128, 2048
         self.device = device
 
         if surrogate_model == "GP":

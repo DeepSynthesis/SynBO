@@ -74,7 +74,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, range_t
             y="value",
             hue="model",
             ax=ax,
-            errorbar=("ci", 95),
+            errorbar=("sd", 0.5),
             linewidth=2.5,
             marker="o",
             markersize=6,

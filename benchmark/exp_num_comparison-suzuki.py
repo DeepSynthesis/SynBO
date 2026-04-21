@@ -12,15 +12,12 @@ def load_batch_csv_data(
     results_pattern: str,
     target_column: str = "Conversion",
     direction: str = "max",
-    custom_thresholds: Optional[List[float]] = None,  # 新增：允许传入自定义阈值
+    custom_thresholds: Optional[List[float]] = None,
     num_threshold_points: int = 30,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Load data from CSV files and calculate the number of experiments needed
     to reach specific target values.
-
-    Returns:
-        thresholds (X-axis), means (Y-axis), stds (Y-error)
     """
     matching_files = glob.glob(results_pattern)
 
@@ -30,7 +27,6 @@ def load_batch_csv_data(
 
     all_cum_bests = []
 
-    # 1. 提取每个 run 的累积最优值序列
     for file_path in matching_files:
         df = pd.read_csv(file_path)
         if target_column not in df.columns:
@@ -50,12 +46,9 @@ def load_batch_csv_data(
     if not all_cum_bests:
         return np.array([]), np.array([]), np.array([])
 
-    # 2. 获取评估阈值 (Thresholds)
     if custom_thresholds is not None:
-        # 如果提供了自定义阈值，则直接使用并排序
         eval_thresholds = np.sort(np.array(custom_thresholds))
     else:
-        # 否则动态生成评估阈值
         global_min = min([cb[0] for cb in all_cum_bests])
         global_max = max([cb[-1] for cb in all_cum_bests])
 
@@ -68,22 +61,17 @@ def load_batch_csv_data(
     means_list = []
     stds_list = []
 
-    # 3. 对每一个阈值，计算达到该阈值所需的实验次数
     for t in eval_thresholds:
         exps_needed = []
         for cb in all_cum_bests:
-            # 寻找首次满足阈值的索引
             if direction == "max":
                 idx = np.where(cb >= t)[0]
             else:
                 idx = np.where(cb <= t)[0]
 
             if len(idx) > 0:
-                # 索引从0开始，实验数从1开始
                 exps_needed.append(idx[0] + 1)
 
-        # 只有当至少有一个 run 达到了该阈值时，才进行统计
-        # 如果自定义的阈值太高(超过了所有实验的最大值)，这里会自动过滤掉，不会报错
         if len(exps_needed) > 0:
             thresholds_list.append(t)
             means_list.append(np.mean(exps_needed))
@@ -127,6 +115,7 @@ def plot_experiment_comparison(
     target_column: str = "Conversion",
     direction: str = "max",
     reference_method: str = "SynBO",
+    std_scale: float = 0.5,  # <--- 【新增】：在此处控制标准差的缩放倍数
 ):
     """
     Generate comparison plot: Target Threshold vs Required Experiments with Error Bars.
@@ -144,7 +133,6 @@ def plot_experiment_comparison(
         path = config.get("path")
 
         if data_type == "batch_csv":
-            # 提取自定义阈值参数（如果有）
             custom_thresholds = config.get("custom_thresholds", None)
             thresholds, means, stds = load_batch_csv_data(path, target_column, direction, custom_thresholds=custom_thresholds)
         elif data_type == "threshold_json":
@@ -170,10 +158,13 @@ def plot_experiment_comparison(
     for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
 
+        # 【新增】：对标准差进行缩放
+        scaled_stds = stds * std_scale
+
         plt.errorbar(
             x=thresholds,
             y=means,
-            yerr=stds,
+            yerr=scaled_stds,  # <--- 【修改】：使用缩放后的标准差作为误差棒
             fmt=config.get("marker", "o") + "-",
             color=config.get("color"),
             label=method_name,
@@ -187,7 +178,8 @@ def plot_experiment_comparison(
         )
 
     plt.xlabel(f"Target Value ({target_column})", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.ylabel("Number of Experiments Required", fontsize=14, fontname="Arial", fontweight="bold")
+    # 【修改】：在Y轴标签中标注误差棒代表的含义，以免产生误导
+    plt.ylabel(f"Number of Experiments Required\n(Error Bars: {std_scale} Std Dev)", fontsize=14, fontname="Arial", fontweight="bold")
     plt.title(f"Efficiency to Reach Target: {target_column}", fontsize=16, fontname="Arial", fontweight="bold")
 
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
@@ -277,4 +269,5 @@ if __name__ == "__main__":
         target_column="Conversion",
         direction="max",
         reference_method="SynBO",
+        std_scale=0.25,  # <--- 【新增】：可以在这里自由控制你想显示的几倍标准差 (如0.5, 0.2等)
     )

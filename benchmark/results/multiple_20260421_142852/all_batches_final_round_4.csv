@@ -1,0 +1,26 @@
+batch,index,type,solvent,ligand,reactant2,reactant1,base,pred Conversion,Conversion,batch_index,round_index
+0,1,explore,CN(C)C=O,CC1(C)c2cccc(P(c3ccccc3)c3ccccc3)c2Oc2c(P(c3ccccc3)c3ccccc3)cccc21,Cc1ccc2c(cnn2C2CCCCO2)c1Br,Brc1ccc2ncccc2c1,blank_cell,-,0.0,0,4
+0,2,explore,CN(C)C=O,COc1cccc(OC)c1-c1ccccc1P(C1CCCCC1)C1CCCCC1,Cc1ccc2c(cnn2C2CCCCO2)c1Br,F[B-](F)(F)c1ccc2ncccc2c1,O=C([O-])O.[Na+],-,0.0,0,4
+0,3,explore,C1CCOC1,c1ccc(P(c2ccccc2)[c-]2cccc2)cc1.c1ccc(P(c2ccccc2)[c-]2cccc2)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1Br,OB(O)c1ccc2ncccc2c1,[Na+].[OH-],-,0.0,0,4
+0,4,explore,C1CCOC1,CN(C)c1ccc(P(C(C)(C)C)C(C)(C)C)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1Br,CC1(C)OB(c2ccc3ncccc3c2)OC1(C)C,CCN(CC)CC,-,0.0,0,4
+0,5,explore,CO,CC(C)(C)P(C1=CC=C[CH]1)C(C)(C)C.CC(C)(C)P(C1=CC=C[CH]1)C(C)(C)C,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,Brc1ccc2ncccc2c1,[Cs+].[F-],-,0.0,0,4
+1,1,Unknown,C1CCOC1,C1CCC(P(C2CCCCC2)C2CCCCC2)CC1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],0.00±1.95,73.6,1,4
+1,2,Unknown,CO,blank_cell,Cc1ccc2c(cnn2C2CCCCO2)c1Br,OB(O)c1ccc2ncccc2c1,[Na+].[OH-],0.00±1.95,51.24,1,4
+1,3,Unknown,CO,c1ccc(P(c2ccccc2)[c-]2cccc2)cc1.c1ccc(P(c2ccccc2)[c-]2cccc2)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1[B-](F)(F)F,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],0.00±1.95,58.49,1,4
+1,4,Unknown,C1CCOC1,CCCCP(C12CC3CC(CC(C3)C1)C2)C12CC3CC(CC(C3)C1)C2,Cc1ccc2c(cnn2C2CCCCO2)c1B1OC(C)(C)C(C)(C)O1,O=S(=O)(Oc1ccc2ncccc2c1)C(F)(F)F,CC(C)(C)[O-].[Li+],0.00±1.95,18.55,1,4
+1,5,Unknown,C1CCOC1,blank_cell,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],0.00±1.95,7.46,1,4
+2,1,Unknown,C1CCOC1,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],50.65±35.31,45.58,2,4
+2,2,Unknown,CO,C1CCC(P(C2CCCCC2)C2CCCCC2)CC1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],37.13±43.42,89.34,2,4
+2,3,Unknown,C1CCOC1,C1CCC(P(C2CCCCC2)C2CCCCC2)CC1,Cc1ccc2c(cnn2C2CCCCO2)c1[B-](F)(F)F,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],43.50±39.51,14.75,2,4
+2,4,Unknown,C1CCOC1,CCCCP(C12CC3CC(CC(C3)C1)C2)C12CC3CC(CC(C3)C1)C2,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Ic1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],35.71±43.63,84.72,2,4
+2,5,Unknown,C1CCOC1,C1CCC(P(C2CCCCC2)C2CCCCC2)CC1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Clc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],35.51±43.18,78.15,2,4
+3,1,Unknown,CO,CCCCP(C12CC3CC(CC(C3)C1)C2)C12CC3CC(CC(C3)C1)C2,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],72.54±32.97,85.58,3,4
+3,2,Unknown,CO,C1CCC(P(C2CCCCC2)C2CCCCC2)CC1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Clc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],78.65±26.14,13.31,3,4
+3,3,Unknown,CO,C1CCC(P(C2CCCCC2)C2CCCCC2)CC1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Ic1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],77.45±26.99,92.97,3,4
+3,4,Unknown,C1CCOC1,CCCCP(C12CC3CC(CC(C3)C1)C2)C12CC3CC(CC(C3)C1)C2,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Clc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],74.18±28.12,62.02,3,4
+3,5,Unknown,CO,Cc1ccccc1P(c1ccccc1C)c1ccccc1C,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],61.09±37.18,88.09,3,4
+4,1,Unknown,CO,CC(C)c1cc(C(C)C)c(-c2ccccc2P(C2CCCCC2)C2CCCCC2)c(C(C)C)c1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Ic1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],77.53±27.44,91.45,4,4
+4,2,Unknown,CO,c1ccc(P(c2ccccc2)c2ccccc2)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Ic1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],82.99±22.45,98.69,4,4
+4,3,Unknown,CO,CCCCP(C12CC3CC(CC(C3)C1)C2)C12CC3CC(CC(C3)C1)C2,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Ic1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],85.13±19.84,96.04,4,4
+4,4,Unknown,CO,CN(C)c1ccc(P(C(C)(C)C)C(C)(C)C)cc1,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],70.25±30.39,69.6,4,4
+4,5,Unknown,CO,CC(C)(C)P(C1=CC=C[CH]1)C(C)(C)C.CC(C)(C)P(C1=CC=C[CH]1)C(C)(C)C,Cc1ccc2c(cnn2C2CCCCO2)c1B(O)O,Brc1ccc2ncccc2c1,CC(C)(C)[O-].[Li+],72.33±28.69,48.6,4,4

@@ -118,7 +118,7 @@ if __name__ == "__main__":
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
         "SynBO": {
-            "results_path": "results/multiple_20260417_132000/all_batches_final_round_*.csv",
+            "results_path": "results/multiple_20260421_135123/all_batches_final_round_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },

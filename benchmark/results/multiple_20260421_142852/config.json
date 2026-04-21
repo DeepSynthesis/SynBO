@@ -1,41 +1,34 @@
 {
-    "experiment_name": "B-H_Optimization (222)",
+    "experiment_name": "Suzuki_Optimization",
     "base_seed": 199,
     "num_rounds": 10,
-    "iterations": 10,
+    "max_iterations": 50,
     "batch_size": 5,
     "data_paths": {
-        "dataset_file": "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
-        "descriptor_dir": "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/B-H_HTE/descriptors",
+        "dataset_file": "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv",
+        "descriptor_dir": "/home/tzz/AIChem/synbo/benchmark/datasets/HTE_datasets/suzuki_HTE/descriptors",
         "results_base_dir": "/home/tzz/AIChem/synbo/benchmark/results"
     },
     "reaction_space": {
         "reagent_types": [
-            "concentration",
-            "temperature",
-            "base",
+            "solvent",
             "ligand",
-            "solvent"
+            "reactant2",
+            "reactant1",
+            "base"
         ],
-        "name_suffix": [
-            null,
-            null,
-            "_dft",
-            "_dft",
-            "_dft"
-        ],
+        "name_suffix": "_RDKit",
         "index_col": [
-            "index",
-            "index",
-            "index",
-            "index",
-            "index"
+            "name",
+            "name",
+            "name",
+            "name",
+            "name"
         ]
     },
     "optimization_settings": {
         "opt_metrics": [
-            "yield",
-            "cost"
+            "Conversion"
         ],
         "opt_direct_info": [
             {
@@ -45,22 +38,15 @@
                     100
                 ],
                 "metric_weight": 1.0
-            },
-            {
-                "opt_direct": "min",
-                "opt_range": [
-                    0,
-                    0.5
-                ],
-                "metric_weight": 1.0
             }
         ],
+        "target_threshold": 98.0,
         "opt_type": "auto",
-        "desc_normalize": "zscore",
+        "desc_normalize": "minmax",
         "sampling_method": "random",
         "refine_desc": "pass",
         "optimize_method": "default_BO",
-        "device": "cuda:2",
+        "device": "cuda:1",
         "kwargs": {
             "surrogate_model": "GP",
             "acq_func": "EHVI"

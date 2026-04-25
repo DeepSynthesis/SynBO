@@ -20,6 +20,21 @@ NATURE_COLORS = [
     "#E69F00",  # Orange
 ]
 
+# ============================================================
+# Comparison batch palette (ggsci NPG - Nature Publishing Group)
+# Higher saturation, maximum perceptual distance, optimal for
+# filled boxplots + overlaid lineplots in batch-comparison figures
+# ============================================================
+COMPARISON_PALETTE = [
+    "#3C5488",  # Navy Blue
+    "#E64B35",  # Red
+    "#00A087",  # Green
+    "#4DBBD5",  # Teal
+    "#F39B7F",  # Salmon
+    "#8491B4",  # Slate
+    "#91D1C2",  # Mint
+]
+
 # Global matplotlib rcParams for publication-quality plots
 plt.rcParams.update({
     "font.family": "Arial",
@@ -118,7 +133,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             x="batch",
             y="value",
             hue="model",
-            palette=NATURE_COLORS,
+            palette=COMPARISON_PALETTE,
             ax=ax,
             errorbar=("ci", 95),
             linewidth=2.5,
@@ -134,7 +149,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             x="batch",
             y="value",
             hue="model",
-            palette=NATURE_COLORS,
+            palette=COMPARISON_PALETTE,
             ax=ax,
             width=0.6,
             fliersize=0,
@@ -241,7 +256,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         x="batch",
         y="value",
         hue="model",
-        palette=NATURE_COLORS,
+        palette=COMPARISON_PALETTE,
         errorbar=("ci", 95),
         linewidth=2.5,
         marker="o",
@@ -256,7 +271,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         x="batch",
         y="value",
         hue="model",
-        palette=NATURE_COLORS,
+        palette=COMPARISON_PALETTE,
         width=0.6,
         fliersize=0,
         linewidth=1.0,
@@ -334,7 +349,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
-            palette=NATURE_COLORS,
+            palette=COMPARISON_PALETTE,
             ax=ax,
             width=0.6,
             fliersize=0,
@@ -346,7 +361,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
-            palette=NATURE_COLORS,
+            palette=COMPARISON_PALETTE,
             ax=ax,
             size=6,
             jitter=0.2,

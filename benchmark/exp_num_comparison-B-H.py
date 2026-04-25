@@ -21,25 +21,27 @@ NATURE_COLORS = [
 ]
 
 # Global matplotlib rcParams for publication-quality plots
-plt.rcParams.update({
-    "font.family": "Arial",
-    "font.size": 14,
-    "axes.titlesize": 0,
-    "axes.labelsize": 16,
-    "xtick.labelsize": 14,
-    "ytick.labelsize": 14,
-    "legend.fontsize": 13,
-    "figure.dpi": 100,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.linewidth": 1.2,
-    "xtick.major.width": 1.2,
-    "ytick.major.width": 1.2,
-    "xtick.major.size": 5,
-    "ytick.major.size": 5,
-    "lines.linewidth": 2.0,
-    "lines.markersize": 6,
-})
+plt.rcParams.update(
+    {
+        "font.family": "Arial",
+        "font.size": 14,
+        "axes.titlesize": 0,
+        "axes.labelsize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "legend.fontsize": 13,
+        "figure.dpi": 100,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.linewidth": 1.2,
+        "xtick.major.width": 1.2,
+        "ytick.major.width": 1.2,
+        "xtick.major.size": 5,
+        "ytick.major.size": 5,
+        "lines.linewidth": 2.0,
+        "lines.markersize": 6,
+    }
+)
 
 
 def load_batch_csv_data_hv(
@@ -250,7 +252,7 @@ def plot_experiment_comparison_hv(
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
-    plt.yscale('log')
+    plt.yscale("log")
 
     plt.legend(loc="best", framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
@@ -261,35 +263,35 @@ def plot_experiment_comparison_hv(
     print(f"\nPlot saved: {save_path}")
 
     # 3. 效率分析
-    print(f"\n{'='*20} Efficiency Analysis {'='*20}")
-    if reference_method in loaded_data:
-        ref_thresholds, ref_means, _ = loaded_data[reference_method]
+    # print(f"\n{'='*20} Efficiency Analysis {'='*20}")
+    # if reference_method in loaded_data:
+    #     ref_thresholds, ref_means, _ = loaded_data[reference_method]
 
-        if len(ref_thresholds) > 4:
-            eval_indices = np.linspace(0, len(ref_thresholds) - 1, 5, dtype=int)
-            comparison_thresholds = ref_thresholds[eval_indices]
-        else:
-            comparison_thresholds = ref_thresholds
+    #     if len(ref_thresholds) > 4:
+    #         eval_indices = np.linspace(0, len(ref_thresholds) - 1, 5, dtype=int)
+    #         comparison_thresholds = ref_thresholds[eval_indices]
+    #     else:
+    #         comparison_thresholds = ref_thresholds
 
-        for target in comparison_thresholds:
-            print(f"\nTo achieve Hypervolume ≥ {target:.3f}:")
+    #     for target in comparison_thresholds:
+    #         print(f"\nTo achieve Hypervolume ≥ {target:.3f}:")
 
-            ref_idx = np.abs(ref_thresholds - target).argmin()
-            ref_exp_needed = ref_means[ref_idx]
-            print(f"  - {reference_method} needs: ~{ref_exp_needed:.1f} experiments")
+    #         ref_idx = np.abs(ref_thresholds - target).argmin()
+    #         ref_exp_needed = ref_means[ref_idx]
+    #         print(f"  - {reference_method} needs: ~{ref_exp_needed:.1f} experiments")
 
-            for method_name, (thresholds, means, _) in loaded_data.items():
-                if method_name == reference_method:
-                    continue
+    #         for method_name, (thresholds, means, _) in loaded_data.items():
+    #             if method_name == reference_method:
+    #                 continue
 
-                if len(thresholds) > 0 and thresholds[-1] >= target * 0.99:
-                    other_idx = np.abs(thresholds - target).argmin()
-                    other_exp_needed = means[other_idx]
-                    savings = (other_exp_needed - ref_exp_needed) / other_exp_needed * 100
-                    print(f"  - {method_name} needs: ~{other_exp_needed:.1f} experiments")
-                    print(f"  - {reference_method} saves {savings:.1f}% experiments vs {method_name}")
-                else:
-                    print(f"  - {method_name}: threshold not reached")
+    #             if len(thresholds) > 0 and thresholds[-1] >= target * 0.99:
+    #                 other_idx = np.abs(thresholds - target).argmin()
+    #                 other_exp_needed = means[other_idx]
+    #                 savings = (other_exp_needed - ref_exp_needed) / other_exp_needed * 100
+    #                 print(f"  - {method_name} needs: ~{other_exp_needed:.1f} experiments")
+    #                 print(f"  - {reference_method} saves {savings:.1f}% experiments vs {method_name}")
+    #             else:
+    #                 print(f"  - {method_name}: threshold not reached")
 
     print(f"\n{'='*20} Comparison Complete {'='*20}")
 
@@ -314,7 +316,7 @@ if __name__ == "__main__":
             "type": "batch_csv",
             "path": "results/multiple_20260421_191745/all_batches_final_round_*.csv",
             "experiments_per_batch": 5,
-            "custom_thresholds": [0.75, 0.8, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97],
+            "custom_thresholds": [float(a) for a in list(np.arange(0.74, 0.96, 0.01))],
             "color": NATURE_COLORS[0],
             "marker": "o",
             "zorder": 10,

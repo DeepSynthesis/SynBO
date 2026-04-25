@@ -164,8 +164,8 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         df_merged = pd.concat(all_results, ignore_index=True)
 
         # Save merged results
-        # df_merged.to_csv(merged_filename, index=False)
-        # print(f"Merged results saved to: {merged_filename}")
+        df_merged.to_csv(merged_filename, index=False)
+        print(f"Merged results saved to: {merged_filename}")
 
         # Print summary statistics
         print(f"\nSummary Statistics ({num_seeds} rounds):")

@@ -6,6 +6,41 @@ import matplotlib.ticker as ticker
 from pathlib import Path
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
+# ============================================================
+# Nature-grade unified color palette (Wong, Nature Methods 2011)
+# Colorblind-friendly, designed for scientific publications
+# ============================================================
+NATURE_COLORS = [
+    "#0072B2",  # Blue
+    "#D55E00",  # Vermillion
+    "#009E73",  # Bluish green
+    "#CC79A7",  # Reddish purple
+    "#F0E442",  # Yellow
+    "#56B4E9",  # Sky blue
+    "#E69F00",  # Orange
+]
+
+# Global matplotlib rcParams for publication-quality plots
+plt.rcParams.update({
+    "font.family": "Arial",
+    "font.size": 14,
+    "axes.titlesize": 0,          # Disabled titles
+    "axes.labelsize": 16,
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+    "legend.fontsize": 13,
+    "figure.dpi": 100,
+    "savefig.dpi": 300,
+    "savefig.bbox": "tight",
+    "axes.linewidth": 1.2,
+    "xtick.major.width": 1.2,
+    "ytick.major.width": 1.2,
+    "xtick.major.size": 5,
+    "ytick.major.size": 5,
+    "lines.linewidth": 2.0,
+    "lines.markersize": 6,
+})
+
 
 def plot_optimization_curves(model_data, target_columns, direction_tags, experiment_dir):
     """
@@ -83,6 +118,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             x="batch",
             y="value",
             hue="model",
+            palette=NATURE_COLORS,
             ax=ax,
             errorbar=("ci", 95),
             linewidth=2.5,
@@ -98,6 +134,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             x="batch",
             y="value",
             hue="model",
+            palette=NATURE_COLORS,
             ax=ax,
             width=0.6,
             fliersize=0,
@@ -106,35 +143,20 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             zorder=5,
         )
 
-        ax.set_title(f"Optimization Trace: {col}", fontsize=16, fontname="Arial", fontweight="bold")
-        ax.set_xlabel("Batch Iteration", fontsize=14, fontname="Arial", fontweight="bold")
+        ax.set_xlabel("Batch")
+        ax.set_ylabel(f"Best {col}")
 
-        ax.set_ylabel(f"Best Found {col}", fontsize=14, fontname="Arial", fontweight="bold")
-
-        ax.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+        ax.tick_params(axis="both", which="major")
         ax.tick_params(axis="both", which="minor", width=1, length=4)
 
-        for label in ax.get_xticklabels() + ax.get_yticklabels():
-            label.set_fontname("Arial")
-
-        # if y_range is not None:
-        #     if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
-        #         y_min, y_max = y_range
-        #         current_ylim = ax.get_ylim()
-        #         new_min = y_min - (y_max - y_min) * 0.1 if y_min is not None else current_ylim[0]
-        #         new_max = y_max + (y_max - y_min) * 0.1 if y_max is not None else current_ylim[1]
-        #         ax.set_ylim(new_min, new_max)
-
         ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
-        ax.spines["top"].set_linewidth(1.2)
-        ax.spines["right"].set_linewidth(1.2)
-        ax.spines["bottom"].set_linewidth(1.2)
-        ax.spines["left"].set_linewidth(1.2)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
 
-        ax.legend(loc="best", fontsize=11, framealpha=0.9)
+        ax.legend(loc="best", framealpha=0.9)
 
     save_path = experiment_dir / "plot_1_optimization_curves.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path)
     plt.close()
     print(f"Plot 1 saved: {save_path}")
 
@@ -219,6 +241,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         x="batch",
         y="value",
         hue="model",
+        palette=NATURE_COLORS,
         errorbar=("ci", 95),
         linewidth=2.5,
         marker="o",
@@ -233,6 +256,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         x="batch",
         y="value",
         hue="model",
+        palette=NATURE_COLORS,
         width=0.6,
         fliersize=0,
         linewidth=1.0,
@@ -240,32 +264,21 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         zorder=5,
     )
 
-    plt.title(
-        f"Hypervolume Coverage",
-        fontsize=16,
-        fontname="Arial",
-        fontweight="bold",
-    )
-    plt.xlabel("Batch", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.ylabel("Hypervolume Coverage (%)", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.xlabel("Batch")
+    plt.ylabel("Hypervolume")
 
-    plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+    plt.tick_params(axis="both", which="major")
     plt.tick_params(axis="both", which="minor", width=1, length=4)
-
-    for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
-        label.set_fontname("Arial")
 
     plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
     ax = plt.gca()
-    ax.spines["top"].set_linewidth(1.2)
-    ax.spines["right"].set_linewidth(1.2)
-    ax.spines["bottom"].set_linewidth(1.2)
-    ax.spines["left"].set_linewidth(1.2)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.2)
 
-    ax.legend(loc="lower right", fontsize=11, framealpha=0.9)
+    ax.legend(loc="lower right", framealpha=0.9)
 
     save_path = experiment_dir / "plot_2_hypervolume_coverage.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path)
     plt.close()
     print(f"Plot 2 saved: {save_path}")
 
@@ -321,6 +334,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
+            palette=NATURE_COLORS,
             ax=ax,
             width=0.6,
             fliersize=0,
@@ -332,6 +346,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
+            palette=NATURE_COLORS,
             ax=ax,
             size=6,
             jitter=0.2,
@@ -341,28 +356,21 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             zorder=10,
         )
 
-        ax.set_title(col, fontsize=16, fontname="Arial", fontweight="bold")
         ax.tick_params(axis="x", rotation=45)
-        ax.set_xlabel("", fontsize=14, fontname="Arial", fontweight="bold")
+        ax.set_xlabel("")
+        ax.set_ylabel(f"Best {col}")
 
-        ax.set_ylabel(f"Best Found {col}", fontsize=14, fontname="Arial", fontweight="bold")
-
-        ax.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
+        ax.tick_params(axis="both", which="major")
         ax.tick_params(axis="both", which="minor", width=1, length=4)
 
-        for label in ax.get_xticklabels() + ax.get_yticklabels():
-            label.set_fontname("Arial")
-
         ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
-        ax.spines["top"].set_linewidth(1.2)
-        ax.spines["right"].set_linewidth(1.2)
-        ax.spines["bottom"].set_linewidth(1.2)
-        ax.spines["left"].set_linewidth(1.2)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
 
-        ax.legend(loc="best", fontsize=11, framealpha=0.9)
+        ax.legend(loc="best", framealpha=0.9)
 
     save_path = experiment_dir / "plot_3_best_value_distribution.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path)
     plt.close()
     print(f"Plot 3 saved: {save_path}")
 
@@ -498,7 +506,7 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     # Draw distribution shadow and median line for each model
     # ==========================================
     for model_idx, (model_name, model_pfs) in enumerate(all_empirical_pfs):
-        color = plt.cm.tab10(model_idx % 10)
+        color = NATURE_COLORS[model_idx % len(NATURE_COLORS)]
 
         y_grids = _compute_attainment_surface(model_pfs, x_grid, dir_x, dir_y, penalty_y)
 
@@ -525,22 +533,19 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     plt.xlim(global_min_x - x_margin, global_max_x + x_margin)
     plt.ylim(global_min_y - y_margin, global_max_y + y_margin)
 
-    plt.xlabel(f"{targets[0]} ({dir_x})", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.ylabel(f"{targets[1]} ({dir_y})", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title("Optimization Process: Empirical Attainment Surfaces", fontsize=15, fontname="Arial", fontweight="bold")
+    plt.xlabel(f"{targets[0]} ({dir_x})")
+    plt.ylabel(f"{targets[1]} ({dir_y})")
 
-    plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
-    for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
-        label.set_fontname("Arial")
+    plt.tick_params(axis="both", which="major")
 
     plt.grid(True, linestyle="--", alpha=0.5, linewidth=0.8)
     ax = plt.gca()
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
-    plt.legend(loc="best", fontsize=11, framealpha=0.9)
+    plt.legend(loc="best", framealpha=0.9)
 
     save_path = save_dir / "plot_4_pareto_comparison_distribution.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path)
     plt.close()
     print(f"Plot 4 saved: {save_path}")

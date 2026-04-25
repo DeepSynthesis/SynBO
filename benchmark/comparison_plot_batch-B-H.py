@@ -1,5 +1,4 @@
 import pandas as pd
-import seaborn as sns
 from pathlib import Path
 from typing import Dict, List, Optional
 import glob
@@ -80,9 +79,6 @@ def plot_comparison(
         return
 
     print(f"\nLoaded {len(all_model_data)} models for comparison")
-
-    # Set Seaborn style
-    sns.set_theme(style="whitegrid")
 
     # Get config info
     first_model = list(all_model_data.keys())[0]

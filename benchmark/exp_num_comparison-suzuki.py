@@ -3,9 +3,40 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 from pathlib import Path
 from typing import Dict, Tuple, Any, List, Optional
+
+# Nature-grade unified color palette (Wong, Nature Methods 2011)
+NATURE_COLORS = [
+    "#0072B2",  # Blue
+    "#D55E00",  # Vermillion
+    "#009E73",  # Bluish green
+    "#CC79A7",  # Reddish purple
+    "#F0E442",  # Yellow
+    "#56B4E9",  # Sky blue
+    "#E69F00",  # Orange
+]
+
+# Global matplotlib rcParams for publication-quality plots
+plt.rcParams.update({
+    "font.family": "Arial",
+    "font.size": 14,
+    "axes.titlesize": 0,
+    "axes.labelsize": 16,
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+    "legend.fontsize": 13,
+    "figure.dpi": 100,
+    "savefig.dpi": 300,
+    "savefig.bbox": "tight",
+    "axes.linewidth": 1.2,
+    "xtick.major.width": 1.2,
+    "ytick.major.width": 1.2,
+    "xtick.major.size": 5,
+    "ytick.major.size": 5,
+    "lines.linewidth": 2.0,
+    "lines.markersize": 6,
+})
 
 
 def load_batch_csv_data(
@@ -152,7 +183,6 @@ def plot_experiment_comparison(
         return
 
     # 2. Plotting
-    sns.set_theme(style="whitegrid")
     plt.figure(figsize=(10, 7))
 
     for method_name, (thresholds, means, stds) in loaded_data.items():
@@ -177,14 +207,10 @@ def plot_experiment_comparison(
             alpha=0.85,
         )
 
-    plt.xlabel(f"Target Value ({target_column})", fontsize=14, fontname="Arial", fontweight="bold")
-    # 【修改】：在Y轴标签中标注误差棒代表的含义，以免产生误导
-    plt.ylabel(f"Number of Experiments Required\n(Error Bars: {std_scale} Std Dev)", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title(f"Efficiency to Reach Target: {target_column}", fontsize=16, fontname="Arial", fontweight="bold")
+    plt.xlabel(f"Target {target_column}")
+    plt.ylabel("Number of Experiments Required")
 
-    plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
-    for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
-        label.set_fontname("Arial")
+    plt.tick_params(axis="both", which="major")
 
     plt.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
     ax = plt.gca()
@@ -193,11 +219,11 @@ def plot_experiment_comparison(
 
     plt.yscale('log')
 
-    plt.legend(loc="best", fontsize=12, framealpha=0.9)
+    plt.legend(loc="best", framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
 
     save_path = output_dir / f"exp_num_comparison_suzuki.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path)
     plt.close()
     print(f"\nPlot saved: {save_path}")
 
@@ -244,21 +270,21 @@ if __name__ == "__main__":
             "type": "batch_csv",
             "path": "results/multiple_20260421_142852/all_batches_final_round_*.csv",
             "custom_thresholds": list(range(80, 90, 2)) + list(range(90, 96, 1)),
-            "color": "#2E86AB",
+            "color": NATURE_COLORS[0],
             "marker": "o",
             "zorder": 10,
         },
         "OFAT": {
             "type": "threshold_json",
             "path": "compare_mothods/ofat/results/ofat_expected_results_suzuki.json",
-            "color": "#A23B72",
+            "color": NATURE_COLORS[3],
             "marker": "s",
             "zorder": 9,
         },
         "Random": {
             "type": "threshold_json",
             "path": "compare_mothods/random/results/random_expected_results_suzuki.json",
-            "color": "#F18F01",
+            "color": NATURE_COLORS[6],
             "marker": "^",
             "zorder": 8,
         },

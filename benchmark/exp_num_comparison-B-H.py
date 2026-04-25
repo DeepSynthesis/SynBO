@@ -223,6 +223,8 @@ def plot_experiment_comparison_hv(
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
+    plt.yscale('log')
+
     plt.legend(loc="best", fontsize=12, framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
 

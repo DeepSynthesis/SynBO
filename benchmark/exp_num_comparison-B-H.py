@@ -38,6 +38,7 @@ def load_batch_csv_data_hv(
 
         # 确保所需的优化指标列都在 CSV 中
         if not all(m in df.columns for m in opt_metrics):
+            print(df.columns, opt_metrics)
             print(f"Warning: Missing required metrics in {file_path}")
             continue
 
@@ -281,9 +282,9 @@ if __name__ == "__main__":
     methods_config = {
         "SynBO": {
             "type": "batch_csv",
-            "path": "results/multiple_20260417_132000/all_batches_final_round_*.csv",
+            "path": "results/multiple_20260421_191745/all_batches_final_round_*.csv",
             "experiments_per_batch": 5,
-            "custom_thresholds": [0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95],
+            "custom_thresholds": [0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92],
             "color": "#2E86AB",
             "marker": "o",
             "zorder": 10,

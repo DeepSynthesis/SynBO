@@ -194,7 +194,7 @@ def plot_experiment_comparison(
     plt.legend(loc="best", fontsize=12, framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
 
-    save_path = output_dir / f"threshold_vs_exp_{target_column.lower()}.png"
+    save_path = output_dir / f"exp_num_comparison_suzuki.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"\nPlot saved: {save_path}")

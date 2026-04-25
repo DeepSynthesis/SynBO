@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Dict, Tuple, Any, List, Optional
 
 # 引入计算 HV 的工具函数
 from synbo.utils.hv_calculator import calculate_hypervolume_by_batch
@@ -16,19 +16,22 @@ def load_batch_csv_data_hv(
     opt_metrics: List[str],
     opt_metric_settings: List[Dict],
     experiments_per_batch: int = 5,
-) -> Tuple[np.ndarray, np.ndarray]:
+    custom_thresholds: Optional[List[float]] = None,
+    num_threshold_points: int = 30,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Load data from CSV files and compute cumulative Hypervolume (HV) per batch.
+    Load data from CSV files and calculate the number of experiments needed
+    to reach specific Hypervolume (HV) target values.
+
     Specifically designed for multi-objective datasets like B-H.
     """
     matching_files = glob.glob(results_pattern)
 
     if not matching_files:
         print(f"Warning: No files found with pattern: {results_pattern}")
-        return np.array([]), np.array([])
+        return np.array([]), np.array([]), np.array([])
 
-    all_series = []  # 存放每个 run 的 Series (index=batch, value=hv)
-    valid_files = 0
+    all_cum_hvs = []  # per-run cumulative HV arrays (per-experiment level)
 
     for file_path in matching_files:
         df = pd.read_csv(file_path)
@@ -38,11 +41,8 @@ def load_batch_csv_data_hv(
             print(f"Warning: Missing required metrics in {file_path}")
             continue
 
-        valid_files += 1
-
         try:
-            # 调用 SynBO 的 HV 计算器
-            # 注意：这要求 df 中包含 'batch' 列，以区分实验批次
+            # 调用 SynBO 的 HV 计算器，获得每个 batch 的累积 HV
             hv_results = calculate_hypervolume_by_batch(
                 prev_rxn_info=df,
                 opt_metrics=opt_metrics,
@@ -51,68 +51,86 @@ def load_batch_csv_data_hv(
                 cummax=True,
             )
 
-            # 提取 batch 和 hv_normalized
-            # 如果计算器返回的 DataFrame 包含 'batch' 列，将其设为 Index
+            # 提取 batch 级别的 hv_normalized
             if "batch" in hv_results.columns:
-                hv_series = hv_results.drop_duplicates(subset=["batch"], keep="last").set_index("batch")["hv_normalized"]
+                hv_df = hv_results.drop_duplicates(subset=["batch"], keep="last").set_index("batch")
+                hv_values = hv_df["hv_normalized"].values
             else:
-                # 如果没有 batch 列，假设每一行对应一个递增的 batch
-                hv_series = pd.Series(hv_results["hv_normalized"].values, index=np.arange(len(hv_results)))
+                hv_values = hv_results["hv_normalized"].values
 
-            all_series.append(hv_series)
+            # 将 batch 级别的 HV 扩展到 experiment 级别
+            # 每个 batch 包含 experiments_per_batch 个实验
+            cum_hv_per_exp = np.repeat(hv_values, experiments_per_batch)
+            all_cum_hvs.append(cum_hv_per_exp)
 
         except Exception as e:
             print(f"Error calculating HV for {file_path}: {e}")
             continue
 
-    if not all_series:
-        return np.array([]), np.array([])
+    if not all_cum_hvs:
+        return np.array([]), np.array([]), np.array([])
 
-    # 1. 对齐：自动根据真实的 batch 编号对齐
-    df_all_runs = pd.concat(all_series, axis=1)
-
-    # 2. 填充：排序 batch 索引，向前填充 (ffill) 停滞的 run，并向后填充 (bfill) 缺失的初始 batch
-    df_all_runs = df_all_runs.sort_index().ffill().bfill()
-
-    # 3. 聚合：计算每一个真实 batch 跨所有 runs 的平均 HV 值
-    mean_hv_values = df_all_runs.mean(axis=1).values
-
-    # 4. 映射 X 轴：计算实验数量
-    actual_batches = df_all_runs.index.values
-    if actual_batches.min() == 0:
-        experiment_numbers = (actual_batches + 1) * experiments_per_batch
+    # 确定评估阈值
+    if custom_thresholds is not None:
+        eval_thresholds = np.sort(np.array(custom_thresholds))
     else:
-        experiment_numbers = actual_batches * experiments_per_batch
+        global_min = min([ch[0] for ch in all_cum_hvs])
+        global_max = max([ch[-1] for ch in all_cum_hvs])
 
-    return experiment_numbers, mean_hv_values
+        if global_min == global_max:
+            eval_thresholds = np.array([global_min])
+        else:
+            eval_thresholds = np.linspace(global_min, global_max, num_threshold_points)
+
+    thresholds_list = []
+    means_list = []
+    stds_list = []
+
+    for t in eval_thresholds:
+        exps_needed = []
+        for ch in all_cum_hvs:
+            # HV: 最大化方向，找到第一个达到阈值的位置
+            idx = np.where(ch >= t)[0]
+            if len(idx) > 0:
+                exps_needed.append(idx[0] + 1)  # +1 转为 1-indexed 实验数
+
+        if len(exps_needed) > 0:
+            thresholds_list.append(t)
+            means_list.append(np.mean(exps_needed))
+            stds_list.append(np.std(exps_needed))
+
+    return np.array(thresholds_list), np.array(means_list), np.array(stds_list)
 
 
-def load_threshold_json_data(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
+def load_threshold_json_data(json_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Load baseline method data from JSON file (OFAT/Random).
+    Load baseline method data from JSON file (OFAT/Random style).
+    Expects structure: {"0.55": {"threshold": 0.55, "mean": 12.48, "std": 7.42...}}
     For B-H dataset, the "threshold" in JSON is the HV value.
-    Returns: (experiment_numbers, thresholds/HV_values)
     """
     try:
         with open(json_path, "r") as f:
             data = json.load(f)
     except FileNotFoundError:
         print(f"Warning: File not found: {json_path}")
-        return np.array([]), np.array([])
+        return np.array([]), np.array([]), np.array([])
 
     thresholds = []
-    mean_experiments = []
+    means = []
+    stds = []
 
     for key, value in data.items():
         thresholds.append(float(value["threshold"]))
-        mean_experiments.append(float(value["mean"]))
+        means.append(float(value["mean"]))
+        stds.append(float(value.get("std", 0.0)))
 
     # 按 HV 阈值从小到大排序，以便于画图
     sorted_indices = np.argsort(thresholds)
     thresholds = np.array(thresholds)[sorted_indices]
-    mean_experiments = np.array(mean_experiments)[sorted_indices]
+    means = np.array(means)[sorted_indices]
+    stds = np.array(stds)[sorted_indices]
 
-    return mean_experiments, thresholds
+    return thresholds, means, stds
 
 
 def plot_experiment_comparison_hv(
@@ -121,9 +139,12 @@ def plot_experiment_comparison_hv(
     opt_metric_settings: List[Dict],
     output_dir: str = "comparison_results/exp_num_comparison",
     reference_method: str = "SynBO",
+    std_scale: float = 0.5,
 ):
     """
-    Generate comparison plot of experiment efficiency specifically for Hypervolume (HV).
+    Generate comparison plot: Target Hypervolume vs Required Experiments with Error Bars.
+
+    Specifically designed for multi-objective datasets (B-H) using Hypervolume (HV).
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -138,21 +159,23 @@ def plot_experiment_comparison_hv(
         path = config.get("path")
 
         if data_type == "batch_csv":
-            exp_nums, values = load_batch_csv_data_hv(
+            custom_thresholds = config.get("custom_thresholds", None)
+            thresholds, means, stds = load_batch_csv_data_hv(
                 results_pattern=path,
                 opt_metrics=opt_metrics,
                 opt_metric_settings=opt_metric_settings,
                 experiments_per_batch=config.get("experiments_per_batch", 5),
+                custom_thresholds=custom_thresholds,
             )
         elif data_type == "threshold_json":
-            exp_nums, values = load_threshold_json_data(path)
+            thresholds, means, stds = load_threshold_json_data(path)
         else:
             print(f"Warning: Unknown data type '{data_type}' for {method_name}")
             continue
 
-        if len(exp_nums) > 0:
-            loaded_data[method_name] = (exp_nums, values)
-            print(f"  -> Loaded {len(exp_nums)} data points (Max HV: {values[-1]:.3f}).")
+        if len(thresholds) > 0:
+            loaded_data[method_name] = (thresholds, means, stds)
+            print(f"  -> Loaded {len(thresholds)} threshold points.")
         else:
             print(f"  -> No data loaded for {method_name}.")
 
@@ -160,27 +183,35 @@ def plot_experiment_comparison_hv(
         print("No valid data loaded. Exiting.")
         return
 
-    # 2. 绘图配置
+    # 2. 绘图
     sns.set_theme(style="whitegrid")
     plt.figure(figsize=(10, 7))
 
-    for method_name, (exp_nums, values) in loaded_data.items():
+    for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
-        plt.plot(
-            exp_nums,
-            values,
-            marker=config.get("marker", "o"),
-            markersize=6,
-            linewidth=2.5,
-            label=method_name,
+
+        # 对标准差进行缩放
+        scaled_stds = stds * std_scale
+
+        plt.errorbar(
+            x=thresholds,
+            y=means,
+            yerr=scaled_stds,
+            fmt=config.get("marker", "o") + "-",
             color=config.get("color"),
+            label=method_name,
+            markersize=6,
+            linewidth=2,
+            capsize=4,
+            capthick=1.5,
+            elinewidth=1.5,
             zorder=config.get("zorder", 5),
+            alpha=0.85,
         )
 
-    # 修改 Labels 为 Hypervolume
-    plt.xlabel("Number of Experiments", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.ylabel("Expected Hypervolume (Normalized)", fontsize=14, fontname="Arial", fontweight="bold")
-    plt.title("Experiment Efficiency Comparison: B-H Dataset (Multi-Objective)", fontsize=16, fontname="Arial", fontweight="bold")
+    plt.xlabel("Target Hypervolume (Normalized)", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.ylabel(f"Number of Experiments Required\n(Error Bars: {std_scale} Std Dev)", fontsize=14, fontname="Arial", fontweight="bold")
+    plt.title("Efficiency to Reach Target: B-H Dataset (Multi-Objective)", fontsize=16, fontname="Arial", fontweight="bold")
 
     plt.tick_params(axis="both", which="major", labelsize=12, width=1.5, length=6)
     for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
@@ -191,47 +222,41 @@ def plot_experiment_comparison_hv(
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
-    plt.legend(loc="lower right", fontsize=12, framealpha=0.9)  # HV 图通常图例在右下角比较好
-
-    # 设置 Y 轴范围为 [0, 1.05]，因为归一化的 HV 最大值为 1
-    plt.xlim(0, 200)  # 根据实际数据调整 X 轴范围
-    plt.ylim(0.55, 0.95)
+    plt.legend(loc="best", fontsize=12, framealpha=0.9)
+    plt.autoscale(enable=True, axis="both", tight=False)
 
     save_path = output_dir / "exp_num_comparison_bh_hv.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"\nPlot saved: {save_path}")
 
-    # 3. 统计摘要
-    print(f"\n{'='*20} Summary Statistics {'='*20}")
-    for method_name, (exp_nums, values) in loaded_data.items():
-        print(f"{method_name} final/max HV: {values[-1]:.3f} at {exp_nums[-1]:.1f} experiments")
-
-    # 4. 效率分析（针对多目标 HV 调整阈值）
+    # 3. 效率分析
     print(f"\n{'='*20} Efficiency Analysis {'='*20}")
     if reference_method in loaded_data:
-        ref_exp_nums, ref_values = loaded_data[reference_method]
-        # 针对 HV 设定的评估阈值
-        comparison_thresholds = [0.6, 0.7, 0.8, 0.9, 0.95]
+        ref_thresholds, ref_means, _ = loaded_data[reference_method]
 
-        for threshold in comparison_thresholds:
-            ref_idx = np.where(ref_values >= threshold)[0]
-            if len(ref_idx) == 0:
-                continue
+        if len(ref_thresholds) > 4:
+            eval_indices = np.linspace(0, len(ref_thresholds) - 1, 5, dtype=int)
+            comparison_thresholds = ref_thresholds[eval_indices]
+        else:
+            comparison_thresholds = ref_thresholds
 
-            ref_exp_needed = ref_exp_nums[ref_idx[0]]
-            print(f"\nTo achieve Hypervolume ≥ {threshold}:")
-            print(f"  - {reference_method} needs: {ref_exp_needed:.1f} experiments")
+        for target in comparison_thresholds:
+            print(f"\nTo achieve Hypervolume ≥ {target:.3f}:")
 
-            for method_name, (exp_nums, values) in loaded_data.items():
+            ref_idx = np.abs(ref_thresholds - target).argmin()
+            ref_exp_needed = ref_means[ref_idx]
+            print(f"  - {reference_method} needs: ~{ref_exp_needed:.1f} experiments")
+
+            for method_name, (thresholds, means, _) in loaded_data.items():
                 if method_name == reference_method:
                     continue
 
-                other_idx = np.where(values >= threshold)[0]
-                if len(other_idx) > 0:
-                    other_exp_needed = exp_nums[other_idx[0]]
+                if len(thresholds) > 0 and thresholds[-1] >= target * 0.99:
+                    other_idx = np.abs(thresholds - target).argmin()
+                    other_exp_needed = means[other_idx]
                     savings = (other_exp_needed - ref_exp_needed) / other_exp_needed * 100
-                    print(f"  - {method_name} needs: {other_exp_needed:.1f} experiments")
+                    print(f"  - {method_name} needs: ~{other_exp_needed:.1f} experiments")
                     print(f"  - {reference_method} saves {savings:.1f}% experiments vs {method_name}")
                 else:
                     print(f"  - {method_name}: threshold not reached")
@@ -241,8 +266,9 @@ def plot_experiment_comparison_hv(
 
 if __name__ == "__main__":
     # ==========================================
-    # B-H 数据集特定的多目标配置
+    # B-H 数据集特定的参数配置
     # ==========================================
+    BH_REAGENT_TYPES = ["concentration", "temperature", "base", "ligand", "solvent"]
     BH_OPT_METRICS = ["yield", "cost"]
     BH_OPT_METRIC_SETTINGS = [
         {"opt_direct": "max", "opt_range": [0, 100]},
@@ -255,8 +281,9 @@ if __name__ == "__main__":
     methods_config = {
         "SynBO": {
             "type": "batch_csv",
-            "path": "results/multiple_20260417_132000/all_batches_final_round_*.csv",  # 替换为实际路径
+            "path": "results/multiple_20260417_132000/all_batches_final_round_*.csv",
             "experiments_per_batch": 5,
+            "custom_thresholds": [0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95],
             "color": "#2E86AB",
             "marker": "o",
             "zorder": 10,
@@ -284,4 +311,5 @@ if __name__ == "__main__":
         opt_metric_settings=BH_OPT_METRIC_SETTINGS,
         output_dir="comparison_results/exp_num_comparison",
         reference_method="SynBO",
+        std_scale=0.25,
     )

@@ -279,12 +279,13 @@ if __name__ == "__main__":
     # ==========================================
     # 核心方法配置字典
     # ==========================================
+
     methods_config = {
         "SynBO": {
             "type": "batch_csv",
             "path": "results/multiple_20260421_191745/all_batches_final_round_*.csv",
             "experiments_per_batch": 5,
-            "custom_thresholds": [0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92],
+            "custom_thresholds": [0.75, 0.8, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97],
             "color": "#2E86AB",
             "marker": "o",
             "zorder": 10,

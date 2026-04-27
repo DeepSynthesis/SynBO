@@ -164,6 +164,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
         df_merged = pd.concat(all_results, ignore_index=True)
 
         # Save merged results
+        merged_filename = f"results/merged_{label_benchmark}"
         df_merged.to_csv(merged_filename, index=False)
         print(f"Merged results saved to: {merged_filename}")
 
@@ -243,7 +244,7 @@ def demo_multiple_configs(dataset="HTE_datasets/B-H_HTE/B-H_HTE.csv", desc_colum
     print("Benchmark completed successfully!")
     print(f"{'='*80}")
     print(f"\nOutput files:")
-    # print(f"  - Merged results: {merged_filename}")
+    print(f"  - Merged results: {merged_filename}")
     print(f"  - Mean results: {mean_filename}")
     print(f"  - Timing info: {timing_filename}")
     print(f"\nTotal time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)")

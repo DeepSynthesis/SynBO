@@ -7,32 +7,24 @@ from pathlib import Path
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 # ============================================================
-# Nature-grade unified color palette (Wong, Nature Methods 2011)
-# Colorblind-friendly, designed for scientific publications
+# Unified color palette for line elements
 # ============================================================
-NATURE_COLORS = [
-    "#0072B2",  # Blue
-    "#D55E00",  # Vermillion
-    "#009E73",  # Bluish green
-    "#CC79A7",  # Reddish purple
-    "#F0E442",  # Yellow
-    "#56B4E9",  # Sky blue
-    "#E69F00",  # Orange
+LINE_COLORS = [
+    "#7153a1",  # Purple (priority for SynBO)
+    "#4f75a3",  # Blue
+    "#b45475",  # Red
+    "#50527a",  # Dark Blue
 ]
 
 # ============================================================
-# Comparison batch palette (ggsci NPG - Nature Publishing Group)
-# Higher saturation, maximum perceptual distance, optimal for
-# filled boxplots + overlaid lineplots in batch-comparison figures
+# Unified color palette for fill elements (boxplot, stripplot,
+# fill_between, etc.)
 # ============================================================
-COMPARISON_PALETTE = [
-    "#3C5488",  # Navy Blue
-    "#E64B35",  # Red
-    "#00A087",  # Green
-    "#4DBBD5",  # Teal
-    "#F39B7F",  # Salmon
-    "#8491B4",  # Slate
-    "#91D1C2",  # Mint
+FILL_COLORS = [
+    "#dfd3ed",  # Light Purple
+    "#cbe0f5",  # Light Blue
+    "#f5cbd2",  # Light Red
+    "#a3a3c3",  # Light Dark Blue
 ]
 
 # Global matplotlib rcParams for publication-quality plots
@@ -133,7 +125,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             x="batch",
             y="value",
             hue="model",
-            palette=COMPARISON_PALETTE,
+            palette=LINE_COLORS,
             ax=ax,
             errorbar=("ci", 95),
             linewidth=2.5,
@@ -149,7 +141,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             x="batch",
             y="value",
             hue="model",
-            palette=COMPARISON_PALETTE,
+            palette=FILL_COLORS,
             ax=ax,
             width=0.6,
             fliersize=0,
@@ -256,7 +248,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         x="batch",
         y="value",
         hue="model",
-        palette=COMPARISON_PALETTE,
+        palette=LINE_COLORS,
         errorbar=("ci", 95),
         linewidth=2.5,
         marker="o",
@@ -271,7 +263,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         x="batch",
         y="value",
         hue="model",
-        palette=COMPARISON_PALETTE,
+        palette=FILL_COLORS,
         width=0.6,
         fliersize=0,
         linewidth=1.0,
@@ -349,7 +341,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
-            palette=COMPARISON_PALETTE,
+            palette=FILL_COLORS,
             ax=ax,
             width=0.6,
             fliersize=0,
@@ -361,7 +353,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
-            palette=COMPARISON_PALETTE,
+            palette=FILL_COLORS,
             ax=ax,
             size=6,
             jitter=0.2,
@@ -521,7 +513,8 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     # Draw distribution shadow and median line for each model
     # ==========================================
     for model_idx, (model_name, model_pfs) in enumerate(all_empirical_pfs):
-        color = NATURE_COLORS[model_idx % len(NATURE_COLORS)]
+        line_color = LINE_COLORS[model_idx % len(LINE_COLORS)]
+        fill_color = FILL_COLORS[model_idx % len(FILL_COLORS)]
 
         y_grids = _compute_attainment_surface(model_pfs, x_grid, dir_x, dir_y, penalty_y)
 
@@ -529,8 +522,8 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
         y_lower = np.percentile(y_grids, 0, axis=0)  # 0%
         y_upper = np.percentile(y_grids, 100, axis=0)  # 100%
 
-        plt.fill_between(x_grid, y_lower, y_upper, color=color, alpha=0.15, zorder=3)
-        plt.plot(x_grid, y_median, color=color, linestyle="-", linewidth=2.2, alpha=0.9, label=model_name, zorder=4)
+        plt.fill_between(x_grid, y_lower, y_upper, color=fill_color, alpha=0.15, zorder=3)
+        plt.plot(x_grid, y_median, color=line_color, linestyle="-", linewidth=2.2, alpha=0.9, label=model_name, zorder=4)
 
     # ==========================================
     # Draw true front (True Pareto Front)

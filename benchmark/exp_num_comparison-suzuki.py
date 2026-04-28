@@ -6,15 +6,12 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Tuple, Any, List, Optional
 
-# Nature-grade unified color palette (Wong, Nature Methods 2011)
-NATURE_COLORS = [
-    "#0072B2",  # Blue
-    "#D55E00",  # Vermillion
-    "#009E73",  # Bluish green
-    "#CC79A7",  # Reddish purple
-    "#F0E442",  # Yellow
-    "#56B4E9",  # Sky blue
-    "#E69F00",  # Orange
+# Unified color palette for line elements
+LINE_COLORS = [
+    "#7153a1",  # Purple (priority for SynBO)
+    "#4f75a3",  # Blue
+    "#b45475",  # Red
+    "#50527a",  # Dark Blue
 ]
 
 # Global matplotlib rcParams for publication-quality plots
@@ -270,21 +267,21 @@ if __name__ == "__main__":
             "type": "batch_csv",
             "path": "results/multiple_20260421_142852/all_batches_final_round_*.csv",
             "custom_thresholds": list(range(80, 90, 2)) + list(range(90, 96, 1)),
-            "color": NATURE_COLORS[0],
+            "color": LINE_COLORS[0],
             "marker": "o",
             "zorder": 10,
         },
         "OFAT": {
             "type": "threshold_json",
             "path": "compare_mothods/ofat/results/ofat_expected_results_suzuki.json",
-            "color": NATURE_COLORS[3],
+            "color": LINE_COLORS[1],
             "marker": "s",
             "zorder": 9,
         },
         "Random": {
             "type": "threshold_json",
             "path": "compare_mothods/random/results/random_expected_results_suzuki.json",
-            "color": NATURE_COLORS[6],
+            "color": LINE_COLORS[2],
             "marker": "^",
             "zorder": 8,
         },

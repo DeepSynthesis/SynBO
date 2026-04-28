@@ -13,7 +13,7 @@ LINE_COLORS = [
     "#7153a1",  # Purple (priority for SynBO)
     "#4f75a3",  # Blue
     "#b45475",  # Red
-    "#50527a",  # Dark Blue
+    "#d3991c",  # Dark Blue
 ]
 
 # ============================================================
@@ -24,29 +24,31 @@ FILL_COLORS = [
     "#dfd3ed",  # Light Purple
     "#cbe0f5",  # Light Blue
     "#f5cbd2",  # Light Red
-    "#a3a3c3",  # Light Dark Blue
+    "#eec978",  # Light Dark Blue
 ]
 
 # Global matplotlib rcParams for publication-quality plots
-plt.rcParams.update({
-    "font.family": "Arial",
-    "font.size": 14,
-    "axes.titlesize": 0,          # Disabled titles
-    "axes.labelsize": 16,
-    "xtick.labelsize": 14,
-    "ytick.labelsize": 14,
-    "legend.fontsize": 13,
-    "figure.dpi": 100,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.linewidth": 1.2,
-    "xtick.major.width": 1.2,
-    "ytick.major.width": 1.2,
-    "xtick.major.size": 5,
-    "ytick.major.size": 5,
-    "lines.linewidth": 2.0,
-    "lines.markersize": 6,
-})
+plt.rcParams.update(
+    {
+        "font.family": "Arial",
+        "font.size": 14,
+        "axes.titlesize": 0,  # Disabled titles
+        "axes.labelsize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "legend.fontsize": 13,
+        "figure.dpi": 100,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.linewidth": 1.2,
+        "xtick.major.width": 1.2,
+        "ytick.major.width": 1.2,
+        "xtick.major.size": 5,
+        "ytick.major.size": 5,
+        "lines.linewidth": 2.0,
+        "lines.markersize": 6,
+    }
+)
 
 
 def plot_optimization_curves(model_data, target_columns, direction_tags, experiment_dir):
@@ -353,7 +355,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
             data=col_data,
             x="model",
             y="Best Value",
-            palette=FILL_COLORS,
+            palette=LINE_COLORS,
             ax=ax,
             size=6,
             jitter=0.2,
@@ -530,9 +532,9 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     # ==========================================
     true_y_grid = _compute_attainment_surface([true_pf_sorted], x_grid, dir_x, dir_y, penalty_y)[0]
 
-    plt.plot(x_grid, true_y_grid, c="#11668a", linestyle="-", linewidth=2.0, alpha=0.8, label="True Pareto Front", zorder=1)
+    plt.plot(x_grid, true_y_grid, c="#c71515", linestyle="-", linewidth=2.0, alpha=0.8, label="True Pareto Front", zorder=1)
     # Draw real nodes at actual positions
-    plt.scatter(true_pf_sorted[:, 0], true_pf_sorted[:, 1], c="skyblue", edgecolors="k", linewidth=0.8, s=45, alpha=1.0, zorder=5)
+    plt.scatter(true_pf_sorted[:, 0], true_pf_sorted[:, 1], c="#de6666", edgecolors="k", linewidth=0.8, s=65, alpha=1.0, zorder=5)
 
     # ==========================================
     # Formatting and beautification

@@ -319,21 +319,21 @@ DEFAULT_CONFIG = {
         "dataset_path": "../../datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv",
         "reagent_types": ["solvent", "ligand", "reactant2", "reactant1", "base"],
         "target_col": "Conversion",
-        "thresholds": list(range(80, 90, 2)) + list(range(90, 96, 1)),
+        "thresholds": list(range(80, 96, 1)),
         "n_simulations": 1000,
     },
-    "B-H": {
-        "dataset_path": "../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
-        "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
-        "opt_metrics": ["yield", "cost"],
-        # 若需要，请解除这里的注释并匹配你的 synbo 需要的格式:
-        "opt_metric_settings": [
-            {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
-            {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
-        ],
-        "thresholds": list(np.arange(0.74, 0.98, 0.01)),
-        "n_simulations": 100,
-    },
+    # "B-H": {
+    #     "dataset_path": "../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
+    #     "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
+    #     "opt_metrics": ["yield", "cost"],
+    #     # 若需要，请解除这里的注释并匹配你的 synbo 需要的格式:
+    #     "opt_metric_settings": [
+    #         {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
+    #         {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
+    #     ],
+    #     "thresholds": list(np.arange(0.74, 0.98, 0.01)),
+    #     "n_simulations": 100,
+    # },
 }
 
 

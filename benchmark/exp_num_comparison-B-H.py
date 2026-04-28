@@ -14,7 +14,7 @@ LINE_COLORS = [
     "#7153a1",  # Purple (priority for SynBO)
     "#4f75a3",  # Blue
     "#b45475",  # Red
-    "#50527a",  # Dark Blue
+    "#d3991c",  # Dark Blue
 ]
 
 # Global matplotlib rcParams for publication-quality plots
@@ -313,7 +313,7 @@ if __name__ == "__main__":
             "type": "batch_csv",
             "path": "results/multiple_20260421_191745/all_batches_final_round_*.csv",
             "experiments_per_batch": 5,
-            "custom_thresholds": [float(a) for a in list(np.arange(0.74, 0.96, 0.01))],
+            "custom_thresholds": [float(a) for a in list(np.arange(0.75, 0.96, 0.01))],
             "color": LINE_COLORS[0],
             "marker": "o",
             "zorder": 10,

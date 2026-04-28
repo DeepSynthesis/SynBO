@@ -11,29 +11,31 @@ LINE_COLORS = [
     "#7153a1",  # Purple (priority for SynBO)
     "#4f75a3",  # Blue
     "#b45475",  # Red
-    "#50527a",  # Dark Blue
+    "#d3991c",  # Dark Blue
 ]
 
 # Global matplotlib rcParams for publication-quality plots
-plt.rcParams.update({
-    "font.family": "Arial",
-    "font.size": 14,
-    "axes.titlesize": 0,
-    "axes.labelsize": 16,
-    "xtick.labelsize": 14,
-    "ytick.labelsize": 14,
-    "legend.fontsize": 13,
-    "figure.dpi": 100,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.linewidth": 1.2,
-    "xtick.major.width": 1.2,
-    "ytick.major.width": 1.2,
-    "xtick.major.size": 5,
-    "ytick.major.size": 5,
-    "lines.linewidth": 2.0,
-    "lines.markersize": 6,
-})
+plt.rcParams.update(
+    {
+        "font.family": "Arial",
+        "font.size": 14,
+        "axes.titlesize": 0,
+        "axes.labelsize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "legend.fontsize": 13,
+        "figure.dpi": 100,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.linewidth": 1.2,
+        "xtick.major.width": 1.2,
+        "ytick.major.width": 1.2,
+        "xtick.major.size": 5,
+        "ytick.major.size": 5,
+        "lines.linewidth": 2.0,
+        "lines.markersize": 6,
+    }
+)
 
 
 def load_batch_csv_data(
@@ -214,7 +216,7 @@ def plot_experiment_comparison(
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
-    plt.yscale('log')
+    plt.yscale("log")
 
     plt.legend(loc="best", framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
@@ -266,7 +268,7 @@ if __name__ == "__main__":
         "SynBO": {
             "type": "batch_csv",
             "path": "results/multiple_20260421_142852/all_batches_final_round_*.csv",
-            "custom_thresholds": list(range(80, 90, 2)) + list(range(90, 96, 1)),
+            "custom_thresholds": list(range(80, 96, 1)),
             "color": LINE_COLORS[0],
             "marker": "o",
             "zorder": 10,

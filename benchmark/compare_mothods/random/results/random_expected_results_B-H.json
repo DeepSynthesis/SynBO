@@ -1,13 +1,4 @@
 {
-    "0.74": {
-        "threshold": 0.74,
-        "n_simulations": 100,
-        "mean": 31.65,
-        "median": 27.5,
-        "std": 24.784420509666955,
-        "min": 1,
-        "max": 119
-    },
     "0.75": {
         "threshold": 0.75,
         "n_simulations": 100,

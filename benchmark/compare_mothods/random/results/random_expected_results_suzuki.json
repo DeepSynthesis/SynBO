@@ -8,6 +8,15 @@
     "min": 1,
     "max": 71
   },
+  "81": {
+    "threshold": 81,
+    "n_simulations": 1000,
+    "mean": 11.413,
+    "median": 8.0,
+    "std": 10.74143523929647,
+    "min": 1,
+    "max": 71
+  },
   "82": {
     "threshold": 82,
     "n_simulations": 1000,
@@ -17,12 +26,30 @@
     "min": 1,
     "max": 86
   },
+  "83": {
+    "threshold": 83,
+    "n_simulations": 1000,
+    "mean": 13.114,
+    "median": 9.0,
+    "std": 12.639897309709442,
+    "min": 1,
+    "max": 88
+  },
   "84": {
     "threshold": 84,
     "n_simulations": 1000,
     "mean": 14.772,
     "median": 10.0,
     "std": 14.81317035613916,
+    "min": 1,
+    "max": 121
+  },
+  "85": {
+    "threshold": 85,
+    "n_simulations": 1000,
+    "mean": 16.017,
+    "median": 11.0,
+    "std": 16.39630174765029,
     "min": 1,
     "max": 121
   },
@@ -35,6 +62,15 @@
     "min": 1,
     "max": 121
   },
+  "87": {
+    "threshold": 87,
+    "n_simulations": 1000,
+    "mean": 19.327,
+    "median": 13.0,
+    "std": 19.507590086937956,
+    "min": 1,
+    "max": 145
+  },
   "88": {
     "threshold": 88,
     "n_simulations": 1000,
@@ -43,6 +79,15 @@
     "std": 22.243947289094177,
     "min": 1,
     "max": 152
+  },
+  "89": {
+    "threshold": 89,
+    "n_simulations": 1000,
+    "mean": 24.671,
+    "median": 16.0,
+    "std": 25.394738805508517,
+    "min": 1,
+    "max": 190
   },
   "90": {
     "threshold": 90,

@@ -23,18 +23,18 @@ plt.rcParams.update(
         "font.family": "Arial",
         "font.size": 14,
         "axes.titlesize": 0,
-        "axes.labelsize": 16,
-        "xtick.labelsize": 14,
-        "ytick.labelsize": 14,
-        "legend.fontsize": 13,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 11,
         "figure.dpi": 100,
         "savefig.dpi": 300,
         "savefig.bbox": "tight",
         "axes.linewidth": 1.2,
-        "xtick.major.width": 1.2,
-        "ytick.major.width": 1.2,
-        "xtick.major.size": 5,
-        "ytick.major.size": 5,
+        "xtick.major.width": 1.5,
+        "ytick.major.width": 1.5,
+        "xtick.major.size": 6,
+        "ytick.major.size": 6,
         "lines.linewidth": 2.0,
         "lines.markersize": 6,
     }
@@ -215,7 +215,7 @@ def plot_experiment_comparison_hv(
         return
 
     # 2. 绘图
-    plt.figure(figsize=(10, 7))
+    plt.figure(figsize=(10, 5), constrained_layout=True)
 
     for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
@@ -255,7 +255,7 @@ def plot_experiment_comparison_hv(
     plt.autoscale(enable=True, axis="both", tight=False)
 
     save_path = output_dir / "exp_num_comparison_bh_hv.png"
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"\nPlot saved: {save_path}")
 

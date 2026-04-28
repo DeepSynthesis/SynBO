@@ -33,18 +33,18 @@ plt.rcParams.update(
         "font.family": "Arial",
         "font.size": 14,
         "axes.titlesize": 0,  # Disabled titles
-        "axes.labelsize": 16,
-        "xtick.labelsize": 14,
-        "ytick.labelsize": 14,
-        "legend.fontsize": 13,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 11,
         "figure.dpi": 100,
         "savefig.dpi": 300,
         "savefig.bbox": "tight",
         "axes.linewidth": 1.2,
-        "xtick.major.width": 1.2,
-        "ytick.major.width": 1.2,
-        "xtick.major.size": 5,
-        "ytick.major.size": 5,
+        "xtick.major.width": 1.5,
+        "ytick.major.width": 1.5,
+        "xtick.major.size": 6,
+        "ytick.major.size": 6,
         "lines.linewidth": 2.0,
         "lines.markersize": 6,
     }
@@ -165,7 +165,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
         ax.legend(loc="best", framealpha=0.9)
 
     save_path = experiment_dir / "plot_1_optimization_curves.png"
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 1 saved: {save_path}")
 
@@ -242,7 +242,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 5), constrained_layout=True)
 
     # Lineplot with model hue for cumulative best HV
     sns.lineplot(
@@ -287,7 +287,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
     ax.legend(loc="lower right", framealpha=0.9)
 
     save_path = experiment_dir / "plot_2_hypervolume_coverage.png"
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 2 saved: {save_path}")
 
@@ -328,7 +328,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
 
     # 3. Initialize plotting
     n_cols = len(target_columns)
-    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 4), constrained_layout=True)
+    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5), constrained_layout=True)
 
     if n_cols == 1:
         axes = [axes]
@@ -379,7 +379,7 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
         ax.legend(loc="best", framealpha=0.9)
 
     save_path = experiment_dir / "plot_3_best_value_distribution.png"
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 3 saved: {save_path}")
 
@@ -481,7 +481,7 @@ def _compute_attainment_surface(pf_list, x_grid, dir_x, dir_y, penalty_y):
 
 
 def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, directions, save_dir):
-    plt.figure(figsize=(9, 6))
+    plt.figure(figsize=(9, 5), constrained_layout=True)
     dir_x, dir_y = directions[0], directions[1]
 
     # ==========================================
@@ -556,6 +556,6 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     plt.legend(loc="best", framealpha=0.9)
 
     save_path = save_dir / "plot_4_pareto_comparison_distribution.png"
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Plot 4 saved: {save_path}")

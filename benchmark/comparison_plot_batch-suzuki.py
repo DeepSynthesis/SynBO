@@ -114,12 +114,12 @@ if __name__ == "__main__":
     # Example: compare synbo and EDBOplus results
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
-        "synbo (new)": {
+        "SynBO": {
             "results_path": "results/multiple_20260417_133009/all_batches_final_round_*.csv",
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],
         },
-        "EDBOplus": {
+        "EDBO+": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_suzuki_HTE/batch_*.csv",
             "target_columns": ["Conversion"],
             "direction_tags": ["max"],

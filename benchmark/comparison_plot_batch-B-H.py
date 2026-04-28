@@ -118,7 +118,7 @@ if __name__ == "__main__":
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],
         },
-        "EDBOplus": {
+        "EDBO+": {
             "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
             "target_columns": ["yield", "cost"],
             "direction_tags": ["max", "min"],

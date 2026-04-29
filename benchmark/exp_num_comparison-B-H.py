@@ -215,7 +215,7 @@ def plot_experiment_comparison_hv(
         return
 
     # 2. 绘图
-    plt.figure(figsize=(10, 5), constrained_layout=True)
+    plt.figure(figsize=(6, 5), constrained_layout=True)
 
     for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
@@ -251,7 +251,7 @@ def plot_experiment_comparison_hv(
 
     plt.yscale("log")
 
-    plt.legend(loc="best", framealpha=0.9)
+    # plt.legend(loc="best", framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
 
     save_path = output_dir / "exp_num_comparison_bh_hv.png"

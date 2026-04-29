@@ -133,7 +133,7 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
             linewidth=2.5,
             marker="o",
             markersize=6,
-            legend="full",
+            legend=False,
             zorder=10,
         )
 
@@ -161,8 +161,6 @@ def plot_optimization_curves(model_data, target_columns, direction_tags, experim
         ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
         for spine in ax.spines.values():
             spine.set_linewidth(1.2)
-
-        ax.legend(loc="best", framealpha=0.9)
 
     save_path = experiment_dir / "plot_1_optimization_curves.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
@@ -242,7 +240,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
     best_df = pd.DataFrame(all_best_records)
     actual_df = pd.DataFrame(all_actual_records)
 
-    plt.figure(figsize=(10, 5), constrained_layout=True)
+    plt.figure(figsize=(8, 5), constrained_layout=True)
 
     # Lineplot with model hue for cumulative best HV
     sns.lineplot(
@@ -255,7 +253,7 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
         linewidth=2.5,
         marker="o",
         markersize=6,
-        legend="full",
+        legend=False,
         zorder=10,
     )
 
@@ -283,8 +281,6 @@ def plot_hypervolume_coverage(model_data, opt_metrics, direction_tags, full_spac
     ax = plt.gca()
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
-
-    ax.legend(loc="lower right", framealpha=0.9)
 
     save_path = experiment_dir / "plot_2_hypervolume_coverage.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
@@ -375,8 +371,6 @@ def plot_final_distribution_boxplot(model_data, target_columns, direction_tags, 
         ax.grid(True, linestyle="--", alpha=0.6, linewidth=0.8)
         for spine in ax.spines.values():
             spine.set_linewidth(1.2)
-
-        ax.legend(loc="best", framealpha=0.9)
 
     save_path = experiment_dir / "plot_3_best_value_distribution.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
@@ -481,7 +475,7 @@ def _compute_attainment_surface(pf_list, x_grid, dir_x, dir_y, penalty_y):
 
 
 def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, directions, save_dir):
-    plt.figure(figsize=(9, 5), constrained_layout=True)
+    plt.figure(figsize=(6, 5), constrained_layout=True)
     dir_x, dir_y = directions[0], directions[1]
 
     # ==========================================
@@ -552,8 +546,6 @@ def _plot_2d_scatter_distribution(true_pf_sorted, all_empirical_pfs, targets, di
     ax = plt.gca()
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
-
-    plt.legend(loc="best", framealpha=0.9)
 
     save_path = save_dir / "plot_4_pareto_comparison_distribution.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")

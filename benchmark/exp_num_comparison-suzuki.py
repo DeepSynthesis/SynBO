@@ -182,7 +182,7 @@ def plot_experiment_comparison(
         return
 
     # 2. Plotting
-    plt.figure(figsize=(10, 5), constrained_layout=True)
+    plt.figure(figsize=(6, 5), constrained_layout=True)
 
     for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
@@ -218,7 +218,7 @@ def plot_experiment_comparison(
 
     plt.yscale("log")
 
-    plt.legend(loc="best", framealpha=0.9)
+    # plt.legend(loc="best", framealpha=0.9)
     plt.autoscale(enable=True, axis="both", tight=False)
 
     save_path = output_dir / f"exp_num_comparison_suzuki.png"

@@ -260,35 +260,35 @@ def plot_experiment_comparison_hv(
     print(f"\nPlot saved: {save_path}")
 
     # 3. 效率分析
-    # print(f"\n{'='*20} Efficiency Analysis {'='*20}")
-    # if reference_method in loaded_data:
-    #     ref_thresholds, ref_means, _ = loaded_data[reference_method]
+    print(f"\n{'='*20} Efficiency Analysis {'='*20}")
+    if reference_method in loaded_data:
+        ref_thresholds, ref_means, _ = loaded_data[reference_method]
 
-    #     if len(ref_thresholds) > 4:
-    #         eval_indices = np.linspace(0, len(ref_thresholds) - 1, 5, dtype=int)
-    #         comparison_thresholds = ref_thresholds[eval_indices]
-    #     else:
-    #         comparison_thresholds = ref_thresholds
+        if len(ref_thresholds) > 4:
+            eval_indices = np.linspace(0, len(ref_thresholds) - 1, 5, dtype=int)
+            comparison_thresholds = ref_thresholds[eval_indices]
+        else:
+            comparison_thresholds = ref_thresholds
 
-    #     for target in comparison_thresholds:
-    #         print(f"\nTo achieve Hypervolume ≥ {target:.3f}:")
+        for target in comparison_thresholds:
+            print(f"\nTo achieve Hypervolume ≥ {target:.3f}:")
 
-    #         ref_idx = np.abs(ref_thresholds - target).argmin()
-    #         ref_exp_needed = ref_means[ref_idx]
-    #         print(f"  - {reference_method} needs: ~{ref_exp_needed:.1f} experiments")
+            ref_idx = np.abs(ref_thresholds - target).argmin()
+            ref_exp_needed = ref_means[ref_idx]
+            print(f"  - {reference_method} needs: ~{ref_exp_needed:.1f} experiments")
 
-    #         for method_name, (thresholds, means, _) in loaded_data.items():
-    #             if method_name == reference_method:
-    #                 continue
+            for method_name, (thresholds, means, _) in loaded_data.items():
+                if method_name == reference_method:
+                    continue
 
-    #             if len(thresholds) > 0 and thresholds[-1] >= target * 0.99:
-    #                 other_idx = np.abs(thresholds - target).argmin()
-    #                 other_exp_needed = means[other_idx]
-    #                 savings = (other_exp_needed - ref_exp_needed) / other_exp_needed * 100
-    #                 print(f"  - {method_name} needs: ~{other_exp_needed:.1f} experiments")
-    #                 print(f"  - {reference_method} saves {savings:.1f}% experiments vs {method_name}")
-    #             else:
-    #                 print(f"  - {method_name}: threshold not reached")
+                if len(thresholds) > 0 and thresholds[-1] >= target * 0.99:
+                    other_idx = np.abs(thresholds - target).argmin()
+                    other_exp_needed = means[other_idx]
+                    savings = (other_exp_needed - ref_exp_needed) / other_exp_needed * 100
+                    print(f"  - {method_name} needs: ~{other_exp_needed:.1f} experiments")
+                    print(f"  - {reference_method} saves {savings:.1f}% experiments vs {method_name}")
+                else:
+                    print(f"  - {method_name}: threshold not reached")
 
     print(f"\n{'='*20} Comparison Complete {'='*20}")
 

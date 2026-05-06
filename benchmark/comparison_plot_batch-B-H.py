@@ -1,5 +1,4 @@
 import pandas as pd
-import seaborn as sns
 from pathlib import Path
 from typing import Dict, List, Optional
 import glob
@@ -28,7 +27,6 @@ def plot_comparison(
                     "results_path": "path/to/results.csv",  # Support wildcards，such as "results/multiple_*/all_batches_final_round_*.csv"
                     "target_columns": ["yield", "cost"],    # Target value columns to evaluate
                     "direction_tags": ["max", "min"],       # Optimization direction: "max" or "min"
-                    "range_tags": [[0, 100], [0, 0.1]],     # Range of target values
                 },
                 ...
             }
@@ -82,9 +80,6 @@ def plot_comparison(
 
     print(f"\nLoaded {len(all_model_data)} models for comparison")
 
-    # Set Seaborn style
-    sns.set_theme(style="whitegrid")
-
     # Get config info
     first_model = list(all_model_data.keys())[0]
     model_config = model_results[first_model]
@@ -118,30 +113,30 @@ if __name__ == "__main__":
     # Example: compare synbo and EDBOplus results
     # Each model results from multiple CSV files，each file represents an independent run
     model_results = {
-        "synbo (new)": {
-            "results_path": "results/multiple_20260417_133009/all_batches_final_round_*.csv",
-            "target_columns": ["Conversion"],
-            "direction_tags": ["max"],
+        "SynBO": {
+            "results_path": "results/multiple_20260421_154724/all_batches_final_round_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
         },
-        "EDBOplus": {
-            "results_path": "compare_mothods/edboplus/results/EDBOplus_for_suzuki_HTE/batch_*.csv",
-            "target_columns": ["Conversion"],
-            "direction_tags": ["max"],
+        "EDBO+": {
+            "results_path": "compare_mothods/edboplus/results/EDBOplus_for_B-H_HTE/batch_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
         },
         "Gryffin": {
-            "results_path": "compare_mothods/gryffin/results/suzuki_HTE/batch_*.csv",
-            "target_columns": ["Conversion"],
-            "direction_tags": ["max"],
+            "results_path": "compare_mothods/gryffin/results/B-H_HTE/batch_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
         },
         "Random": {
-            "results_path": "compare_mothods/random/results/suzuki_HTE/batch_*.csv",
-            "target_columns": ["Conversion"],
-            "direction_tags": ["max"],
+            "results_path": "compare_mothods/random/results/B-H_HTE/batch_*.csv",
+            "target_columns": ["yield", "cost"],
+            "direction_tags": ["max", "min"],
         },
     }
 
-    full_space_file = "datasets/HTE_datasets/suzuki_HTE/suzuki_HTE.csv"
-    output_dir = "comparison_results/suzuki_HTE"
+    full_space_file = "datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv"
+    output_dir = "comparison_results/B-H_HTE"
 
     plot_comparison(
         model_results=model_results,

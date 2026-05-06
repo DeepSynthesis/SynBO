@@ -103,11 +103,14 @@ class BaseAcquisitionFunction:
 
         def _split_batch_eval_acqf(acq_function, X, max_batch_size):
             acq_values_list = []
-            for X_batch in X.split(max_batch_size):
-                X_batch_gpu = X_batch.to(device=self.device)
-                acq_batch = acq_function(X_batch_gpu)
-                acq_values_list.append(acq_batch.cpu())
-                del X_batch_gpu
+            with torch.no_grad():
+                for X_batch in X.split(max_batch_size):
+                    X_batch_gpu = X_batch.to(device=self.device)
+                    acq_batch = acq_function(X_batch_gpu)
+                    acq_values_list.append(acq_batch.cpu())
+                    del X_batch_gpu
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()  # 强制释放显存
             return torch.cat(acq_values_list, dim=0)
 
         choices_batched = choices.unsqueeze(-2)

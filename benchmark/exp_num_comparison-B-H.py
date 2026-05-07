@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Tuple, Any, List, Optional
 
-# 引入计算 HV 的工具函数
+# Import HV calculation utility function
 from synbo.utils.hv_calculator import calculate_hypervolume_by_batch
 
 # Unified color palette for line elements
@@ -66,14 +66,14 @@ def load_batch_csv_data_hv(
     for file_path in matching_files:
         df = pd.read_csv(file_path)
 
-        # 确保所需的优化指标列都在 CSV 中
+        # Ensure required optimization metric columns are in CSV
         if not all(m in df.columns for m in opt_metrics):
             print(df.columns, opt_metrics)
             print(f"Warning: Missing required metrics in {file_path}")
             continue
 
         try:
-            # 调用 SynBO 的 HV 计算器，获得每个 batch 的累积 HV
+            # Call SynBO HV calculator to get cumulative HV for each batch
             hv_results = calculate_hypervolume_by_batch(
                 prev_rxn_info=df,
                 opt_metrics=opt_metrics,
@@ -82,15 +82,15 @@ def load_batch_csv_data_hv(
                 cummax=True,
             )
 
-            # 提取 batch 级别的 hv_normalized
+            # Extract batch-level hv_normalized
             if "batch" in hv_results.columns:
                 hv_df = hv_results.drop_duplicates(subset=["batch"], keep="last").set_index("batch")
                 hv_values = hv_df["hv_normalized"].values
             else:
                 hv_values = hv_results["hv_normalized"].values
 
-            # 将 batch 级别的 HV 扩展到 experiment 级别
-            # 每个 batch 包含 experiments_per_batch 个实验
+            # Expand batch-level HV to experiment-level
+            # Each batch contains experiments_per_batch experiments
             cum_hv_per_exp = np.repeat(hv_values, experiments_per_batch)
             all_cum_hvs.append(cum_hv_per_exp)
 
@@ -101,7 +101,7 @@ def load_batch_csv_data_hv(
     if not all_cum_hvs:
         return np.array([]), np.array([]), np.array([])
 
-    # 确定评估阈值
+    # Determine evaluation thresholds
     if custom_thresholds is not None:
         eval_thresholds = np.sort(np.array(custom_thresholds))
     else:
@@ -120,10 +120,10 @@ def load_batch_csv_data_hv(
     for t in eval_thresholds:
         exps_needed = []
         for ch in all_cum_hvs:
-            # HV: 最大化方向，找到第一个达到阈值的位置
+            # HV: maximize direction, find first position reaching threshold
             idx = np.where(ch >= t)[0]
             if len(idx) > 0:
-                exps_needed.append(idx[0] + 1)  # +1 转为 1-indexed 实验数
+                exps_needed.append(idx[0] + 1)  # +1 convert to 1-indexed experiment count
 
         if len(exps_needed) > 0:
             thresholds_list.append(t)
@@ -155,7 +155,7 @@ def load_threshold_json_data(json_path: str) -> Tuple[np.ndarray, np.ndarray, np
         means.append(float(value["mean"]))
         stds.append(float(value.get("std", 0.0)))
 
-    # 按 HV 阈值从小到大排序，以便于画图
+    # Sort HV thresholds ascending for plotting
     sorted_indices = np.argsort(thresholds)
     thresholds = np.array(thresholds)[sorted_indices]
     means = np.array(means)[sorted_indices]
@@ -182,7 +182,7 @@ def plot_experiment_comparison_hv(
 
     print(f"\n{'='*20} Starting Experiment Number Comparison (B-H / HV) {'='*20}")
 
-    # 1. 动态加载数据
+    # 1. Dynamically load data
     loaded_data = {}
     for method_name, config in methods_config.items():
         print(f"Loading data for {method_name}...")
@@ -214,13 +214,13 @@ def plot_experiment_comparison_hv(
         print("No valid data loaded. Exiting.")
         return
 
-    # 2. 绘图
+    # 2. Plot
     plt.figure(figsize=(6, 5), constrained_layout=True)
 
     for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
 
-        # 对标准差进行缩放
+        # Scale standard deviation
         scaled_stds = stds * std_scale
 
         plt.errorbar(
@@ -259,7 +259,7 @@ def plot_experiment_comparison_hv(
     plt.close()
     print(f"\nPlot saved: {save_path}")
 
-    # 3. 效率分析
+    # 3. Efficiency analysis
     print(f"\n{'='*20} Efficiency Analysis {'='*20}")
     if reference_method in loaded_data:
         ref_thresholds, ref_means, _ = loaded_data[reference_method]
@@ -295,7 +295,7 @@ def plot_experiment_comparison_hv(
 
 if __name__ == "__main__":
     # ==========================================
-    # B-H 数据集特定的参数配置
+    # B-H dataset specific parameter configuration
     # ==========================================
     BH_REAGENT_TYPES = ["concentration", "temperature", "base", "ligand", "solvent"]
     BH_OPT_METRICS = ["yield", "cost"]
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     ]
 
     # ==========================================
-    # 核心方法配置字典
+    # Core method configuration dictionary
     # ==========================================
 
     methods_config = {
@@ -334,7 +334,7 @@ if __name__ == "__main__":
         },
     }
 
-    # 执行针对 HV 的对比绘图
+    # Execute comparison plot for HV
     plot_experiment_comparison_hv(
         methods_config=methods_config,
         opt_metrics=BH_OPT_METRICS,

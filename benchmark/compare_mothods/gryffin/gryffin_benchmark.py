@@ -93,8 +93,8 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
             "boosted": False,
             "caching": True,
             "random_seed": random_seed,
-            "acquisition_optimizer": "genetic",  # 使用遗传算法增强探索
-            "dist_param": 0.2,  # 降低密度惩罚，增强探索稀疏区域
+            "acquisition_optimizer": "genetic",  # Use genetic algorithm to enhance exploration
+            "dist_param": 0.2,  # Lower density penalty to encourage exploration of sparse regions
             "verbosity": 3,
         },
         "parameters": [],
@@ -150,7 +150,7 @@ def create_gryffin_config(df_ground, category_descriptors, desc_columns, batch_s
 
 def evaluate_experiment(df_origin, df_ground, params_dict, category_descriptors, desc_columns):
     """
-    Exact match for categorical variables，for nearest neighbor match for continuous variables。
+    Exact match for categorical variables, nearest neighbor match for continuous variables.
     """
     cat_cols = [col for col in params_dict.keys() if col in desc_columns]
     cont_cols = [col for col in params_dict.keys() if col not in desc_columns]
@@ -318,7 +318,7 @@ def demo_multiple_configs(
     category_descriptors = build_category_descriptors(
         desc_dfs,
         desc_columns,
-        n_components=50,  # 使用 50 维 PCA 组件
+        n_components=50,  # Use 50-dimensional PCA components
         variance_threshold=0.95,
     )
 
@@ -417,3 +417,6 @@ def demo_multiple_configs(
 
 if __name__ == "__main__":
     demo_multiple_configs()
+()
+ultiple_configs()
+gs()

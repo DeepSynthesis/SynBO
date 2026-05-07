@@ -20,7 +20,7 @@ def generate_desc_file(df_ground, desc_dfs, desc_columns):
     res_df = df_ground.copy()
     existing_cols = [col for col in desc_columns if col in res_df.columns]
     for col in existing_cols:
-        desc_table = desc_dfs[col].copy()  # 加上 copy 防止后续操作引发警告
+        desc_table = desc_dfs[col].copy()  # add copy to prevent warnings from subsequent operations
         desc_table = desc_table.select_dtypes(include=["float64", "float32"])
 
         desc_table = desc_table.add_prefix(f"{col}_")
@@ -35,71 +35,71 @@ def run_random_sampling(df_ground, sort_column, objectives, objective_modes, bat
     Run random sampling benchmark in memory.
     """
     np.random.seed(seed)
-    # 建立 O(1) 复杂度的哈希索引，避免循环中慢速的全表搜索
+    # Build O(1) hash index to avoid slow full table searches in loops
     df_lookup = df_ground.set_index(sort_column)
     all_indices = df_ground[sort_column].values
-    # 初始化已被选中的索引
+    # Initialize set of already selected indices
     selected_set = set()
     best_values = [float("-inf") if mode == "max" else float("inf") for mode in objective_modes]
 
     def update_best(current, new_val, mode):
-        if pd.isna(new_val):  # 忽略空值，和 pandas 原生行为保持一致
+        if pd.isna(new_val):  # Ignore NaN, consistent with pandas native behavior
             return current
         return max(current, new_val) if mode == "max" else min(current, new_val)
 
     results_data = []
     n_experiments = 0
-    # ================= 修复点：正确记录初始点数据 =================
+    # ================= Fix: correctly record initial point data =================
     if init_indices is not None:
         selected_set.update(init_indices)
         n_experiments = len(selected_set)
 
-        # 1. 先计算初始批次所有样本产生后的最优值 (Historical Best)
+        # 1. First compute best value after all initial batch samples (Historical Best)
         for idx in init_indices:
             row = df_lookup.loc[idx]
             for i, obj in enumerate(objectives):
                 best_values[i] = update_best(best_values[i], row[obj], objective_modes[i])
-        # 2. 记录初始批次的每一条样本结果
+        # 2. Record each sample result from the initial batch
         for idx in init_indices:
             row = df_lookup.loc[idx]
             dict_init = {
-                "step": 0,  # 初始点记作第 0 步
+                "step": 0,  # Initial point recorded as step 0
                 "init_method": "random_with_start_points",
                 "init_sample": seed,
-                "batch": len(init_indices),  # 初始批次的大小
+                "batch": len(init_indices),  # Initial batch size
                 "n_experiments": n_experiments,
                 "sample_index": int(idx),
             }
-            # 记录当前样本的实际值
+            # Record actual value of current sample
             for obj in objectives:
                 dict_init[obj] = float(row[obj])
-            # 记录此时的历史最优值
+            # Record historical best value at this point
             for i, obj in enumerate(objectives):
                 dict_init[f"{obj}_best"] = float(best_values[i])
             results_data.append(dict_init)
     # ==============================================================
-    # 确定后续循环的 step 序号
-    # 如果有初始点，循环从 step 1 开始；如果没有，从 step 0 开始
+    # Determine step index for subsequent loop
+    # If initial points exist, loop starts from step 1; otherwise from step 0
     start_step = 1 if init_indices is not None else 0
     end_step = steps if init_indices is not None else steps - 1
     for step in range(start_step, end_step):
-        # 找出还未被采样的索引
+        # Find indices that have not been sampled yet
         available_indices = np.array([idx for idx in all_indices if idx not in selected_set])
-        # 随机采样 batch_size 个候选
+        # Randomly sample batch_size candidates
         if len(available_indices) >= batch_size:
             batch_indices = np.random.choice(available_indices, size=batch_size, replace=False)
         else:
             batch_indices = np.random.choice(all_indices, size=batch_size, replace=False)
-        # 1. 更新已选中集合 & 实验计数
+        # 1. Update selected set and experiment count
         for batch_idx in batch_indices:
             selected_set.add(batch_idx)
         n_experiments += len(batch_indices)
-        # 2. 计算当前批次产生后的最优值 (Historical Best)
+        # 2. Compute best value after current batch (Historical Best)
         for batch_idx in batch_indices:
             row = df_lookup.loc[batch_idx]
             for i, obj in enumerate(objectives):
                 best_values[i] = update_best(best_values[i], row[obj], objective_modes[i])
-        # 3. 记录本批次每一条样本的结果数据
+        # 3. Record result data for each sample in this batch
         for batch_idx in batch_indices:
             row = df_lookup.loc[batch_idx]
             dict_i = {
@@ -110,10 +110,10 @@ def run_random_sampling(df_ground, sort_column, objectives, objective_modes, bat
                 "n_experiments": n_experiments,
                 "sample_index": int(batch_idx),
             }
-            # 记录当前样本的实际值
+            # Record actual value of current sample
             for obj in objectives:
                 dict_i[obj] = float(row[obj])
-            # 记录此时的历史最优值
+            # Record historical best value at this point
             for i, obj in enumerate(objectives):
                 dict_i[f"{obj}_best"] = float(best_values[i])
             results_data.append(dict_i)
@@ -188,28 +188,28 @@ def demo_random_benchmark(dataset="HTE_datasets/suzuki_HTE/suzuki_HTE.csv", desc
     os.makedirs("results", exist_ok=True)
 
     if all_results:
-        # 合并所有种子跑出来的数据
+        # Merge data from all seed runs
         df_merged = pd.concat(all_results, ignore_index=True)
 
         print(f"\nSummary Statistics ({num_seeds} rounds):")
         print("-" * 80)
 
-        # 1. 导出所有的原始优化结果（包含每个seed在每一步的具体采样结果和最优值）
+        # 1. Export all raw optimization results (including per-seed, per-step sample results and best values)
         all_results_filename = f"results/all_results_{label_benchmark}"
         df_merged.to_csv(all_results_filename, index=False)
         print(f"All raw results (all seeds & steps) saved to: {all_results_filename}")
 
-        # 2. 计算各步长的均值与方差并导出
+        # 2. Compute mean and variance per step and export
         agg_dict = {"Conversion_best": ["mean", "std"], "n_experiments": "mean"}
         df_mean = df_merged.groupby("step").agg(agg_dict).reset_index()
-        # 展平多层列名
+        # Flatten multi-level column names
         df_mean.columns = ["step", "Conversion_best_mean", "Conversion_best_std", "n_experiments_mean"]
 
         mean_filename = f"results/mean_{label_benchmark}"
         df_mean.to_csv(mean_filename, index=False)
         print(f"Mean results saved to: {mean_filename}")
 
-        # 3. 统计各Round最终效果并导出Timing日志
+        # 3. Aggregate per-round final results and export timing logs
         final_Conversions = df_merged.groupby("round_id")["Conversion_best"].last()
 
         timing_filename = f"results/timing_{dataset_path.name.replace('.csv', '')}.txt"

@@ -30,7 +30,7 @@ CONFIG = {
     "experiment_name": "Suzuki_Optimization",
     "base_seed": 199,
     "num_rounds": NUM_ROUNDS,
-    "max_iterations": 50,  # 【修改】将 iterations 替换为 max_iterations，作为防止死循环的最大允许迭代次数
+    "max_iterations": 50,  # Replace iterations with max_iterations as the guard against infinite loops
     "batch_size": 5,
     "data_paths": {
         "dataset_file": str(data_dir / "suzuki_HTE/suzuki_HTE.csv"),
@@ -46,7 +46,7 @@ CONFIG = {
         "opt_direct_info": [
             {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
         ],
-        "target_threshold": 98.0,  # 【新增】目标阈值，例如当 Conversion 达到 95.0 时停止当前轮次
+        "target_threshold": 98.0,  # Target threshold - stop current round when Conversion reaches this value
         "opt_type": "auto",
         "desc_normalize": "minmax",
         "sampling_method": "random",
@@ -203,7 +203,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
     llm_base_url = constraint_settings.get("llm_base_url", None)
     llm_temperature = constraint_settings.get("llm_temperature", 0.7)
 
-    # 【新增】获取目标监控参数
+    # Get target monitoring parameter
     target_metric = CONFIG["optimization_settings"]["opt_metrics"][0]
     opt_direct = CONFIG["optimization_settings"]["opt_direct_info"][0]["opt_direct"]
     target_threshold = CONFIG["optimization_settings"].get("target_threshold", 90.0)
@@ -227,11 +227,11 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
         hv_history = []
         stagnation_count = 0
 
-        # 【修改】初始化最优值记录器
+        # Initialize best-value recorder
         best_value_so_far = -float("inf") if opt_direct == "max" else float("inf")
         threshold_met = False
 
-        # 【修改】循环改为动态的判定，直至满足条件或达到最大迭代次数
+        # Dynamic loop: continue until condition met or max iterations reached
         for i in range(max_iterations):
             print(f"\n--- Round {round_idx+1} | Iteration {i} ---")
 
@@ -348,11 +348,11 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
 
             sbo.save_results()
 
-            # 将预测的反应结合ground truth填入文件
+            # Fill predicted reactions with ground truth into file
             saved_path = fill_done_dir(i, experiment_dir, CONFIG["data_paths"]["dataset_file"])
             batch_files_map[i] = saved_path
 
-            # 【新增】检查本轮实验之后是否达到了阈值
+            # Check if threshold was reached after this round of experiments
             current_batch_df = pd.read_csv(saved_path)
             if target_metric in current_batch_df.columns:
                 if opt_direct == "max":
@@ -394,7 +394,7 @@ def run_simulation(experiment_dir, desc_dict, condition_dict):
         print(f"Cleaned temp files for round {round_idx}")
 
 
-# ...后面 run_plotting, run_metrics, main 保持原样不变 ...
+# (run_plotting, run_metrics, main remain unchanged below)
 
 
 def run_plotting(experiment_dir):

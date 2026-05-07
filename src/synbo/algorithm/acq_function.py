@@ -110,7 +110,7 @@ class BaseAcquisitionFunction:
                     acq_values_list.append(acq_batch.cpu())
                     del X_batch_gpu
                     if torch.cuda.is_available():
-                        torch.cuda.empty_cache()  # 强制释放显存
+                        torch.cuda.empty_cache()  # Force release GPU memory
             return torch.cat(acq_values_list, dim=0)
 
         choices_batched = choices.unsqueeze(-2)

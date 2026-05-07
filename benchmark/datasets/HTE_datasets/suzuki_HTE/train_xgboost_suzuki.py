@@ -68,50 +68,50 @@ def process_column_features(series, desc_names, calculator):
 
 
 def load_and_prepare_data():
-    """加载数据并准备特征"""
+    """Load data and prepare features."""
     print("=" * 70)
-    print("Suzuki HTE数据集 - XGBoost + Optuna超参数优化")
+    print("Suzuki HTE Dataset - XGBoost + Optuna Hyperparameter Optimization")
     print("=" * 70)
 
-    # 加载数据
-    print("\n[1/4] 加载数据...")
+    # Loading data
+    print("\n[1/4] Loading data...")
     data_path = "suzuki_HTE.csv"
     df = pd.read_csv(data_path)
-    print(f"数据集大小: {df.shape[0]} 条记录, {df.shape[1]} 列")
+    print(f"Dataset size: {df.shape[0]} records, {df.shape[1]} columns")
 
     y = df["Conversion"].values
-    print(f"目标变量范围: {y.min():.2f} - {y.max():.2f}")
+    print(f"Target variable range: {y.min():.2f} - {y.max():.2f}")
 
-    # 获取RDKit描述符
-    print("\n[2/4] 初始化RDKit描述符计算器...")
+    # Get RDKit descriptors
+    print("\n[2/4] Init RDKit descriptor calculator...")
     desc_names = get_rdkit_desc_names()
     n_desc = len(desc_names)
     calculator = MoleculeDescriptors.MolecularDescriptorCalculator(desc_names)
 
-    # 提取特征
+    # Extracting features
     mol_types = ["solvent", "ligand", "reactant2", "reactant1", "base"]
-    print(f"\n[3/4] 提取RDKit描述符: {mol_types}")
+    print(f"\n[3/4] Extracting RDKit descriptors: {mol_types}")
 
     all_features = []
     for mol_type in mol_types:
         if mol_type not in df.columns:
             continue
-        print(f"  处理 {mol_type}...")
+        print(f"  Processing {mol_type}...")
         mol_features = process_column_features(df[mol_type], desc_names, calculator)
         all_features.append(mol_features)
 
-    # 合并和预处理
-    print("\n[4/4] 合并特征并预处理...")
+    # Merging and preprocessing
+    print("\n[4/4] Merge features and preprocess...")
     X = np.hstack(all_features)
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # 移除零方差特征
+    # Removing zero-variance features
     feature_var = np.var(X, axis=0)
     valid_features = feature_var > 1e-10
     X = X[:, valid_features]
-    print(f"特征矩阵形状: {X.shape}")
+    print(f"Feature matrix shape: {X.shape}")
 
-    # 标准化
+    # Standardizing
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     X_scaled = np.nan_to_num(X_scaled, nan=0.0, posinf=0.0, neginf=0.0)
@@ -120,8 +120,8 @@ def load_and_prepare_data():
 
 
 def objective(trial, X, y):
-    """Optuna优化的目标函数"""
-    # 定义超参数搜索空间
+    """Objective function for Optuna optimization."""
+    # Define hyperparameter search space
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 100, 2000),
         "max_depth": trial.suggest_int("max_depth", 3, 12),
@@ -134,7 +134,7 @@ def objective(trial, X, y):
         "gamma": trial.suggest_float("gamma", 1e-8, 5.0, log=True),
     }
 
-    # 5-fold交叉验证
+    # 5-Fold CV
     kfold = KFold(n_splits=5, shuffle=True, random_state=42)
     val_scores = []
     train_scores = []
@@ -163,12 +163,12 @@ def objective(trial, X, y):
     mean_train_r2 = np.mean(train_scores)
     gap = mean_train_r2 - mean_val_r2
 
-    # 报告中间结果
+    # Reporting intermediate results
     trial.set_user_attr("train_r2", mean_train_r2)
     trial.set_user_attr("gap", gap)
 
-    # 优化目标：最大化验证R2，但惩罚过拟合
-    # 如果过拟合超过0.15，给予惩罚
+    # Optimization target: maximize validation R2 with overfitting penalty
+    # Apply penalty if overfitting exceeds 0.15
     if gap > 0.15:
         return mean_val_r2 - (gap - 0.15) * 0.5
 
@@ -176,39 +176,39 @@ def objective(trial, X, y):
 
 
 def main():
-    # 加载数据
+    # Loading data
     X, y, scaler = load_and_prepare_data()
 
     print("\n" + "=" * 70)
-    print("开始Optuna超参数优化...")
+    print("Starting Optuna hyperparameter optimization...")
     print("=" * 70)
 
-    # 创建Optuna study
+    # Creating Optuna study
     study = optuna.create_study(
         direction="maximize", sampler=TPESampler(seed=42), pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=5)
     )
 
-    # 运行优化
+    # Running optimization
     n_trials = 100
     study.optimize(lambda trial: objective(trial, X, y), n_trials=n_trials, show_progress_bar=True)
 
-    # 获取最佳参数
+    # Getting best parameters
     best_params = study.best_params
     best_r2 = study.best_value
 
     print("\n" + "=" * 70)
-    print(f"✅ Optuna优化完成！")
-    print(f"🏆 最佳5-fold R2: {best_r2:.4f}")
-    print(f"📊 最佳参数: {best_params}")
+    print(f"✅ Optuna optimization complete！")
+    print(f"🏆 Best 5-fold R2: {best_r2:.4f}")
+    print(f"📊 Best parameters: {best_params}")
 
-    # 获取最佳trial的详细信息
+    # Getting best trial details
     best_trial = study.best_trial
-    print(f"📈 训练R2: {best_trial.user_attrs.get('train_r2', 'N/A'):.4f}")
-    print(f"📉 过拟合差距: {best_trial.user_attrs.get('gap', 'N/A'):.4f}")
+    print(f"📈 Train R2: {best_trial.user_attrs.get('train_r2', 'N/A'):.4f}")
+    print(f"📉 Overfitting gap: {best_trial.user_attrs.get('gap', 'N/A'):.4f}")
     print("=" * 70)
 
-    # 使用最佳参数训练最终模型
-    print("\n使用最佳参数训练最终模型...")
+    # Training final model with best parameters
+    print("\nTraining final model with best parameters...")
     final_model = xgb.XGBRegressor(
         **best_params,
         random_state=42,
@@ -219,27 +219,27 @@ def main():
     final_model.fit(X, y)
 
     train_r2 = r2_score(y, final_model.predict(X))
-    print(f"全量数据训练集 R2: {train_r2:.4f}")
-    print(f"训练-验证差距: {train_r2 - best_r2:.4f}")
+    print(f"Full data train set R2: {train_r2:.4f}")
+    print(f"Train-validation gap: {train_r2 - best_r2:.4f}")
 
-    # 保存模型
+    # Saving model
     os.makedirs("benchmark", exist_ok=True)
     joblib.dump(final_model, "benchmark/xgboost_suzuki_model.joblib")
     joblib.dump(scaler, "benchmark/xgboost_suzuki_scaler.joblib")
 
-    # 保存最佳参数
+    # Save best parameters
     with open("benchmark/best_params.txt", "w") as f:
         f.write(f"Best 5-fold R2: {best_r2:.4f}\n")
         f.write(f"Best params: {best_params}\n")
-    print(f"模型已保存")
+    print(f"Model saved")
 
     if best_r2 > 0.9:
-        print(f"\n🎉 恭喜! 成功达成目标: 5-fold R2 = {best_r2:.4f} > 0.9")
+        print(f"\n🎉 Congrats! Target achieved: 5-fold R2 = {best_r2:.4f} > 0.9")
     elif best_r2 > 0.88:
-        print(f"\n⚠️ 当前5-fold R2 = {best_r2:.4f}")
-        print("   非常接近0.9！建议增加优化迭代次数")
+        print(f"\n⚠️ Current 5-fold R2 = {best_r2:.4f}")
+        print("   Very close to 0.9! Consider increasing optimization iterations")
     else:
-        print(f"\n⚠️ 当前5-fold R2 = {best_r2:.4f}")
+        print(f"\n⚠️ Current 5-fold R2 = {best_r2:.4f}")
 
     return best_r2
 

@@ -1,4 +1,4 @@
-"""Suzuki HTE - 全局预测：加载已保存模型进行预测"""
+"""Suzuki HTE - Global Prediction: load saved model for prediction"""
 
 import os, itertools, numpy as np, pandas as pd, joblib
 from rdkit import Chem
@@ -44,52 +44,52 @@ def main():
     os.chdir(script_dir)
 
     print("=" * 70)
-    print("Suzuki HTE - 全局预测（所有分子组合）")
+    print("Suzuki HTE - Global Prediction (all molecule combinations)")
     print("=" * 70)
 
-    # 加载已保存的模型和scaler
+    # Loading saved model and scaler
     model_path = os.path.join(script_dir, "xgboost_suzuki_model_full.joblib")
     scaler_path = os.path.join(script_dir, "xgboost_suzuki_scaler_full.joblib")
 
     if not os.path.exists(model_path) or not os.path.exists(scaler_path):
-        print("错误: 模型文件不存在! 请先运行 cv_validation.py 训练并保存模型。")
+        print("Error: Model file not found! Run cv_validation.py first to train and save the model.")
         return
 
-    print("加载已保存的模型...")
+    print("Loading saved model...")
     model = joblib.load(model_path)
     valid_features = joblib.load(os.path.join(script_dir, "valid_features.joblib"))
     scaler = joblib.load(scaler_path)
-    print("模型加载成功!")
+    print("Model loaded successfully!")
 
-    # 加载原始数据
+    # Loading original data
     df = pd.read_csv("suzuki_HTE.csv")
-    print(f"原始数据集: {len(df)} 条记录")
+    print(f"Original dataset: {len(df)} rows")
 
-    # 获取各分子类型的唯一值
+    # Getting unique values for each molecule type
     mol_values = {mt: df[mt].dropna().unique().tolist() for mt in MOL_TYPES}
     for mt, vals in mol_values.items():
-        print(f"  {mt}: {len(vals)} 个唯一值")
+        print(f"  {mt}: {len(vals)} unique values")
 
-    # 创建原始数据的key集合
+    # Creating original data key set
     original_keys = set()
     for _, row in df.iterrows():
         key = tuple(row[mt] for mt in MOL_TYPES)
         original_keys.add(key)
 
-    # 生成所有可能的组合
+    # Generating all possible combinations
     all_combinations = list(itertools.product(*[mol_values[mt] for mt in MOL_TYPES]))
-    print(f"\n总组合数: {len(all_combinations)}")
-    print(f"原始数据中的组合数: {len(original_keys)}")
+    print(f"\nTotal combinations: {len(all_combinations)}")
+    print(f"Combinations in original data: {len(original_keys)}")
     new_combinations = [c for c in all_combinations if c not in original_keys]
-    print(f"需要预测的新组合数: {len(new_combinations)}")
+    print(f"New combinations to predict: {len(new_combinations)}")
 
-    # 计算特征
-    print("\n准备特征...")
+    # Computing features
+    print("\nPreparing features...")
     desc_names = get_rdkit_desc_names()
     calculator = MoleculeDescriptors.MolecularDescriptorCalculator(desc_names)
 
-    # 计算新组合的特征并预测
-    print("对新组合进行预测...")
+    # Computing features for new combinations and predicting
+    print("Predicting for new combinations...")
     X_new = []
     for combo in new_combinations:
         mols_dict = dict(zip(MOL_TYPES, combo))
@@ -106,8 +106,8 @@ def main():
     else:
         y_new_pred = np.array([])
 
-    # 构建完整数据集
-    print("\n构建完整数据集...")
+    # Building complete dataset
+    print("\nBuilding complete dataset...")
     result_rows = []
     for _, row in df.iterrows():
         result_rows.append(
@@ -134,25 +134,25 @@ def main():
     result_df = pd.DataFrame(result_rows)
     result_df["reaction_id"] = range(1, len(result_df) + 1)
 
-    # 保存结果
+    # Saving results
     output_path = os.path.join(script_dir, "suzuki_HTE_global_prediction.csv")
     result_df.reset_index(inplace=True, drop=True)
     result_df.to_csv(output_path)
-    print(f"\n结果已保存: {output_path}")
+    print(f"\nResults saved: {output_path}")
 
-    # 统计信息
+    # Statistics
     print("\n" + "=" * 50)
-    print("统计信息:")
-    print(f"  原始数据: {len(df)} 条")
-    print(f"  预测数据: {len(new_combinations)} 条")
-    print(f"  总计: {len(result_df)} 条")
+    print("Statistics:")
+    print(f"  Original data: {len(df)} rows")
+    print(f"  Predicted data: {len(new_combinations)} rows")
+    print(f"  Total: {len(result_df)} rows")
     if len(y_new_pred) > 0:
-        print(f"\n预测值统计:")
+        print(f"\nPrediction stats:")
         print(f"  Min: {y_new_pred.min():.2f}")
         print(f"  Max: {y_new_pred.max():.2f}")
         print(f"  Mean: {y_new_pred.mean():.2f}")
         print(f"  Std: {y_new_pred.std():.2f}")
-    print("\n✅ 全局预测完成!")
+    print("\n✅ Global prediction complete!")
 
 
 if __name__ == "__main__":

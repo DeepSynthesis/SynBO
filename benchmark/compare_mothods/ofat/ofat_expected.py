@@ -37,7 +37,7 @@ class OFATSimulator:
         self.index_col = index_col
         self.is_multi_objective = opt_metrics is not None and len(opt_metrics) > 1
 
-        # 错误标志位，防止满屏报错
+        # Error flag to prevent repeated warnings
         self._hv_warned = False
 
         # Map reagent types to indices for faster list operations
@@ -93,7 +93,7 @@ class OFATSimulator:
             )
             return float(hv_results["hv_normalized"].iloc[-1])
         except Exception as e:
-            # 【重要修复】不要再静默返回 0.0 了，这会掩盖配置错误！
+            # CRITICAL: Do not silently return 0.0, as this masks configuration errors!
             if not self._hv_warned:
                 print(f"\n[CRITICAL WARNING] HV calculation failed! Error: {e}")
                 print("Are you missing 'opt_metric_settings' in your config? Returning 0.0 for now.")
@@ -136,8 +136,8 @@ class OFATSimulator:
                 rt_idx = self.rt_to_idx[rt]
                 results = []
 
-                # 【重要修复】记录进入当前 reagent 遍历前的 baseline，
-                # 只有计算 candidate + baseline 的 HV，才能公平地评价这个 candidate 的独立贡献。
+                # Record baseline state before entering current reagent traverse.
+                # Only compute HV of candidate + baseline to fairly assess the candidate's independent contribution.
                 baseline_keys = tested_keys_list.copy()
 
                 for candidate in self.candidates[rt]:
@@ -151,7 +151,7 @@ class OFATSimulator:
                         experiment_count += 1
 
                         if self.is_multi_objective:
-                            # 1. 全局判断：是否已经达到了目标 HV？
+                            # 1. Global check: has target HV already been reached?
                             current_global_hv = self.calculate_hypervolume_for_tested(tested_keys_list)
 
                             if hv_threshold is not None and current_global_hv >= hv_threshold:
@@ -161,7 +161,7 @@ class OFATSimulator:
                                 best_hv = current_global_hv
                                 best_state = test_state.copy()
 
-                            # 2. 个体评价：当前 candidate 对 baseline 的独立贡献
+                            # 2. Individual assessment: this candidate's independent contribution to baseline
                             isolated_hv = self.calculate_hypervolume_for_tested(baseline_keys + [key])
                             results.append((candidate, isolated_hv))
                         else:
@@ -183,7 +183,7 @@ class OFATSimulator:
                             conv = self.get_value_by_key(key)
                             results.append((candidate, conv))
 
-                # 降序排列，选出本轮最优
+                # Sort descending to select the best for this round
                 results.sort(key=lambda x: x[1], reverse=True)
 
                 target_idx = rank_target[rt]
@@ -273,7 +273,7 @@ def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List
     print(f"Dataset loaded: {len(simulator.dataset)} rows")
     print(f"Mode: {'Multi-Objective' if is_multi_obj else 'Single-Objective'}")
 
-    # 【新增极其关键的一步】：帮你看清全局 HV 天花板
+    # Compute global HV ceiling for reference
     if is_multi_obj:
         print("\nCalculating Global Maximum Hypervolume for this dataset...")
         all_keys = list(simulator.lookup.keys())
@@ -310,9 +310,7 @@ def run_benchmark(dataset_name: str, config: Dict[str, Any]) -> Tuple[Dict, List
     return all_results, thresholds, is_multi_obj
 
 
-# ---------------------- 忽略无关代码，直接看下面 ----------------------
-# 补充你在运行 B-H 时极度可能缺失的 opt_metric_settings
-# （如果 synbo 强制要求，请参考下面补上。如果不强制，会自动走默认逻辑）
+# Default configuration dictionary
 
 DEFAULT_CONFIG = {
     "suzuki": {
@@ -326,7 +324,7 @@ DEFAULT_CONFIG = {
     #     "dataset_path": "../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
     #     "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
     #     "opt_metrics": ["yield", "cost"],
-    #     # 若需要，请解除这里的注释并匹配你的 synbo 需要的格式:
+    #     # Adjust as needed for your synbo format:
     #     "opt_metric_settings": [
     #         {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
     #         {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},
@@ -394,4 +392,17 @@ def main():
 
 
 if __name__ == "__main__":
+    main()
+"__main__":
+    main()
+nfig)
+        save_and_print_results(results, thresholds, ds_name, is_multi)
+    print("\n" + "=" * 70)
+    print("All benchmarks completed successfully!")
+    print("=" * 70)
+
+
+if __name__ == "__main__":
+    main()
+"__main__":
     main()

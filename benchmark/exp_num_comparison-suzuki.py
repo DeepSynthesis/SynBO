@@ -145,7 +145,7 @@ def plot_experiment_comparison(
     target_column: str = "Conversion",
     direction: str = "max",
     reference_method: str = "SynBO",
-    std_scale: float = 0.5,  # <--- 【新增】：在此处控制标准差的缩放倍数
+    std_scale: float = 0.5,  # Control std scaling factor here
 ):
     """
     Generate comparison plot: Target Threshold vs Required Experiments with Error Bars.
@@ -187,13 +187,13 @@ def plot_experiment_comparison(
     for method_name, (thresholds, means, stds) in loaded_data.items():
         config = methods_config[method_name]
 
-        # 【新增】：对标准差进行缩放
+        # Scale standard deviation
         scaled_stds = stds * std_scale
 
         plt.errorbar(
             x=thresholds,
             y=means,
-            yerr=scaled_stds,  # <--- 【修改】：使用缩放后的标准差作为误差棒
+            yerr=scaled_stds,  # Use scaled std as error bars
             fmt=config.get("marker", "o") + "-",
             color=config.get("color"),
             label=method_name,
@@ -262,7 +262,7 @@ def plot_experiment_comparison(
 
 if __name__ == "__main__":
     # ==========================================
-    # 核心配置字典 (Configuration Dictionary)
+    # Core configuration dictionary
     # ==========================================
     methods_config = {
         "SynBO": {
@@ -296,5 +296,5 @@ if __name__ == "__main__":
         target_column="Conversion",
         direction="max",
         reference_method="SynBO",
-        std_scale=0.25,  # <--- 【新增】：可以在这里自由控制你想显示的几倍标准差 (如0.5, 0.2等)
+        std_scale=0.25,  # Control how many std deviations to display (e.g., 0.5, 0.2)
     )

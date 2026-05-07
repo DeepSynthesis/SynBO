@@ -37,7 +37,7 @@ class RandomSearchSimulator:
         self.index_col = index_col
         self.is_multi_objective = opt_metrics is not None and len(opt_metrics) > 1
 
-        # 错误标志位，防止满屏报错
+        # Error flag to prevent repeated warnings
         self._hv_warned = False
 
         self.total_space_size = len(self.dataset)
@@ -103,10 +103,10 @@ class RandomSearchSimulator:
             random.seed(random_seed)
             np.random.seed(random_seed)
 
-        # 获取所有可能的实验组合 (基于数据集)
+        # Get all possible experiment combinations (based on dataset)
         all_possible_keys = list(self.lookup.keys())
 
-        # 随机打乱搜索空间（这等同于无放回的随机均匀采样）
+        # Randomly shuffle search space (equivalent to random sampling without replacement)
         random.shuffle(all_possible_keys)
 
         tested_keys_list: List[Tuple] = []
@@ -123,7 +123,7 @@ class RandomSearchSimulator:
                 if target_threshold is not None and conv >= target_threshold:
                     return experiment_count
 
-        # 如果穷尽了整个搜索空间都没有达到阈值，返回总实验数
+        # If entire search space is exhausted without reaching threshold, return total experiment count
         return self.total_space_size
 
     def run_monte_carlo(
@@ -228,7 +228,7 @@ DEFAULT_CONFIG = {
     #     "dataset_path": "../../datasets/HTE_datasets/B-H_HTE/B-H_HTE.csv",
     #     "reagent_types": ["concentration", "temperature", "base", "ligand", "solvent"],
     #     "opt_metrics": ["yield", "cost"],
-    #     # 若需要，请解除这里的注释并匹配你的 synbo 需要的格式:
+    #     # Adjust as needed for your synbo format:
     #     "opt_metric_settings": [
     #         {"opt_direct": "max", "opt_range": [0, 100], "metric_weight": 1.0},
     #         {"opt_direct": "min", "opt_range": [0, 0.5], "metric_weight": 1.0},

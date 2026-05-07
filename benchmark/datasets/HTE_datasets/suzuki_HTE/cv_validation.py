@@ -1,4 +1,4 @@
-"""Suzuki HTE - XGBoost 5折交叉验证"""
+"""Suzuki HTE - XGBoost 5-Fold Cross-Validation"""
 
 import os, numpy as np, pandas as pd, matplotlib.pyplot as plt, joblib
 from rdkit import Chem
@@ -51,28 +51,28 @@ def process_column_features(series, desc_names, calculator):
 
 def load_and_prepare_data():
     print("=" * 70)
-    print("Suzuki HTE - XGBoost 5折交叉验证")
+    print("Suzuki HTE - XGBoost 5-Fold Cross-Validation")
     print("=" * 70)
     df = pd.read_csv("suzuki_HTE.csv")
-    print(f"数据集: {df.shape[0]} 条记录")
+    print(f"Dataset: {df.shape[0]} records")
     y = df["Conversion"].values
     desc_names = get_rdkit_desc_names()
     calculator = MoleculeDescriptors.MolecularDescriptorCalculator(desc_names)
     mol_types = ["solvent", "ligand", "reactant2", "reactant1", "base"]
-    print(f"提取RDKit描述符: {mol_types}")
+    print(f"Extracting RDKit descriptors: {mol_types}")
     all_features = [process_column_features(df[mt], desc_names, calculator) for mt in mol_types]
     X = np.hstack(all_features)
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
     valid_features = np.var(X, axis=0) > 1e-10
     X = X[:, valid_features]
-    print(f"特征矩阵形状: {X.shape}")
+    print(f"Feature matrix shape: {X.shape}")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     return np.nan_to_num(X_scaled, nan=0.0, posinf=0.0, neginf=0.0), y, scaler, df, valid_features
 
 
 def perform_cv(X, y):
-    print(f"\n最佳参数: {BEST_PARAMS}")
+    print(f"\nBest parameters: {BEST_PARAMS}")
     kfold = KFold(n_splits=5, shuffle=True, random_state=42)
     results = {"train_r2": [], "val_r2": [], "val_rmse": [], "val_mae": [], "y_test_all": [], "y_pred_all": []}
     for fold_idx, (train_idx, test_idx) in enumerate(kfold.split(X)):
@@ -96,9 +96,9 @@ def perform_cv(X, y):
 
 
 def train_full_model(X, y, scaler, script_dir, valid_features):
-    """使用全量数据训练模型并保存"""
+    """Train model on full data and save"""
     print("\n" + "=" * 50)
-    print("使用全量数据训练最终模型...")
+    print("Training final model on full data...")
     print("=" * 50)
     model = xgb.XGBRegressor(**BEST_PARAMS, random_state=42, n_jobs=-1, verbosity=0, tree_method="hist")
     model.fit(X, y)
@@ -106,15 +106,15 @@ def train_full_model(X, y, scaler, script_dir, valid_features):
     train_r2 = r2_score(y, y_pred)
     train_rmse = np.sqrt(mean_squared_error(y, y_pred))
     train_mae = mean_absolute_error(y, y_pred)
-    print(f"全量训练集 R²: {train_r2:.4f}")
-    print(f"全量训练集 RMSE: {train_rmse:.4f}")
-    print(f"全量训练集 MAE: {train_mae:.4f}")
+    print(f"Full train set R²: {train_r2:.4f}")
+    print(f"Full train set RMSE: {train_rmse:.4f}")
+    print(f"Full train set MAE: {train_mae:.4f}")
     joblib.dump(model, os.path.join(script_dir, "xgboost_suzuki_model_full.joblib"))
     joblib.dump(scaler, os.path.join(script_dir, "xgboost_suzuki_scaler_full.joblib"))
     joblib.dump(valid_features, os.path.join(script_dir, "valid_features.joblib"))
-    print("Valid features已保存: valid_features.joblib")
-    print("模型已保存: xgboost_suzuki_model_full.joblib")
-    print("Scaler已保存: xgboost_suzuki_scaler_full.joblib")
+    print("Valid features saved: valid_features.joblib")
+    print("Model saved: xgboost_suzuki_model_full.joblib")
+    print("Scaler saved: xgboost_suzuki_scaler_full.joblib")
     return model, {"r2": train_r2, "rmse": train_rmse, "mae": train_mae}
 
 
@@ -147,7 +147,7 @@ def plot_predictions(y_true, y_pred, save_path, title_prefix="XGBoost"):
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
-    print(f"图片已保存: {save_path}")
+    print(f"Plot saved: {save_path}")
 
 
 def main():
@@ -156,7 +156,7 @@ def main():
     X, y, scaler, df, valid_features = load_and_prepare_data()
     results = perform_cv(X, y)
     cv_r2 = np.mean(results["val_r2"])
-    print(f"\n{'='*50}\n5折交叉验证结果汇总\n{'='*50}")
+    print(f"\n{'='*50}\n5-Fold CV Results Summary\n{'='*50}")
     print(f"CV R² (Mean±Std): {cv_r2:.4f} ± {np.std(results['val_r2']):.4f}")
     print(f"CV RMSE (Mean±Std): {np.mean(results['val_rmse']):.4f} ± {np.std(results['val_rmse']):.4f}")
     print(f"CV MAE (Mean±Std): {np.mean(results['val_mae']):.4f} ± {np.std(results['val_mae']):.4f}")
@@ -170,15 +170,15 @@ def main():
     y_full_pred = full_model.predict(X)
     plot_predictions(y, y_full_pred, os.path.join(script_dir, "full_training_results.png"), "XGBoost Full Training")
     with open(os.path.join(script_dir, "cv_results_summary.txt"), "w") as f:
-        f.write("=" * 70 + "\nSuzuki HTE - XGBoost 结果汇总\n" + "=" * 70 + "\n")
-        f.write("最佳参数:\n")
+        f.write("=" * 70 + "\nSuzuki HTE - XGBoost Results Summary\n" + "=" * 70 + "\n")
+        f.write("Best parameters:\n")
         for k, v in BEST_PARAMS.items():
             f.write(f"  {k}: {v}\n")
-        f.write(f"\n5折交叉验证:\n  CV R²: {cv_r2:.4f} ± {np.std(results['val_r2']):.4f}\n")
+        f.write(f"\n5-Fold CV:\n  CV R²: {cv_r2:.4f} ± {np.std(results['val_r2']):.4f}\n")
         f.write(f"  CV RMSE: {np.mean(results['val_rmse']):.4f} ± {np.std(results['val_rmse']):.4f}\n")
-        f.write(f"\n全量训练:\n  Train R²: {full_metrics['r2']:.4f}\n")
+        f.write(f"\nFull training:\n  Train R²: {full_metrics['r2']:.4f}\n")
         f.write(f"  Train RMSE: {full_metrics['rmse']:.4f}\n")
-    print("\n✅ 完成!")
+    print("\n✅ Done!")
     return cv_r2
 
 

@@ -7,14 +7,6 @@
 
 ---
 
-## 🔬 Why SynBO?
-
-Optimizing a chemical reaction typically involves screening dozens to hundreds of condition combinations (catalysts, solvents, bases, temperature, etc.). Traditional OFAT (One-Factor-At-A-Time) quickly becomes impractical — e.g., **5 catalysts × 5 solvents × 4 bases × 4 temperatures = 400 combinations**.
-
-SynBO learns from previous experiments and intelligently recommends the next batch of conditions to test. Typically, only **50–80 experiments** are needed to find optimal conditions.
-
----
-
 ## 📁 Example Project: Cobalt-Catalyzed Asymmetric Reaction
 
 The [`examples/`](examples/) directory contains a complete, runnable example of a cobalt-catalyzed reaction optimization with **5 reagent types** and **2 objectives** (yield + ee):
@@ -166,6 +158,7 @@ An interactive Jupyter notebook demonstrating the full optimization workflow wit
 ### Installation
 
 ```bash
+conda create -n synbo python=3.13 # if there is a conda on your computer
 pip install synbo
 ```
 
@@ -309,24 +302,8 @@ See [`pyproject.toml`](pyproject.toml) for the complete list.
 
 ---
 
-## 📚 Citation
-
-```bibtex
-@software{synbo2025,
-  title={SynBO: Synthetic Bayesian Optimization for Chemical Reaction Optimization},
-  author={Zhenzhi Tan},
-  year={2025},
-  url={https://github.com/yourusername/synbo}
-}
-```
-
----
-
 ## 📧 Contact
 
 - **Author**: Zhenzhi Tan
 - **Email**: zhenzhi-tan@outlook.com
 
----
-
-**Happy Synthesizing! 🧪⚗️**

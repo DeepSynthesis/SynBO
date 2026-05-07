@@ -1,9 +1,0 @@
-batch,index,type,alkali,cobalt_catalyst,organo_catalyst,oxidant,solvent,pred yield,pred ee,yield,ee
-0,1,EXPLORE,no_alkali,[Co]-5,BINOL-PA,F_OTf,CH3CN,-,-,[exp_data],[exp_data]
-0,2,EXPLORE,DABCO,[Co]-8,Quinine,F_OTf,Ether,-,-,[exp_data],[exp_data]
-0,3,EXPLORE,acetic acid,[Co]-6,DPEN,NCS,Chloroform,-,-,[exp_data],[exp_data]
-0,4,EXPLORE,DBU,[Co]-8,Hayashi-Jorgensen,Iodine_ox,Chloroform,-,-,[exp_data],[exp_data]
-0,5,EXPLORE,no_alkali,[Co]-5,Quinine,Cl-2,HFIP,-,-,[exp_data],[exp_data]
-0,6,EXPLORE,DBU,[Co]-7,Hayashi-Jorgensen,Cl-1,HFIP,-,-,[exp_data],[exp_data]
-0,7,EXPLORE,acetic acid,[Co]-5,Me-CBS,NCS,THF,-,-,[exp_data],[exp_data]
-0,8,EXPLORE,DBU,[Co]-7,Hayashi-Jorgensen,Iodine_ox,DCE,-,-,[exp_data],[exp_data]

@@ -6,6 +6,27 @@
 **SynBO** (Synthetic Bayesian Optimization) is an intelligent reaction optimization framework that uses Bayesian Optimization to find optimal reaction conditions with minimal experimental effort.
 
 ---
+## 🚩 Getting Started with SynBO & AutoClaw
+
+1. **Download AutoClaw**
+   Download and set up AutoClaw from the official release page:
+   https://autoglm.z.ai/autoclaw/
+
+2. **Install SynBO Skills**
+   Install the SynBO skill package via SkillHub: https://skillhub.cn/skills/synbo
+   When initiating the installation, provide the following input context to ensure proper setup:
+   ```txt
+   Please check if the SkillHub store is already installed. If not, follow the guide at https://skillhub.cn/install/skillhub.md to install only the SkillHub CLI, then install the SynBO skill. If it is already installed, proceed directly to install the SynBO skill.
+   ```
+
+3. **Optimize Reaction Conditions**
+   Launch AutoClaw and prompt it to optimize your reaction conditions using the integrated SynBO skills. Example usage:
+   ```
+   Please optimize the reaction condition for [insert your reaction name].
+   ```
+   AutoClaw will then guide you through the SynBO optimization process, providing recommendations and insights to improve your reaction outcomes.
+
+---
 
 ## 📁 Example Project: Cobalt-Catalyzed Asymmetric Reaction
 

@@ -1,8 +1,17 @@
+import math
 from typing import List, Tuple
 from botorch.acquisition import qExpectedImprovement
 import numpy as np
 import torch
-from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, TimeRemainingColumn
+from rich.progress import (
+    Progress,
+    TextColumn,
+    BarColumn,
+    MofNCompleteColumn,
+    TaskProgressColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from botorch.models import ModelListGP
 from botorch.utils.multi_objective.box_decompositions import NondominatedPartitioning
@@ -34,6 +43,7 @@ class DefaultBO:
         acq_func: str = "EHVI",
         device: torch.device = torch.device("cpu"),
         accuracy: str = "medium",
+        progress_chunks_per_candidate: int = 20,
     ):
         self.random_seed = random_seed
         self.console = console
@@ -51,6 +61,7 @@ class DefaultBO:
             raise ValueError(f"Unknown accuracy: {accuracy}. Supported values: {supported_accuracy}")
 
         self.mc_num_samples, self.max_batch_size = accuracy_settings[accuracy]
+        self.progress_chunks_per_candidate = progress_chunks_per_candidate
         self.device = device
 
         if surrogate_model == "GP":
@@ -77,6 +88,36 @@ class DefaultBO:
 
         self.target_evaluator = ParetoFrontCalculator()
 
+    @staticmethod
+    def _acquisition_progress_total(num_choices: int, batch_size: int, max_batch_size: int, unique: bool = True) -> int:
+        """Count acquisition-evaluation chunks so progress advances during long candidate scans."""
+        if num_choices <= 0 or batch_size <= 0:
+            return 0
+        if max_batch_size <= 0:
+            raise ValueError("max_batch_size must be positive")
+        total = 0
+        remaining_choices = num_choices
+        for _ in range(batch_size):
+            total += math.ceil(remaining_choices / max_batch_size)
+            if unique:
+                remaining_choices = max(remaining_choices - 1, 0)
+        return total
+
+    @staticmethod
+    def _acquisition_progress_batch_size(
+        num_choices: int,
+        max_batch_size: int,
+        chunks_per_candidate: int,
+    ) -> int:
+        """Use smaller acquisition chunks for smoother progress without exceeding the OOM guard."""
+        if num_choices <= 0:
+            return 1
+        if max_batch_size <= 0:
+            raise ValueError("max_batch_size must be positive")
+        if chunks_per_candidate <= 0:
+            return max_batch_size
+        return min(max_batch_size, max(1, math.ceil(num_choices / chunks_per_candidate)))
+
     def optimize(
         self,
         training_X: np.ndarray,
@@ -97,7 +138,9 @@ class DefaultBO:
         with Progress(
             TextColumn("[bold cyan]{task.description}"),
             BarColumn(bar_width=None),
+            TaskProgressColumn(),
             MofNCompleteColumn(),
+            TimeElapsedColumn(),
             TimeRemainingColumn(),
             console=self.console,
         ) as progress:
@@ -226,13 +269,25 @@ class DefaultBO:
 
             # For multi-objective acquisition functions, use the wrapped class
             if acq_func is not None:
-                task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=batch_size)
+                acq_progress_batch_size = self._acquisition_progress_batch_size(
+                    num_choices=len(candidate_X_t),
+                    max_batch_size=self.max_batch_size,
+                    chunks_per_candidate=self.progress_chunks_per_candidate,
+                )
+                acq_progress_total = self._acquisition_progress_total(
+                    num_choices=len(candidate_X_t),
+                    batch_size=batch_size,
+                    max_batch_size=acq_progress_batch_size,
+                    unique=True,
+                )
+                task_acq_opt = progress.add_task(description="Optimizing acquisition function", total=acq_progress_total)
                 self.acq_result, self.acq_value = acq_func.optimize_acqf_discrete(
                     q=batch_size,
                     choices=candidate_X_t,
-                    max_batch_size=self.max_batch_size,
+                    max_batch_size=acq_progress_batch_size,
                     unique=True,
                     progress=progress,
+                    task=task_acq_opt,
                 )
 
         if self.device.type == "cuda":

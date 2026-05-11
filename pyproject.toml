@@ -42,7 +42,7 @@ maintainers = [
 name = "synbo"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.6.2"
+version = "0.6.3"
 
 [project.optional-dependencies]
 dev = [

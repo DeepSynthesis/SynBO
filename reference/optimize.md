@@ -29,6 +29,8 @@ python scripts/optimize.py --project-dir <project_directory>
 | `--batch-size` | `5` | Number of new conditions to recommend |
 | `--desc-normalize` | `zscore` | Descriptor normalization method (`minmax`, `zscore`, `l2`) |
 | `--optimize-method` | `default_BO` | Optimization algorithm to use |
+| `--accuracy` | `medium` | Optimization accuracy level (`tiny`, `low`, `medium`, `high`, `ultra`). Lower values are faster and use less memory |
+| `--acq-func` | `EHVI` | Acquisition function (`EHVI`, `UCB`, `ParEGO`, `NEI`) |
 | `--random-seed` | `42` | Random seed for reproducibility |
 | `--quiet` | - | Suppress verbose output |
 
@@ -40,6 +42,24 @@ python scripts/optimize.py --project-dir examples
 # Optimize with custom batch size
 python scripts/optimize.py --project-dir examples \
     --batch-size 5
+
+# Faster optimization for large search spaces
+python scripts/optimize.py --project-dir examples \
+    --accuracy low
+```
+
+**Timeout Handling:**
+If optimization times out or is too slow, first reduce the accuracy level. Prefer `low` first, then `tiny` if `low` still cannot finish:
+```bash
+python scripts/optimize.py --project-dir examples --accuracy low
+python scripts/optimize.py --project-dir examples --accuracy tiny
+```
+
+If optimization still times out with `--accuracy tiny`, switch the acquisition function to `UCB`, which is usually cheaper to evaluate:
+```bash
+python scripts/optimize.py --project-dir examples \
+    --accuracy tiny \
+    --acq-func UCB
 ```
 
 **Workflow Steps:**
@@ -66,5 +86,4 @@ Previous reaction data should be stored in `project_wd/results` directory as `ba
 
 **ATTENTION:** You should send the Excel file to USER and ask them to run the experiments with the recommended conditions.
 
-**ATTENTION:** Optimize could cost a lot of time. The Timeout period should be more than 10 min.
-
+**ATTENTION:** Optimize could cost a lot of time. The Timeout period should be more than 10 min. If it times out, try `--accuracy low`, then `--accuracy tiny`, and finally `--acq-func UCB`.

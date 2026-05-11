@@ -111,14 +111,14 @@ class BaseAcquisitionFunction:
                     del X_batch_gpu
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()  # Force release GPU memory
+                    if progress is not None and task is not None:
+                        progress.update(task, advance=1)
             return torch.cat(acq_values_list, dim=0)
 
         choices_batched = choices.unsqueeze(-2)
         if q > 1:
             candidate_list, acq_value_list = [], []
             for q_i in range(q):
-                if progress and task:
-                    progress.update(task, advance=1)
                 with torch.no_grad():
                     acq_values = _split_batch_eval_acqf(
                         acq_function=acq_function,

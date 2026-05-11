@@ -2,9 +2,31 @@ import unittest
 from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
+import torch
 
 from synbo import ReactionOptimizer
+from synbo.algorithm.acq_function import BaseAcquisitionFunction
+from synbo.algorithm.bo_core import DefaultBO
 from synbo.utils.load_data import load_desc_dict
+
+
+class FakeProgress:
+    def __init__(self):
+        self.advanced = 0
+
+    def update(self, task, advance=0, **kwargs):
+        self.advanced += advance
+
+
+class FakeAcquisitionFunction:
+    def __init__(self):
+        self.pending = []
+
+    def __call__(self, X):
+        return X.squeeze(-2).sum(dim=-1)
+
+    def set_X_pending(self, candidates):
+        self.pending.append(candidates)
 
 
 class TestReactionOptimizer(unittest.TestCase):
@@ -31,13 +53,19 @@ class TestReactionOptimizer(unittest.TestCase):
 
     def _run_optimization_workflow(self, opt_method, normalize, refine, filetype, **opt_kwargs):
         # core code
-        sbo = ReactionOptimizer(opt_metrics=["yield", "cost"], opt_metric_settings=self.opt_direct_info, opt_type="auto", quiet=True)
+        sbo = ReactionOptimizer(
+            opt_metrics=["yield", "cost"],
+            opt_metric_settings=self.opt_direct_info,
+            opt_type="auto",
+            quiet=False,
+            save_dir=self.save_dir,
+        )
         sbo.load_rxn_space(condition_dict=self.condition_dict)
         sbo.load_desc(desc_dict=self.desc_dict)
         sbo.load_prev_rxn(pd.read_csv(Path(__file__).parent / "testfile/start_file.csv", index_col=False))
 
-        sbo.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, temperature=0.1, **opt_kwargs)
-        sbo.save_results(save_dir=self.save_dir, filetype=filetype)
+        sbo.optimize(batch_size=2, desc_normalize=normalize, refine_desc=refine, optimize_method=opt_method, **opt_kwargs)
+        sbo.save_results(filetype=filetype)
 
     def test_combinations(self):
         test_params = [
@@ -68,6 +96,36 @@ class TestReactionOptimizer(unittest.TestCase):
                 raise e
             finally:
                 pbar.set_postfix({"Passed": passed, "Failed": failed})
+
+    def test_acquisition_progress_updates_per_evaluation_chunk(self):
+        optimizer = BaseAcquisitionFunction(model=None, sampler=None, device=torch.device("cpu"))
+        progress = FakeProgress()
+        choices = torch.arange(10, dtype=torch.double).reshape(5, 2)
+
+        optimizer.optimize_discrete(
+            acq_func=FakeAcquisitionFunction(),
+            q=5,
+            choices=choices,
+            unique=True,
+            max_batch_size=2,
+            progress=progress,
+            task="acq",
+        )
+
+        self.assertEqual(progress.advanced, 9)
+
+    def test_acquisition_progress_total_matches_evaluation_chunks(self):
+        self.assertEqual(DefaultBO._acquisition_progress_total(num_choices=5, batch_size=5, max_batch_size=2), 9)
+
+    def test_acquisition_progress_batch_size_smooths_small_candidate_spaces(self):
+        self.assertEqual(
+            DefaultBO._acquisition_progress_batch_size(
+                num_choices=5,
+                max_batch_size=2048,
+                chunks_per_candidate=20,
+            ),
+            1,
+        )
 
 
 if __name__ == "__main__":

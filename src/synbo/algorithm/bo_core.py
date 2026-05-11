@@ -38,8 +38,19 @@ class DefaultBO:
         self.random_seed = random_seed
         self.console = console
 
-        if accuracy == "medium":
-            self.mc_num_samples, self.max_batch_size = 128, 2048
+        # Accuracy controls the Monte Carlo sample count and acquisition evaluation batch size.
+        accuracy_settings = {
+            "tiny": (32, 512),
+            "low": (64, 1024),
+            "medium": (128, 2048),
+            "high": (256, 4096),
+            "ultra": (512, 8192),
+        }
+        if accuracy not in accuracy_settings:
+            supported_accuracy = ", ".join(accuracy_settings)
+            raise ValueError(f"Unknown accuracy: {accuracy}. Supported values: {supported_accuracy}")
+
+        self.mc_num_samples, self.max_batch_size = accuracy_settings[accuracy]
         self.device = device
 
         if surrogate_model == "GP":

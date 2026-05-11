@@ -99,6 +99,18 @@ def parse_arguments() -> argparse.Namespace:
         help="Optimization algorithm to use (default: default_BO)",
     )
     parser.add_argument(
+        "--accuracy",
+        default="medium",
+        choices=["tiny", "low", "medium", "high", "ultra"],
+        help="Optimization accuracy level. Lower values are faster and use less memory (default: medium)",
+    )
+    parser.add_argument(
+        "--acq-func",
+        default="EHVI",
+        choices=["EHVI", "UCB", "ParEGO", "NEI"],
+        help="Acquisition function to use for Bayesian optimization (default: EHVI)",
+    )
+    parser.add_argument(
         "--random-seed",
         type=int,
         default=42,
@@ -205,6 +217,8 @@ def main() -> int:
         batch_size=args.batch_size,
         desc_normalize=args.desc_normalize,
         optimize_method=args.optimize_method,
+        accuracy=args.accuracy,
+        acq_func=args.acq_func,
     )
     print()
 
